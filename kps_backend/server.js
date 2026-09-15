@@ -3,6 +3,7 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const port = 3000;
@@ -33,7 +34,17 @@ function requireAdmin(req, res, next) {
     return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำรายการนี้' });
 }
 
-app.post('/api/login', (req, res) => {
+// 🌟 จำกัดจำนวนครั้งที่ล็อกอินผิดได้ กันคนสุ่มรหัสผ่าน (brute force) 🌟
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 นาที
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true, // นับเฉพาะครั้งที่ล็อกอินผิด ไม่นับครั้งที่สำเร็จ
+    message: { error: 'ลองเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณาลองใหม่อีกครั้งในอีก 15 นาที' },
+});
+
+app.post('/api/login', loginLimiter, (req, res) => {
     const { username, password } = req.body || {};
 
     if (
