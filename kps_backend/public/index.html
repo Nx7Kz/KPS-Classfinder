@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KPS ClassFinder - Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f6fa; color: #1f2937; }
+    .navbar-brand { font-weight: 700; }
+    .toolbar, .room-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
+    .toolbar { background: #fff; }
+    .room-card .card-header { background: #fff; border-bottom: 1px solid #eef0f3; }
+    .table > :not(caption) > * > * { padding: .9rem .75rem; }
+    .room-name { font-weight: 600; }
+    .floor-badge { background: #e9efff; color: #2454c6; font-weight: 600; }
+    .empty-state { padding: 4rem 1rem; color: #6b7280; }
+    .login-card { max-width: 380px; margin: 4.5rem auto; border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
+    @media (max-width: 575.98px) {
+      .toolbar .form-select, .toolbar .form-control, .toolbar .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar bg-white border-bottom">
+    <div class="container d-flex justify-content-between align-items-center">
+      <span class="navbar-brand mb-0">KPS ClassFinder <span class="text-secondary fw-normal">| จัดการห้องเรียน</span></span>
+      <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-sm d-none" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </nav>
+
+  <main class="container py-4 py-md-5">
+    <div id="statusMessage" aria-live="polite"></div>
+
+    <section id="loginSection" class="card login-card d-none">
+      <div class="card-body p-4">
+        <h1 class="h5 mb-1">เข้าสู่ระบบผู้ดูแล</h1>
+        <p class="text-secondary small mb-4">กรอกบัญชีผู้ดูแลระบบเพื่อจัดการห้องเรียน</p>
+        <form id="loginForm" onsubmit="login(event)">
+          <div class="mb-3">
+            <label for="loginUsername" class="form-label">ชื่อผู้ใช้</label>
+            <input id="loginUsername" class="form-control" required autocomplete="username">
+          </div>
+          <div class="mb-3">
+            <label for="loginPassword" class="form-label">รหัสผ่าน</label>
+            <input id="loginPassword" type="password" class="form-control" required autocomplete="current-password">
+          </div>
+          <button id="loginButton" type="submit" class="btn btn-primary w-100">เข้าสู่ระบบ</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="dashboardSection" class="d-none">
+
+    <section class="toolbar p-3 p-md-4 mb-4">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+          <label for="buildingSelect" class="form-label fw-semibold">อาคาร</label>
+          <select id="buildingSelect" class="form-select" onchange="fetchRooms()">
+            <option value="อาคารเรียนรวม 3 (ศร.3)">อาคารเรียนรวม 3 (ศร.3)</option>
+            <option value="อาคารเรียน 80 ปี">อาคารเรียน 80 ปี</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-5">
+          <label for="roomFilter" class="form-label fw-semibold">ค้นหาห้อง</label>
+          <input id="roomFilter" class="form-control" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง" oninput="renderRooms()">
+        </div>
+        <div class="col-12 col-md-3 d-grid">
+          <button class="btn btn-primary" type="button" onclick="openCreateModal()">+ เพิ่มห้องเรียน</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card room-card">
+      <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
+        <div>
+          <h1 class="h5 mb-1">รายการห้องเรียน</h1>
+          <p class="text-secondary mb-0 small" id="buildingSummary"></p>
+        </div>
+        <span id="roomCount" class="badge text-bg-light border">0 ห้อง</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col">ชื่อ / รหัสห้อง</th>
+                <th scope="col">ชั้น</th>
+                <th scope="col" class="text-end">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="roomTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    </div>
+  </main>
+
+  <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" id="roomForm" onsubmit="saveRoom(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="roomModalTitle">เพิ่มห้องเรียน</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input id="roomId" type="hidden">
+          <div class="mb-3">
+            <label for="roomCode" class="form-label">ชื่อ / รหัสห้อง</label>
+            <input id="roomCode" class="form-control" required maxlength="100" autocomplete="off" placeholder="เช่น 3301 หรือ ห้องรับรอง">
+          </div>
+          <div class="mb-3">
+            <label for="roomFloor" class="form-label">ชั้น</label>
+            <select id="roomFloor" class="form-select" required>
+              <option value="1">ชั้น 1</option>
+              <option value="2">ชั้น 2</option>
+              <option value="3">ชั้น 3</option>
+              <option value="4">ชั้น 4</option>
+              <option value="5">ชั้น 5</option>
+              <option value="ชั้นลอย">ชั้นลอย</option>
+              <option value="ใต้ดิน">ใต้ดิน</option>
+              <option value="-">ไม่ระบุ</option>
+            </select>
+          </div>
+          <p class="small text-secondary mb-0">อาคาร: <span id="formBuildingName"></span></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="saveButton" type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let rooms = [];
+    let roomModal;
+
+    function currentBuilding() {
+      return document.getElementById('buildingSelect').value;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[character]));
+    }
+
+    function showStatus(message, type = 'success') {
+      document.getElementById('statusMessage').innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+          ${escapeHtml(message)}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="ปิด"></button>
+        </div>`;
+    }
+
+    function showDashboard() {
+      document.getElementById('loginSection').classList.add('d-none');
+      document.getElementById('dashboardSection').classList.remove('d-none');
+      document.getElementById('logoutButton').classList.remove('d-none');
+      fetchRooms();
+    }
+
+    function showLogin(message) {
+      document.getElementById('dashboardSection').classList.add('d-none');
+      document.getElementById('logoutButton').classList.add('d-none');
+      document.getElementById('loginSection').classList.remove('d-none');
+      if (message) showStatus(message, 'danger');
+    }
+
+    async function checkSession() {
+      try {
+        const response = await fetch('/api/session');
+        const data = await response.json();
+        if (data.isAdmin) {
+          showDashboard();
+        } else {
+          showLogin();
+        }
+      } catch (error) {
+        showLogin('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      }
+    }
+
+    async function login(event) {
+      event.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const loginButton = document.getElementById('loginButton');
+
+      loginButton.disabled = true;
+      loginButton.textContent = 'กำลังเข้าสู่ระบบ...';
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
+
+        document.getElementById('loginForm').reset();
+        showDashboard();
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = 'เข้าสู่ระบบ';
+      }
+    }
+
+    async function logout() {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+      } finally {
+        showLogin();
+      }
+    }
+
+    function roomSort(first, second) {
+      const firstFloor = Number(first.floor);
+      const secondFloor = Number(second.floor);
+      if (!Number.isNaN(firstFloor) && !Number.isNaN(secondFloor) && firstFloor !== secondFloor) {
+        return firstFloor - secondFloor;
+      }
+      return String(first.room_code).localeCompare(String(second.room_code), 'th');
+    }
+
+    async function fetchRooms() {
+      const building = currentBuilding();
+      document.getElementById('buildingSummary').textContent = building;
+      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="3" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
+
+      try {
+        const response = await fetch(`/api/building/${encodeURIComponent(building)}`);
+        if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลห้องเรียนได้');
+        rooms = await response.json();
+        renderRooms();
+      } catch (error) {
+        rooms = [];
+        renderRooms();
+        showStatus(error.message, 'danger');
+      }
+    }
+
+    function renderRooms() {
+      const query = document.getElementById('roomFilter').value.trim().toLocaleLowerCase();
+      const visibleRooms = rooms
+        .filter(room => String(room.room_code ?? '').toLocaleLowerCase().includes(query))
+        .sort(roomSort);
+      const tbody = document.getElementById('roomTableBody');
+      document.getElementById('roomCount').textContent = `${visibleRooms.length} ห้อง`;
+
+      if (visibleRooms.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = visibleRooms.map(room => `
+        <tr>
+          <td class="room-name">${escapeHtml(room.room_code || '-')}</td>
+          <td><span class="badge rounded-pill floor-badge">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
+          <td class="text-end text-nowrap">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditModal(${Number(room.id)})">แก้ไข</button>
+            <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="deleteRoom(${Number(room.id)})">ลบ</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function openCreateModal() {
+      document.getElementById('roomModalTitle').textContent = 'เพิ่มห้องเรียน';
+      document.getElementById('roomId').value = '';
+      document.getElementById('roomCode').value = '';
+      document.getElementById('roomFloor').value = '1';
+      document.getElementById('formBuildingName').textContent = currentBuilding();
+      roomModal.show();
+      document.getElementById('roomCode').focus();
+    }
+
+    function openEditModal(id) {
+      const room = rooms.find(item => Number(item.id) === Number(id));
+      if (!room) return;
+
+      document.getElementById('roomModalTitle').textContent = 'แก้ไขห้องเรียน';
+      document.getElementById('roomId').value = room.id;
+      document.getElementById('roomCode').value = room.room_code || '';
+      document.getElementById('roomFloor').value = room.floor || '-';
+      document.getElementById('formBuildingName').textContent = currentBuilding();
+      roomModal.show();
+      document.getElementById('roomCode').focus();
+    }
+
+    async function saveRoom(event) {
+      event.preventDefault();
+      const id = document.getElementById('roomId').value;
+      const roomCode = document.getElementById('roomCode').value.trim();
+      const floor = document.getElementById('roomFloor').value;
+      const existingRoom = rooms.find(room => String(room.id) === id);
+      const saveButton = document.getElementById('saveButton');
+
+      if (!roomCode) return;
+      saveButton.disabled = true;
+      saveButton.textContent = 'กำลังบันทึก...';
+
+      const payload = {
+        room_code: roomCode,
+        building_name: currentBuilding(),
+        floor,
+        pin_x: existingRoom?.pin_x ?? 0,
+        pin_y: existingRoom?.pin_y ?? 0
+      };
+
+      try {
+        const response = await fetch(id ? `/api/rooms/${id}` : '/api/rooms', {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (response.status === 401) {
+          roomModal.hide();
+          showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+          return;
+        }
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'บันทึกข้อมูลไม่สำเร็จ');
+        }
+
+        roomModal.hide();
+        await fetchRooms();
+        showStatus(id ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มห้องเรียนแล้ว');
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = 'บันทึก';
+      }
+    }
+
+    async function deleteRoom(id) {
+      const room = rooms.find(item => Number(item.id) === Number(id));
+      if (!room || !confirm(`ต้องการลบห้อง “${room.room_code}” ใช่หรือไม่?`)) return;
+
+      try {
+        const response = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
+        if (response.status === 401) {
+          showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+          return;
+        }
+        if (!response.ok) throw new Error('ลบห้องเรียนไม่สำเร็จ');
+        await fetchRooms();
+        showStatus('ลบห้องเรียนแล้ว');
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      roomModal = new bootstrap.Modal(document.getElementById('roomModal'));
+      checkSession();
+    });
+  </script>
+</body>
+</html>
