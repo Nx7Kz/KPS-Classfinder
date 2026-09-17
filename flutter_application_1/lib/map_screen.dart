@@ -265,15 +265,15 @@ class _FloorPlanMap extends StatefulWidget {
 }
 
 class _FloorPlanMapState extends State<_FloorPlanMap> {
-  late Future<String?> _imageUrlFuture;
+  late Future<_FloorPlan?> _floorPlanFuture;
 
   @override
   void initState() {
     super.initState();
-    _imageUrlFuture = _loadFloorPlanUrl();
+    _floorPlanFuture = _loadFloorPlan();
   }
 
-  Future<String?> _loadFloorPlanUrl() async {
+  Future<_FloorPlan?> _loadFloorPlan() async {
     final url = ApiConfig.endpoint('api/floorplan').replace(queryParameters: {
       'building': widget.building,
       'floor': widget.floor,
@@ -284,11 +284,18 @@ class _FloorPlanMapState extends State<_FloorPlanMap> {
       if (response.statusCode != 200) return null;
 
       final decoded = jsonDecode(response.body);
-      final path = decoded is Map ? decoded['image']?.toString() : null;
-      if (path == null) return null;
+      if (decoded is! Map) return null;
+
+      final path = decoded['image']?.toString();
+      final width = double.tryParse(decoded['width'].toString());
+      final height = double.tryParse(decoded['height'].toString());
+      if (path == null || width == null || height == null || height == 0) return null;
 
       final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
-      return ApiConfig.endpoint(normalizedPath).toString();
+      return _FloorPlan(
+        imageUrl: ApiConfig.endpoint(normalizedPath).toString(),
+        aspectRatio: width / height,
+      );
     } catch (_) {
       return null;
     }
@@ -296,15 +303,15 @@ class _FloorPlanMapState extends State<_FloorPlanMap> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: _imageUrlFuture,
+    return FutureBuilder<_FloorPlan?>(
+      future: _floorPlanFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
 
-        final imageUrl = snapshot.data;
-        if (imageUrl == null) {
+        final floorPlan = snapshot.data;
+        if (floorPlan == null) {
           return Center(
             child: Container(
               width: double.infinity,
@@ -338,71 +345,30 @@ class _FloorPlanMapState extends State<_FloorPlanMap> {
             .where((room) => room['pin_x'] != null && room['pin_y'] != null)
             .toList();
 
-        return _InteractiveFloorPlan(imageUrl: imageUrl, rooms: pinnedRooms);
+        return _InteractiveFloorPlan(floorPlan: floorPlan, rooms: pinnedRooms);
       },
     );
   }
 }
 
-/// แสดงรูปแผนที่แบบ pan/zoom ได้ พร้อมวาดหมุดตามตำแหน่ง % ของแต่ละห้อง
-class _InteractiveFloorPlan extends StatefulWidget {
+class _FloorPlan {
   final String imageUrl;
-  final List<Map<String, dynamic>> rooms;
+  final double aspectRatio;
 
-  const _InteractiveFloorPlan({required this.imageUrl, required this.rooms});
-
-  @override
-  State<_InteractiveFloorPlan> createState() => _InteractiveFloorPlanState();
+  const _FloorPlan({required this.imageUrl, required this.aspectRatio});
 }
 
-class _InteractiveFloorPlanState extends State<_InteractiveFloorPlan> {
-  ImageStream? _stream;
-  ImageStreamListener? _listener;
-  double? _aspectRatio;
+/// แสดงรูปแผนที่แบบ pan/zoom ได้ พร้อมวาดหมุดตามตำแหน่ง % ของแต่ละห้อง
+/// ใช้ aspectRatio ที่ backend คำนวณมาให้ตรง ๆ (จากขนาดไฟล์จริง) แทนการรอวัดขนาดรูปเอง
+/// เพื่อกันปัญหาภาพยืด/ผิดสัดส่วนช่วงที่ยังโหลดรูปไม่เสร็จ
+class _InteractiveFloorPlan extends StatelessWidget {
+  final _FloorPlan floorPlan;
+  final List<Map<String, dynamic>> rooms;
 
-  @override
-  void initState() {
-    super.initState();
-    _resolveImageSize();
-  }
-
-  @override
-  void didUpdateWidget(covariant _InteractiveFloorPlan oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl) {
-      _aspectRatio = null;
-      _resolveImageSize();
-    }
-  }
-
-  void _resolveImageSize() {
-    final provider = NetworkImage(widget.imageUrl);
-    final stream = provider.resolve(const ImageConfiguration());
-    final listener = ImageStreamListener((info, _) {
-      if (!mounted) return;
-      setState(() => _aspectRatio = info.image.width / info.image.height);
-    });
-
-    _stream?.removeListener(_listener!);
-    _stream = stream;
-    _listener = listener;
-    stream.addListener(listener);
-  }
-
-  @override
-  void dispose() {
-    if (_stream != null && _listener != null) {
-      _stream!.removeListener(_listener!);
-    }
-    super.dispose();
-  }
+  const _InteractiveFloorPlan({required this.floorPlan, required this.rooms});
 
   @override
   Widget build(BuildContext context) {
-    if (_aspectRatio == null) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-    }
-
     return Container(
       decoration: appCardDecoration(),
       clipBehavior: Clip.antiAlias,
@@ -410,15 +376,15 @@ class _InteractiveFloorPlanState extends State<_InteractiveFloorPlan> {
         minScale: 1,
         maxScale: 4,
         child: AspectRatio(
-          aspectRatio: _aspectRatio!,
+          aspectRatio: floorPlan.aspectRatio,
           child: LayoutBuilder(
             builder: (context, constraints) {
               return Stack(
                 children: [
                   Positioned.fill(
-                    child: Image.network(widget.imageUrl, fit: BoxFit.fill),
+                    child: Image.network(floorPlan.imageUrl, fit: BoxFit.fill),
                   ),
-                  for (final room in widget.rooms) _buildPin(context, room, constraints),
+                  for (final room in rooms) _buildPin(context, room, constraints),
                 ],
               );
             },

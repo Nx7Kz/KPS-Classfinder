@@ -174,12 +174,13 @@ app.get('/api/building/:name', (req, res) => {
 const ROOM_CODE_MAX_LENGTH = 255;
 const FLOOR_MAX_LENGTH = 50;
 
-// 🌟 แปลนอาคาร: บอกว่าตึก+ชั้นไหน ใช้ไฟล์รูปแปลนอะไร (ตำแหน่งหมุดเป็น % ของขนาดรูปนี้) 🌟
+// 🌟 แปลนอาคาร: บอกว่าตึก+ชั้นไหน ใช้ไฟล์รูปแปลนอะไร ขนาดเท่าไหร่ (ตำแหน่งหมุดเป็น % ของขนาดรูปนี้) 🌟
+// ระบุ width/height ของไฟล์จริงไว้ตรงนี้ เพื่อให้แอปคำนวณสัดส่วนรูปได้ทันทีโดยไม่ต้องรอโหลดรูปมาวัดขนาดเอง (กันภาพยืด)
 const FLOOR_PLANS = {
     'อาคารเรียนรวม 3 (ศร.3)': {
-        '1': '/floorplans/lh3-floor-1.png',
-        '2': '/floorplans/lh3-floor-2.png',
-        '3': '/floorplans/lh3-floor-3.png',
+        '1': { image: '/floorplans/lh3-floor-1.png', width: 1506, height: 1045 },
+        '2': { image: '/floorplans/lh3-floor-2.png', width: 1516, height: 1037 },
+        '3': { image: '/floorplans/lh3-floor-3.png', width: 1498, height: 1050 },
     },
 };
 
@@ -187,11 +188,11 @@ app.get('/api/floorplan', (req, res) => {
     const building = typeof req.query.building === 'string' ? req.query.building : '';
     const floor = typeof req.query.floor === 'string' ? req.query.floor : '';
 
-    const image = FLOOR_PLANS[building]?.[floor];
-    if (!image) {
+    const plan = FLOOR_PLANS[building]?.[floor];
+    if (!plan) {
         return res.status(404).json({ error: 'ยังไม่มีแผนที่สำหรับอาคาร/ชั้นนี้' });
     }
-    res.json({ image });
+    res.json(plan);
 });
 
 // ตรวจสอบว่าข้อมูลห้องที่ส่งมาครบและถูกต้องหรือไม่ คืนข้อความ error ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
