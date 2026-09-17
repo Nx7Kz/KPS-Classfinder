@@ -86,6 +86,7 @@
               <tr>
                 <th scope="col">ชื่อ / รหัสห้อง</th>
                 <th scope="col">ชั้น</th>
+                <th scope="col">แผนที่</th>
                 <th scope="col" class="text-end">จัดการ</th>
               </tr>
             </thead>
@@ -113,7 +114,7 @@
           </div>
           <div class="mb-3">
             <label for="roomFloor" class="form-label">ชั้น</label>
-            <select id="roomFloor" class="form-select" required>
+            <select id="roomFloor" class="form-select" required onchange="loadFloorPlanForModal()">
               <option value="1">ชั้น 1</option>
               <option value="2">ชั้น 2</option>
               <option value="3">ชั้น 3</option>
@@ -124,7 +125,19 @@
               <option value="-">ไม่ระบุ</option>
             </select>
           </div>
-          <p class="small text-secondary mb-0">อาคาร: <span id="formBuildingName"></span></p>
+          <p class="small text-secondary mb-2">อาคาร: <span id="formBuildingName"></span></p>
+          <div class="mb-2">
+            <label class="form-label d-flex justify-content-between align-items-center">
+              <span>ตำแหน่งหมุดบนแผนที่ (คลิกบนรูปเพื่อปักหมุด)</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearPin()">ล้างหมุด</button>
+            </label>
+            <div id="floorPlanContainer" class="position-relative border rounded overflow-hidden d-none">
+              <img id="floorPlanImage" src="" alt="แผนที่ชั้น" style="width:100%; display:block; cursor:crosshair;" draggable="false" onclick="handleFloorPlanClick(event)">
+              <div id="pinMarker" class="position-absolute d-none" style="width:16px; height:16px; border-radius:50%; background:#dc3545; border:2px solid #fff; box-shadow:0 0 0 1px #dc3545; transform:translate(-50%,-50%); pointer-events:none;"></div>
+            </div>
+            <p id="floorPlanEmpty" class="text-secondary small mb-0 d-none">ยังไม่มีแผนที่สำหรับอาคาร/ชั้นนี้</p>
+            <p id="pinCoordText" class="text-secondary small mb-0 mt-1">ยังไม่ได้ปักหมุด</p>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
@@ -138,6 +151,8 @@
   <script>
     let rooms = [];
     let roomModal;
+    let currentPinX = null;
+    let currentPinY = null;
 
     function currentBuilding() {
       return document.getElementById('buildingSelect').value;
@@ -233,7 +248,7 @@
     async function fetchRooms() {
       const building = currentBuilding();
       document.getElementById('buildingSummary').textContent = building;
-      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="3" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
+      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
 
       try {
         const response = await fetch(`/api/building/${encodeURIComponent(building)}`);
@@ -256,19 +271,25 @@
       document.getElementById('roomCount').textContent = `${visibleRooms.length} ห้อง`;
 
       if (visibleRooms.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
         return;
       }
 
-      tbody.innerHTML = visibleRooms.map(room => `
+      tbody.innerHTML = visibleRooms.map(room => {
+        const isPinned = room.pin_x !== null && room.pin_x !== undefined;
+        return `
         <tr>
           <td class="room-name">${escapeHtml(room.room_code || '-')}</td>
           <td><span class="badge rounded-pill floor-badge">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
+          <td>${isPinned
+            ? '<span class="badge text-bg-success">ปักหมุดแล้ว</span>'
+            : '<span class="badge text-bg-light border text-secondary">ยังไม่ปักหมุด</span>'}</td>
           <td class="text-end text-nowrap">
             <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditModal(${Number(room.id)})">แก้ไข</button>
             <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="deleteRoom(${Number(room.id)})">ลบ</button>
           </td>
-        </tr>`).join('');
+        </tr>`;
+      }).join('');
     }
 
     function openCreateModal() {
@@ -277,6 +298,9 @@
       document.getElementById('roomCode').value = '';
       document.getElementById('roomFloor').value = '1';
       document.getElementById('formBuildingName').textContent = currentBuilding();
+      currentPinX = null;
+      currentPinY = null;
+      loadFloorPlanForModal();
       roomModal.show();
       document.getElementById('roomCode').focus();
     }
@@ -290,8 +314,67 @@
       document.getElementById('roomCode').value = room.room_code || '';
       document.getElementById('roomFloor').value = room.floor || '-';
       document.getElementById('formBuildingName').textContent = currentBuilding();
+      currentPinX = room.pin_x !== null && room.pin_x !== undefined ? Number(room.pin_x) : null;
+      currentPinY = room.pin_y !== null && room.pin_y !== undefined ? Number(room.pin_y) : null;
+      loadFloorPlanForModal();
       roomModal.show();
       document.getElementById('roomCode').focus();
+    }
+
+    // 🌟 โหลดรูปแผนที่ของอาคาร+ชั้นที่เลือกอยู่ในฟอร์ม มาแสดงให้คลิกปักหมุด 🌟
+    async function loadFloorPlanForModal() {
+      const building = currentBuilding();
+      const floor = document.getElementById('roomFloor').value;
+      const container = document.getElementById('floorPlanContainer');
+      const img = document.getElementById('floorPlanImage');
+      const emptyMsg = document.getElementById('floorPlanEmpty');
+
+      container.classList.add('d-none');
+      emptyMsg.classList.add('d-none');
+
+      try {
+        const response = await fetch(`/api/floorplan?building=${encodeURIComponent(building)}&floor=${encodeURIComponent(floor)}`);
+        if (!response.ok) throw new Error('ไม่มีแผนที่');
+        const data = await response.json();
+        img.src = data.image;
+        container.classList.remove('d-none');
+      } catch (error) {
+        emptyMsg.classList.remove('d-none');
+      }
+      updatePinMarker();
+    }
+
+    function updatePinMarker() {
+      const marker = document.getElementById('pinMarker');
+      const coordText = document.getElementById('pinCoordText');
+
+      if (currentPinX === null || currentPinY === null) {
+        marker.classList.add('d-none');
+        coordText.textContent = 'ยังไม่ได้ปักหมุด';
+        return;
+      }
+
+      marker.style.left = `${currentPinX}%`;
+      marker.style.top = `${currentPinY}%`;
+      marker.classList.remove('d-none');
+      coordText.textContent = `ตำแหน่งหมุด: ${currentPinX.toFixed(1)}%, ${currentPinY.toFixed(1)}%`;
+    }
+
+    function handleFloorPlanClick(event) {
+      const img = document.getElementById('floorPlanImage');
+      const rect = img.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+      currentPinX = Math.min(100, Math.max(0, Number(x.toFixed(3))));
+      currentPinY = Math.min(100, Math.max(0, Number(y.toFixed(3))));
+      updatePinMarker();
+    }
+
+    function clearPin() {
+      currentPinX = null;
+      currentPinY = null;
+      updatePinMarker();
     }
 
     async function saveRoom(event) {
@@ -299,7 +382,6 @@
       const id = document.getElementById('roomId').value;
       const roomCode = document.getElementById('roomCode').value.trim();
       const floor = document.getElementById('roomFloor').value;
-      const existingRoom = rooms.find(room => String(room.id) === id);
       const saveButton = document.getElementById('saveButton');
 
       if (!roomCode) return;
@@ -310,8 +392,8 @@
         room_code: roomCode,
         building_name: currentBuilding(),
         floor,
-        pin_x: existingRoom?.pin_x ?? 0,
-        pin_y: existingRoom?.pin_y ?? 0
+        pin_x: currentPinX,
+        pin_y: currentPinY
       };
 
       try {

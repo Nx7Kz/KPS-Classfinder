@@ -174,8 +174,28 @@ app.get('/api/building/:name', (req, res) => {
 const ROOM_CODE_MAX_LENGTH = 255;
 const FLOOR_MAX_LENGTH = 50;
 
+// 🌟 แปลนอาคาร: บอกว่าตึก+ชั้นไหน ใช้ไฟล์รูปแปลนอะไร (ตำแหน่งหมุดเป็น % ของขนาดรูปนี้) 🌟
+const FLOOR_PLANS = {
+    'อาคารเรียนรวม 3 (ศร.3)': {
+        '1': '/floorplans/lh3-floor-1.png',
+        '2': '/floorplans/lh3-floor-2.png',
+        '3': '/floorplans/lh3-floor-3.png',
+    },
+};
+
+app.get('/api/floorplan', (req, res) => {
+    const building = typeof req.query.building === 'string' ? req.query.building : '';
+    const floor = typeof req.query.floor === 'string' ? req.query.floor : '';
+
+    const image = FLOOR_PLANS[building]?.[floor];
+    if (!image) {
+        return res.status(404).json({ error: 'ยังไม่มีแผนที่สำหรับอาคาร/ชั้นนี้' });
+    }
+    res.json({ image });
+});
+
 // ตรวจสอบว่าข้อมูลห้องที่ส่งมาครบและถูกต้องหรือไม่ คืนข้อความ error ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
-function validateRoomInput({ room_code, building_name, floor }) {
+function validateRoomInput({ room_code, building_name, floor, pin_x, pin_y }) {
     if (typeof room_code !== 'string' || room_code.trim() === '') {
         return 'กรุณากรอกรหัส/ชื่อห้อง';
     }
@@ -190,6 +210,13 @@ function validateRoomInput({ room_code, building_name, floor }) {
     }
     if (floor.trim().length > FLOOR_MAX_LENGTH) {
         return `ข้อมูลชั้นต้องไม่เกิน ${FLOOR_MAX_LENGTH} ตัวอักษร`;
+    }
+    for (const [label, value] of [['pin_x', pin_x], ['pin_y', pin_y]]) {
+        if (value === null || value === undefined) continue;
+        const num = Number(value);
+        if (!Number.isFinite(num) || num < 0 || num > 100) {
+            return `ค่าพิกัด ${label} ต้องเป็นตัวเลข 0-100`;
+        }
     }
     return null;
 }
@@ -214,7 +241,7 @@ function findDuplicateRoom(roomCode, buildingName, excludeId, callback) {
 app.post('/api/rooms', requireAdmin, (req, res) => {
     const { room_code, building_name, floor, pin_x, pin_y } = req.body || {};
 
-    const validationError = validateRoomInput({ room_code, building_name, floor });
+    const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y });
     if (validationError) {
         return res.status(400).json({ error: validationError });
     }
@@ -230,7 +257,7 @@ app.post('/api/rooms', requireAdmin, (req, res) => {
         }
 
         const sql = "INSERT INTO rooms (room_code, building_name, floor, pin_x, pin_y) VALUES (?, ?, ?, ?, ?)";
-        db.query(sql, [trimmedCode, trimmedBuilding, trimmedFloor, pin_x ?? 0, pin_y ?? 0], (err, results) => {
+        db.query(sql, [trimmedCode, trimmedBuilding, trimmedFloor, pin_x ?? null, pin_y ?? null], (err, results) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ message: "เพิ่มข้อมูลสำเร็จ!", id: results.insertId });
         });
@@ -242,7 +269,7 @@ app.put('/api/rooms/:id', requireAdmin, (req, res) => {
     const roomId = req.params.id;
     const { room_code, building_name, floor, pin_x, pin_y } = req.body || {};
 
-    const validationError = validateRoomInput({ room_code, building_name, floor });
+    const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y });
     if (validationError) {
         return res.status(400).json({ error: validationError });
     }
@@ -258,7 +285,7 @@ app.put('/api/rooms/:id', requireAdmin, (req, res) => {
         }
 
         const sql = "UPDATE rooms SET room_code=?, building_name=?, floor=?, pin_x=?, pin_y=? WHERE id=?";
-        db.query(sql, [trimmedCode, trimmedBuilding, trimmedFloor, pin_x ?? 0, pin_y ?? 0, roomId], (err, results) => {
+        db.query(sql, [trimmedCode, trimmedBuilding, trimmedFloor, pin_x ?? null, pin_y ?? null, roomId], (err, results) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ message: "อัปเดตข้อมูลสำเร็จ!" });
         });
