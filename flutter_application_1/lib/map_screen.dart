@@ -372,24 +372,38 @@ class _InteractiveFloorPlan extends StatelessWidget {
     return Container(
       decoration: appCardDecoration(),
       clipBehavior: Clip.antiAlias,
-      child: InteractiveViewer(
-        minScale: 1,
-        maxScale: 4,
-        child: AspectRatio(
-          aspectRatio: floorPlan.aspectRatio,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Image.network(floorPlan.imageUrl, fit: BoxFit.fill),
-                  ),
-                  for (final room in rooms) _buildPin(context, room, constraints),
-                ],
-              );
-            },
-          ),
-        ),
+      // 🌟 คำนวณขนาดกล่องให้พอดีสัดส่วนภาพ "ก่อน" ส่งเข้า InteractiveViewer
+      // เพราะ InteractiveViewer จะบังคับให้ลูกของมันเต็มพื้นที่เสมอ ถ้าใส่ AspectRatio
+      // ไว้ข้างในมันจะถูกยืดจนไม่เหลือผลอะไร ต้องกำหนดขนาดที่แน่นอนมาให้ตั้งแต่นอกสุด
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          double width = constraints.maxWidth;
+          double height = width / floorPlan.aspectRatio;
+          if (height > constraints.maxHeight) {
+            height = constraints.maxHeight;
+            width = height * floorPlan.aspectRatio;
+          }
+          final boxConstraints = BoxConstraints.tight(Size(width, height));
+
+          return Center(
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.network(floorPlan.imageUrl, fit: BoxFit.fill),
+                    ),
+                    for (final room in rooms) _buildPin(context, room, boxConstraints),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
