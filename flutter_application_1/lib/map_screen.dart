@@ -418,6 +418,7 @@ class _InteractiveFloorPlan extends StatelessWidget {
   Widget _buildPin(BuildContext context, Map<String, dynamic> room, BoxConstraints constraints) {
     final x = double.tryParse(room['pin_x'].toString()) ?? 0;
     final y = double.tryParse(room['pin_y'].toString()) ?? 0;
+    final isMaintenance = room['status']?.toString() == 'maintenance';
     const size = 20.0;
 
     return Positioned(
@@ -434,12 +435,15 @@ class _InteractiveFloorPlan extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.accent,
+            color: isMaintenance ? AppColors.muted : AppColors.accent,
             border: Border.all(color: Colors.white, width: 2.5),
             boxShadow: const [
               BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 2)),
             ],
           ),
+          child: isMaintenance
+              ? const Icon(Icons.build_rounded, size: 10, color: Colors.white)
+              : null,
         ),
       ),
     );

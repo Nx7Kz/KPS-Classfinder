@@ -45,6 +45,25 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     );
   }
 
+  Widget _buildAmenityChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,6 +101,11 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final roomCode = room['room_code']?.toString() ?? '-';
     final buildingName = room['building_name']?.toString() ?? '-';
     final floor = room['floor']?.toString() ?? '-';
+    final roomType = room['room_type']?.toString();
+    final capacity = room['capacity']?.toString();
+    final isMaintenance = room['status']?.toString() == 'maintenance';
+    final amenities = room['amenities'];
+    final amenitiesMap = amenities is Map ? Map<String, dynamic>.from(amenities) : const <String, dynamic>{};
 
     return Scaffold(
       appBar: AppBar(
@@ -146,9 +170,69 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                     _buildInfoRow(Icons.layers_rounded, 'ชั้น', floor),
                     const SizedBox(height: 18),
                     _buildInfoRow(Icons.tag_rounded, 'รหัสห้อง', roomCode),
+                    if (roomType != null && roomType.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      _buildInfoRow(Icons.category_rounded, 'ประเภทห้อง', roomType),
+                    ],
+                    if (capacity != null && capacity.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      _buildInfoRow(Icons.event_seat_rounded, 'ความจุ', '$capacity ที่นั่ง'),
+                    ],
                   ],
                 ),
               ),
+              if (isMaintenance) ...[
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: appCardDecoration(color: const Color(0xFFFFF4E5)),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.build_rounded, color: Colors.orange),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้',
+                          style: TextStyle(color: AppColors.ink, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (amenitiesMap.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: appCardDecoration(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'สิ่งอำนวยความสะดวก',
+                        style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          if (amenitiesMap['seats'] != null)
+                            _buildAmenityChip(Icons.event_seat_rounded, '${amenitiesMap['seats']} ที่นั่ง'),
+                          if (amenitiesMap['outlets'] != null)
+                            _buildAmenityChip(Icons.power_rounded, '${amenitiesMap['outlets']} จุดปลั๊กไฟ'),
+                          if (amenitiesMap['ac'] != null)
+                            _buildAmenityChip(Icons.ac_unit_rounded, '${amenitiesMap['ac']} เครื่องปรับอากาศ'),
+                          if (amenitiesMap['wifi'] != null)
+                            _buildAmenityChip(Icons.wifi_rounded, '${amenitiesMap['wifi']}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               Container(
                 width: double.infinity,
