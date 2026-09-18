@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme.dart';
 import 'map_screen.dart';
 import 'places_screen.dart';
 import 'search_screen.dart';
@@ -25,6 +26,7 @@ class _MainNavState extends State<MainNav> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: const AppHeaderBar(),
       body: _screens[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,

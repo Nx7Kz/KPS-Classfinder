@@ -182,16 +182,23 @@ class _RoomListScreenState extends State<RoomListScreen> {
                     type: MaterialType.transparency,
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(12),
-                      leading: const CircleAvatar(
-                        backgroundColor: AppColors.blueTint,
-                        child: Icon(Icons.meeting_room_rounded, color: AppColors.primary),
-                      ),
-                      title: Text(
-                        'รหัสห้อง: ${room['room_code']}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 17,
-                          color: AppColors.ink,
+                      title: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.blueTint,
+                          borderRadius: BorderRadius.circular(6),
+                          border: const Border(
+                            left: BorderSide(color: AppColors.primary, width: 3),
+                          ),
+                        ),
+                        child: Text(
+                          '[ ${room['room_code']} ]',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            fontFamily: 'monospace',
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted),

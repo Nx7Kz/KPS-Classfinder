@@ -284,7 +284,7 @@ class _SearchScreenState extends State<SearchScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: AppColors.line),
                   boxShadow: const [
                     BoxShadow(
@@ -368,46 +368,96 @@ class _SearchScreenState extends State<SearchScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 32),
-        const Text(
-          'รายการโปรด',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.ink),
-        ),
-        const SizedBox(height: 15),
-        SizedBox(
-          height: 42,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _favorites.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final room = _favorites[index];
-              return InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => _openRoomDetail(room),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: appCardDecoration(color: AppColors.goldTint),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star_rounded, size: 16, color: AppColors.accent),
-                      const SizedBox(width: 6),
-                      Text(
-                        room['room_code']?.toString() ?? '-',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.ink,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: appCardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.bookmark_rounded, color: AppColors.accent, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'ห้องที่บันทึกไว้',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.ink),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+              const SizedBox(height: 14),
+              for (final room in _favorites) _buildSavedRoomTile(room),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSavedRoomTile(Map<String, dynamic> room) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openRoomDetail(room),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.line),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.blueTint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.meeting_room_rounded, color: AppColors.primary, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      room['room_code']?.toString() ?? '-',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink, fontSize: 13),
+                    ),
+                    Text(
+                      room['building_name']?.toString() ?? '-',
+                      style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.blueTint,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ดูรายละเอียด',
+                      style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(Icons.arrow_forward_rounded, size: 12, color: AppColors.primary),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -479,7 +529,7 @@ class _SearchScreenState extends State<SearchScreen> {
     Color tintColor,
   ) {
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(999),
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -489,7 +539,14 @@ class _SearchScreenState extends State<SearchScreen> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: appCardDecoration(),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.line),
+          boxShadow: const [
+            BoxShadow(color: Color(0x120F172A), blurRadius: 20, offset: Offset(0, 8)),
+          ],
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

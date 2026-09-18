@@ -8,7 +8,10 @@ import 'app_theme.dart';
 import 'room_detail_screen.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final String? initialBuilding;
+  final String? initialFloor;
+
+  const MapScreen({super.key, this.initialBuilding, this.initialFloor});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -20,13 +23,17 @@ class _MapScreenState extends State<MapScreen> {
     'อาคารเรียน 80 ปี',
   ];
 
-  String _selectedBuilding = _buildings[0];
+  late String _selectedBuilding;
   String? _selectedFloor;
   late Future<List<Map<String, dynamic>>> _roomsFuture;
 
   @override
   void initState() {
     super.initState();
+    _selectedBuilding = widget.initialBuilding != null && _buildings.contains(widget.initialBuilding)
+        ? widget.initialBuilding!
+        : _buildings[0];
+    _selectedFloor = widget.initialFloor;
     _roomsFuture = _fetchRooms(_selectedBuilding);
   }
 

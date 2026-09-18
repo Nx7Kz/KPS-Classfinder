@@ -31,6 +31,41 @@ BoxDecoration appCardDecoration({Color color = AppColors.surface}) {
   );
 }
 
+/// แถบหัวแอปแบบ sticky ด้านบนสุด (ไอคอน + ชื่อแอป) ใช้ร่วมกันทุกแท็บ
+class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
+  const AppHeaderBar({super.key});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(56);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.line)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.school_rounded, color: AppColors.primary, size: 24),
+          const SizedBox(width: 8),
+          Text(
+            'KPS ClassFinder',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// การ์ดสไตล์มีแถบสีเน้นด้านซ้าย (เหมือนการ์ดตารางเรียนในดีไซน์อ้างอิง)
 Widget accentBorderCard({
   required Widget child,

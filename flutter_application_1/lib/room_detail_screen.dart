@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'map_screen.dart';
 import 'room_store.dart';
 
 class RoomDetailScreen extends StatefulWidget {
@@ -152,15 +153,58 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
-                decoration: appCardDecoration(color: AppColors.goldTint),
-                child: const Row(
+                decoration: appCardDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.map_outlined, color: AppColors.accent),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'แผนที่นำทางไปยังห้องนี้กำลังจัดเตรียม เร็ว ๆ นี้',
-                        style: TextStyle(color: AppColors.ink, height: 1.4),
+                    Row(
+                      children: [
+                        const Icon(Icons.map_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'ผังนำทางห้อง',
+                            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.blueTint,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'ชั้น $floor',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MapScreen(
+                                initialBuilding: buildingName,
+                                initialFloor: floor,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.location_on_rounded, size: 18),
+                        label: const Text('เปิดแผนที่แสดงตำแหน่งห้อง'),
                       ),
                     ),
                   ],

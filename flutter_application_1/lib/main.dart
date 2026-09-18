@@ -29,22 +29,22 @@ class MyApp extends StatelessWidget {
           elevation: 0,
         ),
         navigationBarTheme: NavigationBarThemeData(
-          height: 78,
+          height: 72,
           backgroundColor: AppColors.surface,
-          indicatorColor: AppColors.primary,
+          indicatorColor: Colors.transparent,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
               color: selected ? AppColors.primary : AppColors.muted,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 12,
+              fontSize: 11,
             );
           }),
           iconTheme: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return IconThemeData(
-              color: selected ? Colors.white : AppColors.muted,
-              size: 23,
+              color: selected ? AppColors.primary : AppColors.muted,
+              size: 24,
             );
           }),
         ),
