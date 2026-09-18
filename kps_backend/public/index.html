@@ -3,104 +3,229 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KPS ClassFinder - Dashboard</title>
+  <title>KPS ClassFinder - Admin</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
+    :root { --brand: #00503a; }
     body { background: #f5f6fa; color: #1f2937; }
-    .navbar-brand { font-weight: 700; }
-    .toolbar, .room-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
+    .login-card { max-width: 380px; margin: 4.5rem auto; border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
+
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid #eef0f3;
+      display: flex; flex-direction: column; padding: 1.25rem 1rem;
+    }
+    .sidebar-brand { font-weight: 700; color: var(--brand); font-size: 1.05rem; padding: .5rem .75rem 1.25rem; }
+    .sidebar-nav .nav-link {
+      color: #374151; border-radius: 10px; padding: .6rem .75rem; font-weight: 500; font-size: .92rem;
+      display: flex; align-items: center; gap: .6rem; cursor: pointer;
+    }
+    .sidebar-nav .nav-link:hover { background: #f3f4f6; }
+    .sidebar-nav .nav-link.active { background: var(--brand); color: #fff; }
+    .sidebar-nav .nav-link.disabled { color: #9ca3af; cursor: default; pointer-events: none; }
+    .sidebar-nav .badge-soon { font-size: .62rem; background: #e5e7eb; color: #6b7280; font-weight: 600; }
+    .main-content { flex: 1; min-width: 0; }
+    .content-topbar {
+      background: #fff; border-bottom: 1px solid #eef0f3; padding: .9rem 1.5rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .content-body { padding: 1.5rem; }
+
+    .stat-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .06); }
+    .stat-value { font-size: 1.9rem; font-weight: 700; color: #111827; }
+    .stat-label { color: #6b7280; font-size: .85rem; }
+
+    .toolbar, .room-card, .building-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
     .toolbar { background: #fff; }
-    .room-card .card-header { background: #fff; border-bottom: 1px solid #eef0f3; }
-    .table > :not(caption) > * > * { padding: .9rem .75rem; }
+    .room-card .card-header, .building-card .card-header { background: #fff; border-bottom: 1px solid #eef0f3; }
+    .table > :not(caption) > * > * { padding: .85rem .75rem; }
     .room-name { font-weight: 600; }
     .floor-badge { background: #e9efff; color: #2454c6; font-weight: 600; }
-    .empty-state { padding: 4rem 1rem; color: #6b7280; }
-    .login-card { max-width: 380px; margin: 4.5rem auto; border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
-    @media (max-width: 575.98px) {
-      .toolbar .form-select, .toolbar .form-control, .toolbar .btn { width: 100%; }
+    .empty-state { padding: 3rem 1rem; color: #6b7280; }
+
+    @media (max-width: 767.98px) {
+      .app-shell { flex-direction: column; }
+      .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: .75rem; }
+      .sidebar-brand { display: none; }
+      .sidebar-nav { display: flex; gap: .4rem; }
+      .sidebar-nav .nav-link { white-space: nowrap; }
     }
   </style>
 </head>
 <body>
-  <nav class="navbar bg-white border-bottom">
-    <div class="container d-flex justify-content-between align-items-center">
-      <span class="navbar-brand mb-0">KPS ClassFinder <span class="text-secondary fw-normal">| จัดการห้องเรียน</span></span>
-      <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-sm d-none" onclick="logout()">ออกจากระบบ</button>
+  <div id="statusMessageWrap" class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index:2000; min-width:320px;">
+    <div id="statusMessage"></div>
+  </div>
+
+  <section id="loginSection" class="card login-card d-none">
+    <div class="card-body p-4">
+      <h1 class="h5 mb-1">เข้าสู่ระบบผู้ดูแล</h1>
+      <p class="text-secondary small mb-4">กรอกบัญชีผู้ดูแลระบบเพื่อจัดการห้องเรียน</p>
+      <form id="loginForm" onsubmit="login(event)">
+        <div class="mb-3">
+          <label for="loginUsername" class="form-label">ชื่อผู้ใช้</label>
+          <input id="loginUsername" class="form-control" required autocomplete="username">
+        </div>
+        <div class="mb-3">
+          <label for="loginPassword" class="form-label">รหัสผ่าน</label>
+          <input id="loginPassword" type="password" class="form-control" required autocomplete="current-password">
+        </div>
+        <button id="loginButton" type="submit" class="btn btn-primary w-100">เข้าสู่ระบบ</button>
+      </form>
     </div>
-  </nav>
+  </section>
 
-  <main class="container py-4 py-md-5">
-    <div id="statusMessage" aria-live="polite"></div>
+  <div id="dashboardSection" class="app-shell d-none">
+    <aside class="sidebar">
+      <div class="sidebar-brand">KPS ClassFinder<br><span class="fw-normal text-secondary" style="font-size:.75rem;">Admin Console</span></div>
+      <nav class="sidebar-nav d-flex flex-column gap-1 flex-grow-1">
+        <a class="nav-link active" data-page="overview" onclick="showPage('overview')">📊 Overview</a>
+        <a class="nav-link" data-page="buildings-rooms" onclick="showPage('buildings-rooms')">🏢 Buildings &amp; Rooms</a>
+        <a class="nav-link disabled" aria-disabled="true">🖼️ 360 Panorama Editor <span class="badge badge-soon ms-auto">เร็ว ๆ นี้</span></a>
+        <a class="nav-link disabled" aria-disabled="true">🗓️ Schedule &amp; Bookings <span class="badge badge-soon ms-auto">เร็ว ๆ นี้</span></a>
+        <a class="nav-link disabled" aria-disabled="true">📜 System Logs <span class="badge badge-soon ms-auto">เร็ว ๆ นี้</span></a>
+        <a class="nav-link" data-page="settings" onclick="showPage('settings')">⚙️ Settings</a>
+      </nav>
+      <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-sm mt-3" onclick="logout()">ออกจากระบบ</button>
+    </aside>
 
-    <section id="loginSection" class="card login-card d-none">
-      <div class="card-body p-4">
-        <h1 class="h5 mb-1">เข้าสู่ระบบผู้ดูแล</h1>
-        <p class="text-secondary small mb-4">กรอกบัญชีผู้ดูแลระบบเพื่อจัดการห้องเรียน</p>
-        <form id="loginForm" onsubmit="login(event)">
-          <div class="mb-3">
-            <label for="loginUsername" class="form-label">ชื่อผู้ใช้</label>
-            <input id="loginUsername" class="form-control" required autocomplete="username">
+    <div class="main-content">
+      <div class="content-topbar">
+        <h1 class="h5 mb-0" id="pageTitle">Overview</h1>
+      </div>
+
+      <div class="content-body">
+        <!-- ============ PAGE: Overview ============ -->
+        <section id="page-overview" class="page-section">
+          <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100">
+                <div class="card-body">
+                  <div class="stat-label">อาคารทั้งหมด</div>
+                  <div class="stat-value" id="statBuildingCount">-</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100">
+                <div class="card-body">
+                  <div class="stat-label">ห้องเรียนในระบบ</div>
+                  <div class="stat-value" id="statRoomCount">-</div>
+                  <div class="text-secondary small" id="statRoomSplit">-</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100">
+                <div class="card-body">
+                  <div class="stat-label">ห้องที่มีภาพพาโนรามา 360°</div>
+                  <div class="stat-value" id="statPanoramaCount">-</div>
+                  <div class="text-secondary small" id="statPanoramaPercent">ยังไม่เปิดใช้งาน</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card stat-card h-100">
+                <div class="card-body">
+                  <div class="stat-label">การเข้าชมวันนี้</div>
+                  <div class="stat-value" id="statVisitsToday">-</div>
+                  <div class="text-secondary small">ยังไม่เปิดใช้งาน</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="mb-3">
-            <label for="loginPassword" class="form-label">รหัสผ่าน</label>
-            <input id="loginPassword" type="password" class="form-control" required autocomplete="current-password">
+          <p class="text-secondary small">ไปที่เมนู "Buildings &amp; Rooms" ด้านซ้ายเพื่อจัดการข้อมูลอาคารและห้องเรียน</p>
+        </section>
+
+        <!-- ============ PAGE: Buildings & Rooms ============ -->
+        <section id="page-buildings-rooms" class="page-section d-none">
+          <div class="card building-card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center p-3">
+              <h2 class="h6 mb-0">อาคารทั้งหมด</h2>
+              <button class="btn btn-sm btn-primary" type="button" onclick="openCreateBuildingModal()">+ เพิ่มอาคาร</button>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>รหัส</th>
+                      <th>ชื่ออาคาร</th>
+                      <th>จำนวนชั้น</th>
+                      <th>จำนวนห้อง</th>
+                      <th class="text-end">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="buildingTableBody"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <button id="loginButton" type="submit" class="btn btn-primary w-100">เข้าสู่ระบบ</button>
-        </form>
-      </div>
-    </section>
 
-    <div id="dashboardSection" class="d-none">
+          <section class="toolbar p-3 p-md-4 mb-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-md-4">
+                <label for="buildingSelect" class="form-label fw-semibold">อาคาร</label>
+                <select id="buildingSelect" class="form-select" onchange="fetchRooms()"></select>
+              </div>
+              <div class="col-12 col-md-5">
+                <label for="roomFilter" class="form-label fw-semibold">ค้นหาห้อง</label>
+                <input id="roomFilter" class="form-control" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง" oninput="renderRooms()">
+              </div>
+              <div class="col-12 col-md-3 d-grid">
+                <button class="btn btn-primary" type="button" onclick="openCreateModal()">+ เพิ่มห้องเรียน</button>
+              </div>
+            </div>
+          </section>
 
-    <section class="toolbar p-3 p-md-4 mb-4">
-      <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-4">
-          <label for="buildingSelect" class="form-label fw-semibold">อาคาร</label>
-          <select id="buildingSelect" class="form-select" onchange="fetchRooms()">
-            <option value="อาคารเรียนรวม 3 (ศร.3)">อาคารเรียนรวม 3 (ศร.3)</option>
-            <option value="อาคารเรียน 80 ปี">อาคารเรียน 80 ปี</option>
-          </select>
-        </div>
-        <div class="col-12 col-md-5">
-          <label for="roomFilter" class="form-label fw-semibold">ค้นหาห้อง</label>
-          <input id="roomFilter" class="form-control" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง" oninput="renderRooms()">
-        </div>
-        <div class="col-12 col-md-3 d-grid">
-          <button class="btn btn-primary" type="button" onclick="openCreateModal()">+ เพิ่มห้องเรียน</button>
-        </div>
-      </div>
-    </section>
+          <section class="card room-card">
+            <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
+              <div>
+                <h1 class="h5 mb-1">รายการห้องเรียน</h1>
+                <p class="text-secondary mb-0 small" id="buildingSummary"></p>
+              </div>
+              <span id="roomCount" class="badge text-bg-light border">0 ห้อง</span>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th scope="col">ชื่อ / รหัสห้อง</th>
+                      <th scope="col">ชั้น</th>
+                      <th scope="col">ประเภท / ความจุ</th>
+                      <th scope="col">สถานะ</th>
+                      <th scope="col">แผนที่</th>
+                      <th scope="col" class="text-end">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="roomTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </section>
 
-    <section class="card room-card">
-      <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
-        <div>
-          <h1 class="h5 mb-1">รายการห้องเรียน</h1>
-          <p class="text-secondary mb-0 small" id="buildingSummary"></p>
-        </div>
-        <span id="roomCount" class="badge text-bg-light border">0 ห้อง</span>
+        <!-- ============ PAGE: Settings ============ -->
+        <section id="page-settings" class="page-section d-none">
+          <div class="card building-card">
+            <div class="card-body p-4">
+              <h2 class="h6 mb-3">บัญชีผู้ดูแลระบบ</h2>
+              <p class="text-secondary small mb-1">ชื่อผู้ใช้ปัจจุบัน: <strong id="settingsUsername">-</strong></p>
+              <p class="text-secondary small mb-0">
+                การเปลี่ยนรหัสผ่านทำได้โดยตั้งค่าตัวแปรแวดล้อม <code>ADMIN_PASSWORD</code> หรือ <code>ADMIN_PASSWORD_HASH</code>
+                ใน <code>docker-compose.yml</code> แล้วรีสตาร์ท backend
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th scope="col">ชื่อ / รหัสห้อง</th>
-                <th scope="col">ชั้น</th>
-                <th scope="col">แผนที่</th>
-                <th scope="col" class="text-end">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="roomTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
     </div>
-  </main>
+  </div>
 
+  <!-- ============ Modal: Room ============ -->
   <div class="modal fade" id="roomModal" tabindex="-1" aria-labelledby="roomModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
       <form class="modal-content" id="roomForm" onsubmit="saveRoom(event)">
         <div class="modal-header">
           <h2 class="modal-title fs-5" id="roomModalTitle">เพิ่มห้องเรียน</h2>
@@ -108,23 +233,62 @@
         </div>
         <div class="modal-body">
           <input id="roomId" type="hidden">
-          <div class="mb-3">
-            <label for="roomCode" class="form-label">ชื่อ / รหัสห้อง</label>
-            <input id="roomCode" class="form-control" required maxlength="100" autocomplete="off" placeholder="เช่น 3301 หรือ ห้องรับรอง">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label for="roomCode" class="form-label">ชื่อ / รหัสห้อง</label>
+              <input id="roomCode" class="form-control" required maxlength="100" autocomplete="off" placeholder="เช่น 3301 หรือ ห้องรับรอง">
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="roomFloor" class="form-label">ชั้น</label>
+              <select id="roomFloor" class="form-select" required onchange="loadFloorPlanForModal()">
+                <option value="1">ชั้น 1</option>
+                <option value="2">ชั้น 2</option>
+                <option value="3">ชั้น 3</option>
+                <option value="4">ชั้น 4</option>
+                <option value="5">ชั้น 5</option>
+                <option value="ชั้นลอย">ชั้นลอย</option>
+                <option value="ใต้ดิน">ใต้ดิน</option>
+                <option value="-">ไม่ระบุ</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="roomType" class="form-label">ประเภทห้อง</label>
+              <input id="roomType" class="form-control" maxlength="50" placeholder="เช่น ห้องบรรยาย, Lab, ห้องประชุม">
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="roomCapacity" class="form-label">ความจุ (ที่นั่ง)</label>
+              <input id="roomCapacity" type="number" min="0" class="form-control" placeholder="เช่น 150">
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="roomStatus" class="form-label">สถานะ</label>
+              <select id="roomStatus" class="form-select">
+                <option value="active">เปิดใช้งาน</option>
+                <option value="maintenance">ปิดปรับปรุง</option>
+              </select>
+            </div>
           </div>
-          <div class="mb-3">
-            <label for="roomFloor" class="form-label">ชั้น</label>
-            <select id="roomFloor" class="form-select" required onchange="loadFloorPlanForModal()">
-              <option value="1">ชั้น 1</option>
-              <option value="2">ชั้น 2</option>
-              <option value="3">ชั้น 3</option>
-              <option value="4">ชั้น 4</option>
-              <option value="5">ชั้น 5</option>
-              <option value="ชั้นลอย">ชั้นลอย</option>
-              <option value="ใต้ดิน">ใต้ดิน</option>
-              <option value="-">ไม่ระบุ</option>
-            </select>
+
+          <hr class="my-3">
+          <p class="small fw-semibold mb-2">สิ่งอำนวยความสะดวก</p>
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+              <label for="amenitySeats" class="form-label small">ที่นั่ง</label>
+              <input id="amenitySeats" type="number" min="0" class="form-control form-control-sm">
+            </div>
+            <div class="col-6 col-md-3">
+              <label for="amenityOutlets" class="form-label small">จุดปลั๊กไฟ</label>
+              <input id="amenityOutlets" type="number" min="0" class="form-control form-control-sm">
+            </div>
+            <div class="col-6 col-md-3">
+              <label for="amenityAc" class="form-label small">เครื่องปรับอากาศ</label>
+              <input id="amenityAc" type="number" min="0" class="form-control form-control-sm">
+            </div>
+            <div class="col-6 col-md-3">
+              <label for="amenityWifi" class="form-label small">ชื่อ WiFi</label>
+              <input id="amenityWifi" class="form-control form-control-sm" placeholder="เช่น KU-Google">
+            </div>
           </div>
+
           <p class="small text-secondary mb-2">อาคาร: <span id="formBuildingName"></span></p>
           <div class="mb-2">
             <label class="form-label d-flex justify-content-between align-items-center">
@@ -147,12 +311,67 @@
     </div>
   </div>
 
+  <!-- ============ Modal: Building ============ -->
+  <div class="modal fade" id="buildingModal" tabindex="-1" aria-labelledby="buildingModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" id="buildingForm" onsubmit="saveBuilding(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="buildingModalTitle">เพิ่มอาคาร</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input id="buildingId" type="hidden">
+          <div class="mb-3">
+            <label for="buildingCode" class="form-label">รหัสอาคาร</label>
+            <input id="buildingCode" class="form-control" required maxlength="20" placeholder="เช่น LH3">
+          </div>
+          <div class="mb-3">
+            <label for="buildingName" class="form-label">ชื่ออาคาร</label>
+            <input id="buildingName" class="form-control" required maxlength="255" placeholder="เช่น อาคารเรียนรวม 3 (ศร.3)">
+          </div>
+          <div class="mb-3">
+            <label for="buildingDescription" class="form-label">คำอธิบาย (ไม่บังคับ)</label>
+            <input id="buildingDescription" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label for="buildingLocation" class="form-label">ตำแหน่งที่ตั้ง (ไม่บังคับ)</label>
+            <input id="buildingLocation" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="saveBuildingButton" type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     let rooms = [];
+    let buildings = [];
     let roomModal;
+    let buildingModal;
     let currentPinX = null;
     let currentPinY = null;
+
+    const PAGE_TITLES = {
+      'overview': 'Overview',
+      'buildings-rooms': 'Buildings & Rooms',
+      'settings': 'Settings',
+    };
+
+    function showPage(page) {
+      document.querySelectorAll('.page-section').forEach(section => section.classList.add('d-none'));
+      document.getElementById(`page-${page}`).classList.remove('d-none');
+      document.querySelectorAll('.sidebar-nav .nav-link[data-page]').forEach(link => {
+        link.classList.toggle('active', link.dataset.page === page);
+      });
+      document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || '';
+
+      if (page === 'overview') loadOverview();
+      if (page === 'buildings-rooms') { loadBuildings(); }
+    }
 
     function currentBuilding() {
       return document.getElementById('buildingSelect').value;
@@ -166,7 +385,7 @@
 
     function showStatus(message, type = 'success') {
       document.getElementById('statusMessage').innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        <div class="alert alert-${type} alert-dismissible fade show shadow-sm" role="alert">
           ${escapeHtml(message)}
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="ปิด"></button>
         </div>`;
@@ -175,13 +394,13 @@
     function showDashboard() {
       document.getElementById('loginSection').classList.add('d-none');
       document.getElementById('dashboardSection').classList.remove('d-none');
-      document.getElementById('logoutButton').classList.remove('d-none');
-      fetchRooms();
+      document.getElementById('dashboardSection').classList.add('d-flex');
+      showPage('overview');
     }
 
     function showLogin(message) {
       document.getElementById('dashboardSection').classList.add('d-none');
-      document.getElementById('logoutButton').classList.add('d-none');
+      document.getElementById('dashboardSection').classList.remove('d-flex');
       document.getElementById('loginSection').classList.remove('d-none');
       if (message) showStatus(message, 'danger');
     }
@@ -191,6 +410,7 @@
         const response = await fetch('/api/session');
         const data = await response.json();
         if (data.isAdmin) {
+          document.getElementById('settingsUsername').textContent = data.username || 'admin';
           showDashboard();
         } else {
           showLogin();
@@ -219,6 +439,7 @@
         if (!response.ok) throw new Error(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
 
         document.getElementById('loginForm').reset();
+        document.getElementById('settingsUsername').textContent = username;
         showDashboard();
       } catch (error) {
         showStatus(error.message, 'danger');
@@ -236,6 +457,144 @@
       }
     }
 
+    // ============ Overview ============
+    async function loadOverview() {
+      try {
+        const response = await fetch('/api/admin/overview');
+        if (!response.ok) throw new Error('โหลดสถิติไม่สำเร็จ');
+        const stats = await response.json();
+        document.getElementById('statBuildingCount').textContent = stats.building_count;
+        document.getElementById('statRoomCount').textContent = stats.room_count;
+        document.getElementById('statRoomSplit').textContent =
+          `เปิดใช้งาน ${stats.active_room_count} • ปิดปรับปรุง ${stats.maintenance_room_count}`;
+        document.getElementById('statPanoramaCount').textContent = stats.rooms_with_panorama_count;
+        document.getElementById('statVisitsToday').textContent = stats.visits_today;
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      }
+    }
+
+    // ============ Buildings ============
+    async function loadBuildings() {
+      try {
+        const response = await fetch('/api/buildings');
+        if (!response.ok) throw new Error('โหลดข้อมูลอาคารไม่สำเร็จ');
+        buildings = await response.json();
+        renderBuildings();
+        renderBuildingSelect();
+        if (!currentBuilding() && buildings.length > 0) fetchRooms();
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      }
+    }
+
+    function renderBuildings() {
+      const tbody = document.getElementById('buildingTableBody');
+      if (buildings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-state">ยังไม่มีอาคารในระบบ</td></tr>';
+        return;
+      }
+      tbody.innerHTML = buildings.map(building => `
+        <tr>
+          <td><span class="badge text-bg-light border">${escapeHtml(building.code)}</span></td>
+          <td>${escapeHtml(building.name)}</td>
+          <td>${Number(building.floor_count)}</td>
+          <td>${Number(building.room_count)}</td>
+          <td class="text-end text-nowrap">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditBuildingModal(${Number(building.id)})">แก้ไข</button>
+            <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="deleteBuilding(${Number(building.id)})">ลบ</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function renderBuildingSelect() {
+      const select = document.getElementById('buildingSelect');
+      const previous = select.value;
+      select.innerHTML = buildings.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`).join('');
+      if (buildings.some(b => b.name === previous)) select.value = previous;
+    }
+
+    function openCreateBuildingModal() {
+      document.getElementById('buildingModalTitle').textContent = 'เพิ่มอาคาร';
+      document.getElementById('buildingId').value = '';
+      document.getElementById('buildingForm').reset();
+      buildingModal.show();
+    }
+
+    function openEditBuildingModal(id) {
+      const building = buildings.find(b => Number(b.id) === Number(id));
+      if (!building) return;
+      document.getElementById('buildingModalTitle').textContent = 'แก้ไขอาคาร';
+      document.getElementById('buildingId').value = building.id;
+      document.getElementById('buildingCode').value = building.code || '';
+      document.getElementById('buildingName').value = building.name || '';
+      document.getElementById('buildingDescription').value = building.description || '';
+      document.getElementById('buildingLocation').value = building.location || '';
+      buildingModal.show();
+    }
+
+    async function saveBuilding(event) {
+      event.preventDefault();
+      const id = document.getElementById('buildingId').value;
+      const saveButton = document.getElementById('saveBuildingButton');
+      const payload = {
+        code: document.getElementById('buildingCode').value.trim(),
+        name: document.getElementById('buildingName').value.trim(),
+        description: document.getElementById('buildingDescription').value.trim(),
+        location: document.getElementById('buildingLocation').value.trim(),
+      };
+
+      saveButton.disabled = true;
+      saveButton.textContent = 'กำลังบันทึก...';
+
+      try {
+        const response = await fetch(id ? `/api/buildings/${id}` : '/api/buildings', {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (response.status === 401) {
+          buildingModal.hide();
+          showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+          return;
+        }
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'บันทึกอาคารไม่สำเร็จ');
+        }
+        buildingModal.hide();
+        await loadBuildings();
+        showStatus(id ? 'บันทึกการแก้ไขอาคารแล้ว' : 'เพิ่มอาคารแล้ว');
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = 'บันทึก';
+      }
+    }
+
+    async function deleteBuilding(id) {
+      const building = buildings.find(b => Number(b.id) === Number(id));
+      if (!building || !confirm(`ต้องการลบอาคาร "${building.name}" ใช่หรือไม่?`)) return;
+
+      try {
+        const response = await fetch(`/api/buildings/${id}`, { method: 'DELETE' });
+        if (response.status === 401) {
+          showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+          return;
+        }
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'ลบอาคารไม่สำเร็จ');
+        }
+        await loadBuildings();
+        showStatus('ลบอาคารแล้ว');
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      }
+    }
+
+    // ============ Rooms ============
     function roomSort(first, second) {
       const firstFloor = Number(first.floor);
       const secondFloor = Number(second.floor);
@@ -247,8 +606,9 @@
 
     async function fetchRooms() {
       const building = currentBuilding();
+      if (!building) return;
       document.getElementById('buildingSummary').textContent = building;
-      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
+      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
 
       try {
         const response = await fetch(`/api/building/${encodeURIComponent(building)}`);
@@ -271,18 +631,25 @@
       document.getElementById('roomCount').textContent = `${visibleRooms.length} ห้อง`;
 
       if (visibleRooms.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
         return;
       }
 
       tbody.innerHTML = visibleRooms.map(room => {
         const isPinned = room.pin_x !== null && room.pin_x !== undefined;
+        const typeCapacity = [room.room_type, room.capacity ? `${room.capacity} ที่นั่ง` : null]
+          .filter(Boolean).join(' • ') || '<span class="text-secondary">-</span>';
+        const statusBadge = room.status === 'maintenance'
+          ? '<span class="badge text-bg-warning">ปิดปรับปรุง</span>'
+          : '<span class="badge text-bg-success">เปิดใช้งาน</span>';
         return `
         <tr>
           <td class="room-name">${escapeHtml(room.room_code || '-')}</td>
           <td><span class="badge rounded-pill floor-badge">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
+          <td>${typeCapacity}</td>
+          <td>${statusBadge}</td>
           <td>${isPinned
-            ? '<span class="badge text-bg-success">ปักหมุดแล้ว</span>'
+            ? '<span class="badge text-bg-primary">ปักหมุดแล้ว</span>'
             : '<span class="badge text-bg-light border text-secondary">ยังไม่ปักหมุด</span>'}</td>
           <td class="text-end text-nowrap">
             <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditModal(${Number(room.id)})">แก้ไข</button>
@@ -295,8 +662,9 @@
     function openCreateModal() {
       document.getElementById('roomModalTitle').textContent = 'เพิ่มห้องเรียน';
       document.getElementById('roomId').value = '';
-      document.getElementById('roomCode').value = '';
+      document.getElementById('roomForm').reset();
       document.getElementById('roomFloor').value = '1';
+      document.getElementById('roomStatus').value = 'active';
       document.getElementById('formBuildingName').textContent = currentBuilding();
       currentPinX = null;
       currentPinY = null;
@@ -313,6 +681,14 @@
       document.getElementById('roomId').value = room.id;
       document.getElementById('roomCode').value = room.room_code || '';
       document.getElementById('roomFloor').value = room.floor || '-';
+      document.getElementById('roomType').value = room.room_type || '';
+      document.getElementById('roomCapacity').value = room.capacity ?? '';
+      document.getElementById('roomStatus').value = room.status || 'active';
+      const amenities = room.amenities || {};
+      document.getElementById('amenitySeats').value = amenities.seats ?? '';
+      document.getElementById('amenityOutlets').value = amenities.outlets ?? '';
+      document.getElementById('amenityAc').value = amenities.ac ?? '';
+      document.getElementById('amenityWifi').value = amenities.wifi ?? '';
       document.getElementById('formBuildingName').textContent = currentBuilding();
       currentPinX = room.pin_x !== null && room.pin_x !== undefined ? Number(room.pin_x) : null;
       currentPinY = room.pin_y !== null && room.pin_y !== undefined ? Number(room.pin_y) : null;
@@ -388,12 +764,28 @@
       saveButton.disabled = true;
       saveButton.textContent = 'กำลังบันทึก...';
 
+      const seats = document.getElementById('amenitySeats').value;
+      const outlets = document.getElementById('amenityOutlets').value;
+      const ac = document.getElementById('amenityAc').value;
+      const wifi = document.getElementById('amenityWifi').value.trim();
+      const amenities = {};
+      if (seats !== '') amenities.seats = Number(seats);
+      if (outlets !== '') amenities.outlets = Number(outlets);
+      if (ac !== '') amenities.ac = Number(ac);
+      if (wifi !== '') amenities.wifi = wifi;
+
+      const capacityValue = document.getElementById('roomCapacity').value;
+
       const payload = {
         room_code: roomCode,
         building_name: currentBuilding(),
         floor,
         pin_x: currentPinX,
-        pin_y: currentPinY
+        pin_y: currentPinY,
+        room_type: document.getElementById('roomType').value.trim() || null,
+        capacity: capacityValue !== '' ? Number(capacityValue) : null,
+        status: document.getElementById('roomStatus').value,
+        amenities: Object.keys(amenities).length > 0 ? amenities : null,
       };
 
       try {
@@ -443,6 +835,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       roomModal = new bootstrap.Modal(document.getElementById('roomModal'));
+      buildingModal = new bootstrap.Modal(document.getElementById('buildingModal'));
       checkSession();
     });
   </script>

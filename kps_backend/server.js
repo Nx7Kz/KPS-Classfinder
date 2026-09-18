@@ -67,7 +67,8 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/session', (req, res) => {
-    res.json({ isAdmin: Boolean(req.session && req.session.isAdmin) });
+    const isAdmin = Boolean(req.session && req.session.isAdmin);
+    res.json({ isAdmin, username: isAdmin ? ADMIN_USERNAME : null });
 });
 
 // 🌟 สั่งให้ Express เปิดใช้งานไฟล์เว็บจากโฟลเดอร์ public 🌟
