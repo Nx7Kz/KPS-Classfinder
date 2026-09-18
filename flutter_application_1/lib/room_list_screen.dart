@@ -174,34 +174,35 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 );
               }
               final room = item as Map<String, dynamic>;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: appCardDecoration(),
-                clipBehavior: Clip.antiAlias,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(12),
-                    leading: const CircleAvatar(
-                      backgroundColor: AppColors.blueTint,
-                      child: Icon(Icons.meeting_room_rounded, color: AppColors.primary),
-                    ),
-                    title: Text(
-                      'รหัสห้อง: ${room['room_code']}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                        color: AppColors.ink,
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: accentBorderCard(
+                  padding: EdgeInsets.zero,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(12),
+                      leading: const CircleAvatar(
+                        backgroundColor: AppColors.blueTint,
+                        child: Icon(Icons.meeting_room_rounded, color: AppColors.primary),
                       ),
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RoomDetailScreen(room: room),
+                      title: Text(
+                        'รหัสห้อง: ${room['room_code']}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          color: AppColors.ink,
                         ),
-                      );
-                    },
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => RoomDetailScreen(room: room),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               );

@@ -31,11 +31,11 @@ class MyApp extends StatelessWidget {
         navigationBarTheme: NavigationBarThemeData(
           height: 78,
           backgroundColor: AppColors.surface,
-          indicatorColor: AppColors.ink,
+          indicatorColor: AppColors.primary,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
-              color: selected ? AppColors.ink : AppColors.muted,
+              color: selected ? AppColors.primary : AppColors.muted,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               fontSize: 12,
             );
