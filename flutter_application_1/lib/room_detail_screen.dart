@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'api_client.dart';
 import 'app_theme.dart';
 import 'map_screen.dart';
+import 'panorama_screen.dart';
 import 'room_store.dart';
+import 'room_utils.dart';
+import 'widgets.dart';
+
+/// เปิดหน้ารายละเอียดห้อง (ใช้ร่วมกันทุกหน้า)
+Future<void> openRoom(BuildContext context, Map<String, dynamic> room) {
+  return Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room)),
+  );
+}
 
 class RoomDetailScreen extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -16,16 +28,20 @@ class RoomDetailScreen extends StatefulWidget {
 class _RoomDetailScreenState extends State<RoomDetailScreen> {
   bool _isFavorite = false;
   bool _isLoadingFavorite = true;
+  List<Map<String, dynamic>> _panoramas = const [];
+
+  Map<String, dynamic> get room => widget.room;
 
   @override
   void initState() {
     super.initState();
-    RoomStore.addRecent(widget.room);
+    RoomStore.addRecent(room);
     _loadFavoriteState();
+    _loadPanoramas();
   }
 
   Future<void> _loadFavoriteState() async {
-    final isFavorite = await RoomStore.isFavorite(widget.room);
+    final isFavorite = await RoomStore.isFavorite(room);
     if (!mounted) return;
     setState(() {
       _isFavorite = isFavorite;
@@ -33,270 +49,266 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     });
   }
 
+  /// ไม่มีภาพ 360° หรือโหลดไม่ได้ก็แค่ไม่แสดงปุ่ม ไม่รบกวนหน้ารายละเอียดหลัก
+  Future<void> _loadPanoramas() async {
+    final id = room['id'];
+    if (id == null) return;
+    try {
+      final panoramas = await Api.panoramas(id);
+      if (!mounted) return;
+      setState(() => _panoramas = panoramas);
+    } catch (_) {}
+  }
+
   Future<void> _toggleFavorite() async {
-    final nowFavorite = await RoomStore.toggleFavorite(widget.room);
+    final nowFavorite = await RoomStore.toggleFavorite(room);
     if (!mounted) return;
     setState(() => _isFavorite = nowFavorite);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(nowFavorite ? 'เพิ่มในรายการโปรดแล้ว' : 'นำออกจากรายการโปรดแล้ว'),
-        duration: const Duration(seconds: 2),
+    showAppSnack(context, nowFavorite ? 'บันทึกเป็นห้องโปรดแล้ว' : 'นำออกจากห้องโปรดแล้ว');
+  }
+
+  Future<void> _copy() async {
+    final text = '${room['room_code']} · ${room['building_name']} · ${floorLabel(floorOf(room))}';
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) showAppSnack(context, 'คัดลอกข้อมูลห้องแล้ว');
+  }
+
+  void _openMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MapScreen(
+          initialBuilding: room['building_name']?.toString(),
+          initialFloor: floorOf(room),
+          focusRoom: room,
+        ),
       ),
     );
   }
 
-  Widget _buildAmenityChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.line),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: AppColors.blueTint,
-          child: Icon(icon, color: AppColors.primary, size: 20),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+  void _openPanorama() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PanoramaScreen(room: room, panoramas: _panoramas)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final room = widget.room;
     final roomCode = room['room_code']?.toString() ?? '-';
     final buildingName = room['building_name']?.toString() ?? '-';
-    final floor = room['floor']?.toString() ?? '-';
+    final floor = floorOf(room);
     final roomType = room['room_type']?.toString();
     final capacity = room['capacity']?.toString();
-    final isMaintenance = room['status']?.toString() == 'maintenance';
-    final amenities = room['amenities'];
-    final amenitiesMap = amenities is Map ? Map<String, dynamic>.from(amenities) : const <String, dynamic>{};
+    final amenities = amenitiesOf(room);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('รายละเอียดห้อง', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('รายละเอียดห้อง'),
         actions: [
           IconButton(
-            tooltip: _isFavorite ? 'นำออกจากรายการโปรด' : 'เพิ่มในรายการโปรด',
+            tooltip: 'คัดลอกข้อมูลห้อง',
+            onPressed: _copy,
+            icon: const Icon(Icons.copy_rounded, size: 20),
+          ),
+          IconButton(
+            tooltip: _isFavorite ? 'นำออกจากห้องโปรด' : 'บันทึกเป็นห้องโปรด',
             onPressed: _isLoadingFavorite ? null : _toggleFavorite,
             icon: Icon(
               _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-              color: _isFavorite ? AppColors.accent : AppColors.muted,
+              color: _isFavorite ? AppColors.primary : AppColors.muted,
             ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          Text(
+            roomCode,
+            style: TextStyle(
+              color: AppColors.ink,
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(28),
-                decoration: appCardDecoration(color: AppColors.blueTint),
-                child: Column(
-                  children: [
-                    const CircleAvatar(
-                      radius: 38,
-                      backgroundColor: AppColors.primary,
-                      child: Icon(Icons.meeting_room_rounded, color: Colors.white, size: 38),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      roomCode,
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      buildingName,
-                      style: const TextStyle(color: AppColors.muted, fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+              Icon(Icons.apartment_rounded, size: 16, color: AppColors.muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(buildingName, style: TextStyle(color: AppColors.muted, fontSize: 15)),
               ),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: appCardDecoration(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow(Icons.domain_rounded, 'อาคาร', buildingName),
-                    const SizedBox(height: 18),
-                    _buildInfoRow(Icons.layers_rounded, 'ชั้น', floor),
-                    const SizedBox(height: 18),
-                    _buildInfoRow(Icons.tag_rounded, 'รหัสห้อง', roomCode),
-                    if (roomType != null && roomType.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      _buildInfoRow(Icons.category_rounded, 'ประเภทห้อง', roomType),
-                    ],
-                    if (capacity != null && capacity.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      _buildInfoRow(Icons.event_seat_rounded, 'ความจุ', '$capacity ที่นั่ง'),
-                    ],
-                  ],
-                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              StatusPill(label: floorLabel(floor), icon: Icons.layers_rounded),
+              if (roomType != null && roomType.isNotEmpty)
+                StatusPill(label: roomType, icon: Icons.category_rounded),
+              if (!isMaintenance(room))
+                const StatusPill(label: 'เปิดใช้งาน', icon: Icons.check_circle_rounded)
+              else
+                const StatusPill.maintenance(),
+            ],
+          ),
+          if (isMaintenance(room)) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.warningTint,
+                borderRadius: BorderRadius.circular(14),
               ),
-              if (isMaintenance) ...[
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: appCardDecoration(color: const Color(0xFFFFF4E5)),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.build_rounded, color: Colors.orange),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้',
-                          style: TextStyle(color: AppColors.ink, height: 1.4),
-                        ),
-                      ),
-                    ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.build_rounded, color: AppColors.warning, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้',
+                      style: TextStyle(color: AppColors.ink, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SectionTitle('ข้อมูลห้อง'),
+          Container(
+            decoration: appCardDecoration(),
+            child: Column(
+              children: [
+                _InfoRow(icon: Icons.apartment_rounded, label: 'อาคาร', value: buildingName),
+                const Divider(indent: 56),
+                _InfoRow(icon: Icons.layers_rounded, label: 'ชั้น', value: floorLabel(floor)),
+                if (capacity != null && capacity.isNotEmpty) ...[
+                  const Divider(indent: 56),
+                  _InfoRow(icon: Icons.event_seat_rounded, label: 'ความจุ', value: '$capacity ที่นั่ง'),
+                ],
+              ],
+            ),
+          ),
+          if (amenities.isNotEmpty) ...[
+            const SectionTitle('สิ่งอำนวยความสะดวก'),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (amenities['seats'] != null)
+                  _AmenityChip(Icons.event_seat_rounded, '${amenities['seats']} ที่นั่ง'),
+                if (amenities['outlets'] != null)
+                  _AmenityChip(Icons.power_rounded, '${amenities['outlets']} จุดปลั๊กไฟ'),
+                if (amenities['ac'] != null)
+                  _AmenityChip(Icons.ac_unit_rounded, '${amenities['ac']} เครื่องปรับอากาศ'),
+                if (amenities['wifi'] != null) _AmenityChip(Icons.wifi_rounded, '${amenities['wifi']}'),
+              ],
+            ),
+          ],
+          if (!hasPin(room)) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: AppColors.muted),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'ห้องนี้ยังไม่มีหมุดบนแผนที่ แต่ยังเปิดดูแผนที่ชั้นนี้ได้',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13),
                   ),
                 ),
               ],
-              if (amenitiesMap.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: appCardDecoration(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'สิ่งอำนวยความสะดวก',
-                        style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          if (amenitiesMap['seats'] != null)
-                            _buildAmenityChip(Icons.event_seat_rounded, '${amenitiesMap['seats']} ที่นั่ง'),
-                          if (amenitiesMap['outlets'] != null)
-                            _buildAmenityChip(Icons.power_rounded, '${amenitiesMap['outlets']} จุดปลั๊กไฟ'),
-                          if (amenitiesMap['ac'] != null)
-                            _buildAmenityChip(Icons.ac_unit_rounded, '${amenitiesMap['ac']} เครื่องปรับอากาศ'),
-                          if (amenitiesMap['wifi'] != null)
-                            _buildAmenityChip(Icons.wifi_rounded, '${amenitiesMap['wifi']}'),
-                        ],
-                      ),
-                    ],
+            ),
+          ],
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.line)),
+          ),
+          child: Row(
+            children: [
+              if (_panoramas.isNotEmpty) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openPanorama,
+                    icon: const Icon(Icons.threesixty_rounded, size: 20),
+                    label: const Text('ภาพ 360°', maxLines: 1, softWrap: false),
                   ),
                 ),
+                const SizedBox(width: 12),
               ],
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: appCardDecoration(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.map_rounded, color: AppColors.primary, size: 20),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'ผังนำทางห้อง',
-                            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.blueTint,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'ชั้น $floor',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => MapScreen(
-                                initialBuilding: buildingName,
-                                initialFloor: floor,
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.location_on_rounded, size: 18),
-                        label: const Text('เปิดแผนที่แสดงตำแหน่งห้อง'),
-                      ),
-                    ),
-                  ],
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _openMap,
+                  icon: const Icon(Icons.location_on_rounded, size: 20),
+                  label: const Text('ดูบนแผนที่'),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.primary),
+          const SizedBox(width: 16),
+          Text(label, style: TextStyle(color: AppColors.muted, fontSize: 14)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AmenityChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _AmenityChip(this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 7),
+          Text(label, style: TextStyle(color: AppColors.ink, fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }

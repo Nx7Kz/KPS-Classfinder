@@ -1,449 +1,618 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import 'api_config.dart';
+import 'api_client.dart';
 import 'app_theme.dart';
+import 'panorama_screen.dart';
 import 'room_detail_screen.dart';
+import 'room_utils.dart';
+import 'widgets.dart';
 
+/// แผนที่ผังชั้นของอาคาร: เลือกอาคาร → เลือกชั้น → แตะหมุดเพื่อดูห้อง
+/// ถ้าเปิดจากหน้าอื่น (ส่ง initialBuilding) จะแสดงเป็นหน้าเต็มพร้อมปุ่มย้อนกลับ
+/// และถ้าส่ง focusRoom มาด้วยจะเลือก/ไฮไลต์หมุดของห้องนั้นให้ทันที
 class MapScreen extends StatefulWidget {
   final String? initialBuilding;
   final String? initialFloor;
+  final Map<String, dynamic>? focusRoom;
 
-  const MapScreen({super.key, this.initialBuilding, this.initialFloor});
+  const MapScreen({super.key, this.initialBuilding, this.initialFloor, this.focusRoom});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> {
-  static const _buildings = [
-    'อาคารเรียนรวม 3 (ศร.3)',
-    'อาคารเรียน 80 ปี',
-  ];
+  late Future<List<Map<String, dynamic>>> _buildingsFuture;
+  Future<List<Map<String, dynamic>>>? _roomsFuture;
 
-  late String _selectedBuilding;
-  String? _selectedFloor;
-  late Future<List<Map<String, dynamic>>> _roomsFuture;
+  String? _building;
+  String? _floor;
+  Object? _selectedId;
+
+  bool get _standalone => widget.initialBuilding != null;
 
   @override
   void initState() {
     super.initState();
-    _selectedBuilding = widget.initialBuilding != null && _buildings.contains(widget.initialBuilding)
-        ? widget.initialBuilding!
-        : _buildings[0];
-    _selectedFloor = widget.initialFloor;
-    _roomsFuture = _fetchRooms(_selectedBuilding);
+    _buildingsFuture = Api.buildings();
+    _floor = widget.initialFloor;
+    _selectedId = widget.focusRoom?['id'];
   }
 
-  Future<List<Map<String, dynamic>>> _fetchRooms(String building) async {
-    final url = ApiConfig.endpoint('api/building/${Uri.encodeComponent(building)}');
-    final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-    if (response.statusCode != 200) {
-      throw Exception('โหลดข้อมูลห้องไม่สำเร็จ');
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! List) {
-      throw const FormatException('รูปแบบข้อมูลไม่ถูกต้อง');
-    }
-    return decoded.map((room) => Map<String, dynamic>.from(room as Map)).toList();
+  void _retry() {
+    setState(() {
+      _buildingsFuture = Api.buildings();
+      _roomsFuture = null;
+    });
   }
 
   void _selectBuilding(String building) {
-    if (building == _selectedBuilding) return;
+    if (building == _building) return;
     setState(() {
-      _selectedBuilding = building;
-      _selectedFloor = null;
-      _roomsFuture = _fetchRooms(building);
+      _building = building;
+      _floor = null;
+      _selectedId = null;
+      _roomsFuture = Api.roomsInBuilding(building);
     });
   }
 
-  List<String> _sortedFloors(List<Map<String, dynamic>> rooms) {
-    final floors = rooms.map((room) => room['floor']?.toString() ?? '-').toSet().toList();
-    floors.sort((first, second) {
-      final firstNumber = int.tryParse(first);
-      final secondNumber = int.tryParse(second);
-      if (firstNumber != null && secondNumber != null) {
-        return firstNumber.compareTo(secondNumber);
-      }
-      if (firstNumber != null) return -1;
-      if (secondNumber != null) return 1;
-      return first.compareTo(second);
-    });
-    return floors;
+  void _reloadRooms() {
+    setState(() => _roomsFuture = Api.roomsInBuilding(_building!));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'แผนที่มหาวิทยาลัย',
-                style: TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'เลือกอาคารและชั้น แล้วแตะหมุดเพื่อดูรายละเอียดห้อง',
-                style: TextStyle(color: AppColors.muted, fontSize: 15),
-              ),
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _buildings.map(_buildBuildingChip).toList(),
-              ),
-              const SizedBox(height: 16),
-              Expanded(child: _buildBody()),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBuildingChip(String building) {
-    final selected = building == _selectedBuilding;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => _selectBuilding(building),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.line),
-        ),
-        child: Text(
-          building,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : AppColors.ink,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _roomsFuture,
+    final content = FutureBuilder<List<Map<String, dynamic>>>(
+      future: _buildingsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _retry);
 
-        if (snapshot.hasError) {
-          return _buildStatusCard(
-            icon: Icons.error_outline_rounded,
-            iconColor: Colors.redAccent,
-            tint: const Color(0xFFFFEDED),
-            title: 'เกิดข้อผิดพลาด',
-            subtitle: '${snapshot.error}',
+        final names = (snapshot.data ?? const []).map((b) => b['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
+        if (names.isEmpty) {
+          return const StateView(
+            icon: Icons.map_outlined,
+            title: 'ยังไม่มีอาคารในระบบ',
+            message: 'รอผู้ดูแลเพิ่มข้อมูลอาคารและแผนที่',
           );
         }
 
-        final rooms = snapshot.data ?? const [];
-        if (rooms.isEmpty) {
-          return _buildStatusCard(
-            icon: Icons.meeting_room_outlined,
-            iconColor: AppColors.primary,
-            tint: AppColors.blueTint,
-            title: 'ยังไม่มีข้อมูลห้องเรียน',
-            subtitle: 'ยังไม่มีห้องเรียนในอาคารนี้ในระบบ',
-          );
+        if (_building == null || !names.contains(_building)) {
+          _building = names.contains(widget.initialBuilding) ? widget.initialBuilding : names.first;
+          _roomsFuture = Api.roomsInBuilding(_building!);
         }
-
-        final floors = _sortedFloors(rooms);
-        _selectedFloor ??= floors.first;
-        final roomsOnFloor = rooms
-            .where((room) => (room['floor']?.toString() ?? '-') == _selectedFloor)
-            .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: floors.map((floor) {
-                final selected = floor == _selectedFloor;
-                return ChoiceChip(
-                  label: Text('ชั้น $floor'),
-                  selected: selected,
-                  showCheckmark: false,
-                  onSelected: (_) => setState(() => _selectedFloor = floor),
-                  selectedColor: AppColors.accent,
-                  backgroundColor: AppColors.surface,
-                  labelStyle: TextStyle(
-                    color: selected ? Colors.white : AppColors.ink,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                  side: BorderSide(color: selected ? AppColors.accent : AppColors.line),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _FloorPlanMap(
-                key: ValueKey('$_selectedBuilding-$_selectedFloor'),
-                building: _selectedBuilding,
-                floor: _selectedFloor!,
-                rooms: roomsOnFloor,
+            if (names.length > 1) ...[
+              ChipRow(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                labels: names,
+                selected: _building,
+                onSelected: _selectBuilding,
               ),
+              const SizedBox(height: 10),
+            ],
+            Expanded(child: _buildRooms()),
+          ],
+        );
+      },
+    );
+
+    if (_standalone) {
+      return Scaffold(appBar: AppBar(title: const Text('แผนที่')), body: content);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 14),
+          child: PageHeader(title: 'แผนที่', subtitle: 'เลือกอาคารและชั้น แล้วแตะหมุดเพื่อดูห้อง'),
+        ),
+        Expanded(child: content),
+      ],
+    );
+  }
+
+  Widget _buildRooms() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _roomsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _reloadRooms);
+
+        final rooms = snapshot.data ?? const [];
+        if (rooms.isEmpty) {
+          return const StateView(
+            icon: Icons.meeting_room_outlined,
+            title: 'ยังไม่มีข้อมูลห้องเรียน',
+            message: 'ยังไม่มีห้องเรียนในอาคารนี้ในระบบ',
+          );
+        }
+
+        final floors = sortFloors(rooms.map(floorOf));
+        if (_floor == null || !floors.contains(_floor)) _floor = floors.first;
+
+        final roomsOnFloor = rooms.where((room) => floorOf(room) == _floor).toList();
+        Map<String, dynamic>? selected;
+        for (final room in roomsOnFloor) {
+          if (room['id'] != null && room['id'] == _selectedId) selected = room;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (floors.length > 1) ...[
+              ChipRow(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                labels: floors.map(floorLabel).toList(),
+                selected: floorLabel(_floor!),
+                onSelected: (label) => setState(() {
+                  _floor = floors.firstWhere((f) => floorLabel(f) == label);
+                  _selectedId = null;
+                }),
+              ),
+              const SizedBox(height: 10),
+            ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _FloorPlanView(
+                  key: ValueKey('$_building|$_floor'),
+                  building: _building!,
+                  floor: _floor!,
+                  rooms: roomsOnFloor,
+                  selectedId: selected?['id'],
+                  onSelect: (room) => setState(() => _selectedId = room['id']),
+                ),
+              ),
+            ),
+            _MapFooter(
+              floor: _floor!,
+              rooms: roomsOnFloor,
+              selected: selected,
+              onPick: (room) => setState(() => _selectedId = room['id']),
             ),
           ],
         );
       },
     );
   }
+}
 
-  Widget _buildStatusCard({
-    required IconData icon,
-    required Color iconColor,
-    required Color tint,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(28),
-        decoration: appCardDecoration(color: tint),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+/// แถบใต้แผนที่: แสดงห้องที่เลือกอยู่ (พร้อมปุ่มดูรายละเอียด) หรือปุ่มเปิดรายการห้องทั้งชั้น
+class _MapFooter extends StatelessWidget {
+  final String floor;
+  final List<Map<String, dynamic>> rooms;
+  final Map<String, dynamic>? selected;
+  final ValueChanged<Map<String, dynamic>> onPick;
+
+  const _MapFooter({
+    required this.floor,
+    required this.rooms,
+    required this.selected,
+    required this.onPick,
+  });
+
+  /// only360 = true: แสดงเฉพาะห้องที่มีภาพ 360° แล้วแตะเพื่อเปิดภาพได้เลย
+  void _openList(BuildContext context, {bool only360 = false}) {
+    final shown = only360 ? rooms.where(hasPanorama).toList() : rooms;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.35,
+        builder: (_, scrollController) => ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: iconColor,
-              child: Icon(icon, color: Colors.white, size: 32),
-            ),
-            const SizedBox(height: 18),
             Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+              only360
+                  ? 'ภาพ 360° · ${floorLabel(floor)} (${shown.length} ห้อง)'
+                  : '${floorLabel(floor)} · ${rooms.length} ห้อง',
+              style: TextStyle(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            for (final room in shown)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: RoomTile(
+                  room: room,
+                  showBuilding: false,
+                  icon: only360
+                      ? Icons.threesixty_rounded
+                      : (hasPin(room) ? Icons.location_on_rounded : Icons.meeting_room_outlined),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    if (only360) {
+                      openPanorama(context, room);
+                    } else if (hasPin(room)) {
+                      onPick(room);
+                    } else {
+                      openRoom(context, room);
+                    }
+                  },
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, height: 1.5),
-            ),
           ],
         ),
       ),
     );
   }
-}
 
-/// โหลด URL รูปแผนที่ของอาคาร+ชั้นที่เลือก แล้วส่งต่อให้ _InteractiveFloorPlan วาดหมุด
-class _FloorPlanMap extends StatefulWidget {
-  final String building;
-  final String floor;
-  final List<Map<String, dynamic>> rooms;
-
-  const _FloorPlanMap({
-    super.key,
-    required this.building,
-    required this.floor,
-    required this.rooms,
-  });
-
-  @override
-  State<_FloorPlanMap> createState() => _FloorPlanMapState();
-}
-
-class _FloorPlanMapState extends State<_FloorPlanMap> {
-  late Future<_FloorPlan?> _floorPlanFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _floorPlanFuture = _loadFloorPlan();
-  }
-
-  Future<_FloorPlan?> _loadFloorPlan() async {
-    final url = ApiConfig.endpoint('api/floorplan').replace(queryParameters: {
-      'building': widget.building,
-      'floor': widget.floor,
-    });
-
-    try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) return null;
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map) return null;
-
-      final path = decoded['image']?.toString();
-      final width = double.tryParse(decoded['width'].toString());
-      final height = double.tryParse(decoded['height'].toString());
-      if (path == null || width == null || height == null || height == 0) return null;
-
-      final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
-      return _FloorPlan(
-        imageUrl: ApiConfig.endpoint(normalizedPath).toString(),
-        aspectRatio: width / height,
-      );
-    } catch (_) {
-      return null;
+  void _open360List(BuildContext context) {
+    if (!rooms.any(hasPanorama)) {
+      showAppSnack(context, 'ชั้นนี้ยังไม่มีภาพ 360°');
+      return;
     }
+    _openList(context, only360: true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_FloorPlan?>(
-      future: _floorPlanFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+    final pinned = rooms.where(hasPin).length;
+    final count360 = rooms.where(hasPanorama).length;
+    final room = selected;
+    final smallButton = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 44),
+      backgroundColor: AppColors.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+    );
 
-        final floorPlan = snapshot.data;
-        if (floorPlan == null) {
-          return Center(
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(28),
-              decoration: appCardDecoration(color: AppColors.blueTint),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: AppColors.primary,
-                    child: Icon(Icons.map_outlined, color: Colors.white, size: 32),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+      padding: const EdgeInsets.all(12),
+      decoration: appCardDecoration(color: room == null ? AppColors.fill : AppColors.tint, radius: 18),
+      child: room == null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
+                  child: Text(
+                    pinned == 0
+                        ? 'ชั้นนี้ยังไม่มีหมุดห้อง'
+                        : 'แตะหมุดบนแผนที่เพื่อดูห้อง ($pinned จาก ${rooms.length} ห้องมีหมุด)',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.35),
                   ),
-                  SizedBox(height: 18),
-                  Text(
-                    'ยังไม่มีแผนที่สำหรับชั้นนี้',
-                    style: TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: smallButton,
+                        onPressed: () => _openList(context),
+                        icon: const Icon(Icons.list_rounded, size: 18),
+                        label: const Text('รายการห้อง', maxLines: 1, softWrap: false),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          backgroundColor: count360 == 0 ? AppColors.muted : AppColors.primary,
+                        ),
+                        onPressed: () => _open360List(context),
+                        icon: const Icon(Icons.threesixty_rounded, size: 20),
+                        label: Text(
+                          count360 == 0 ? 'ภาพ 360°' : 'ภาพ 360° ($count360)',
+                          maxLines: 1,
+                          softWrap: false,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    IconBadge(Icons.location_on_rounded, size: 42, background: AppColors.surface),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            room['room_code']?.toString() ?? '-',
+                            style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            roomSummary(room) ?? floorLabel(floor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppColors.muted, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    if (hasPanorama(room)) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: smallButton,
+                          onPressed: () => openPanorama(context, room),
+                          icon: const Icon(Icons.threesixty_rounded, size: 20),
+                          label: const Text('ภาพ 360°', maxLines: 1, softWrap: false),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                        onPressed: () => openRoom(context, room),
+                        child: const Text('รายละเอียด'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          );
-        }
-
-        final pinnedRooms = widget.rooms
-            .where((room) => room['pin_x'] != null && room['pin_y'] != null)
-            .toList();
-
-        return _InteractiveFloorPlan(floorPlan: floorPlan, rooms: pinnedRooms);
-      },
     );
   }
 }
 
-class _FloorPlan {
-  final String imageUrl;
-  final double aspectRatio;
+/// โหลดรูปผังของอาคาร+ชั้น แล้ววาดหมุดตามตำแหน่ง % ของแต่ละห้อง
+class _FloorPlanView extends StatefulWidget {
+  final String building;
+  final String floor;
+  final List<Map<String, dynamic>> rooms;
+  final Object? selectedId;
+  final ValueChanged<Map<String, dynamic>> onSelect;
 
-  const _FloorPlan({required this.imageUrl, required this.aspectRatio});
+  const _FloorPlanView({
+    super.key,
+    required this.building,
+    required this.floor,
+    required this.rooms,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  @override
+  State<_FloorPlanView> createState() => _FloorPlanViewState();
 }
 
-/// แสดงรูปแผนที่แบบ pan/zoom ได้ พร้อมวาดหมุดตามตำแหน่ง % ของแต่ละห้อง
-/// ใช้ aspectRatio ที่ backend คำนวณมาให้ตรง ๆ (จากขนาดไฟล์จริง) แทนการรอวัดขนาดรูปเอง
-/// เพื่อกันปัญหาภาพยืด/ผิดสัดส่วนช่วงที่ยังโหลดรูปไม่เสร็จ
-class _InteractiveFloorPlan extends StatelessWidget {
-  final _FloorPlan floorPlan;
-  final List<Map<String, dynamic>> rooms;
+class _FloorPlanViewState extends State<_FloorPlanView> {
+  late Future<FloorPlan?> _future;
+  final TransformationController _controller = TransformationController();
 
-  const _InteractiveFloorPlan({required this.floorPlan, required this.rooms});
+  @override
+  void initState() {
+    super.initState();
+    _future = Api.floorPlan(widget.building, widget.floor);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _reload() => setState(() => _future = Api.floorPlan(widget.building, widget.floor));
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<FloorPlan?>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _reload);
+
+        final plan = snapshot.data;
+        if (plan == null) {
+          return Container(
+            decoration: appCardDecoration(color: AppColors.fill),
+            child: const StateView(
+              icon: Icons.map_outlined,
+              title: 'ยังไม่มีแผนที่สำหรับชั้นนี้',
+              message: 'ยังดูรายชื่อห้องของชั้นนี้ได้จากปุ่ม "รายการห้อง"',
+            ),
+          );
+        }
+        return _buildMap(plan);
+      },
+    );
+  }
+
+  Widget _buildMap(FloorPlan plan) {
+    final pinned = widget.rooms.where(hasPin).toList();
+    // วาดหมุดที่เลือกไว้เป็นอันสุดท้ายเพื่อให้อยู่บนสุด
+    pinned.sort((a, b) {
+      final aSel = a['id'] == widget.selectedId ? 1 : 0;
+      final bSel = b['id'] == widget.selectedId ? 1 : 0;
+      return aSel.compareTo(bSel);
+    });
+
     return Container(
       decoration: appCardDecoration(),
       clipBehavior: Clip.antiAlias,
-      // 🌟 คำนวณขนาดกล่องให้พอดีสัดส่วนภาพ "ก่อน" ส่งเข้า InteractiveViewer
-      // เพราะ InteractiveViewer จะบังคับให้ลูกของมันเต็มพื้นที่เสมอ ถ้าใส่ AspectRatio
-      // ไว้ข้างในมันจะถูกยืดจนไม่เหลือผลอะไร ต้องกำหนดขนาดที่แน่นอนมาให้ตั้งแต่นอกสุด
       child: LayoutBuilder(
         builder: (context, constraints) {
-          double width = constraints.maxWidth;
-          double height = width / floorPlan.aspectRatio;
+          // คำนวณกรอบให้พอดีสัดส่วนภาพก่อนส่งเข้า InteractiveViewer (มันบังคับให้ลูกเต็มกรอบเสมอ)
+          var width = constraints.maxWidth;
+          var height = width / plan.aspectRatio;
           if (height > constraints.maxHeight) {
             height = constraints.maxHeight;
-            width = height * floorPlan.aspectRatio;
+            width = height * plan.aspectRatio;
           }
-          final boxConstraints = BoxConstraints.tight(Size(width, height));
 
-          return Center(
-            child: SizedBox(
-              width: width,
-              height: height,
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 4,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Image.network(floorPlan.imageUrl, fit: BoxFit.fill),
+          return Stack(
+            children: [
+              Center(
+                child: SizedBox(
+                  width: width,
+                  height: height,
+                  child: InteractiveViewer(
+                    transformationController: _controller,
+                    minScale: 1,
+                    maxScale: 5,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.network(
+                            plan.imageUrl,
+                            fit: BoxFit.fill,
+                            errorBuilder: (_, _, _) => Center(
+                              child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 40),
+                            ),
+                          ),
+                        ),
+                        for (final room in pinned)
+                          _PinMarker(
+                            key: ValueKey(room['id'] ?? room['room_code']),
+                            room: room,
+                            mapSize: Size(width, height),
+                            controller: _controller,
+                            selected: room['id'] == widget.selectedId,
+                            onTap: () => widget.onSelect(room),
+                          ),
+                      ],
                     ),
-                    for (final room in rooms) _buildPin(context, room, boxConstraints),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Material(
+                  color: AppColors.surface,
+                  shape: CircleBorder(side: BorderSide(color: AppColors.line)),
+                  child: IconButton(
+                    tooltip: 'รีเซ็ตมุมมอง',
+                    iconSize: 20,
+                    color: AppColors.primary,
+                    icon: const Icon(Icons.center_focus_strong_rounded),
+                    onPressed: () => _controller.value = Matrix4.identity(),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildPin(BuildContext context, Map<String, dynamic> room, BoxConstraints constraints) {
-    final x = double.tryParse(room['pin_x'].toString()) ?? 0;
-    final y = double.tryParse(room['pin_y'].toString()) ?? 0;
-    final isMaintenance = room['status']?.toString() == 'maintenance';
-    const size = 20.0;
+/// หมุดห้อง: ขนาดคงที่บนหน้าจอแม้ซูมแผนที่ (ชดเชยด้วย 1/scale) และไฮไลต์ + ป้ายชื่อเมื่อถูกเลือก
+class _PinMarker extends StatelessWidget {
+  final Map<String, dynamic> room;
+  final Size mapSize;
+  final TransformationController controller;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PinMarker({
+    super.key,
+    required this.room,
+    required this.mapSize,
+    required this.controller,
+    required this.selected,
+    required this.onTap,
+  });
+
+  static const _hitSize = 44.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final x = double.tryParse('${room['pin_x']}') ?? 0;
+    final y = double.tryParse('${room['pin_y']}') ?? 0;
+    final maintenance = isMaintenance(room);
+    final dotSize = selected ? 26.0 : 18.0;
+    final color = maintenance ? AppColors.muted : (selected ? AppColors.primaryDark : AppColors.primary);
 
     return Positioned(
-      left: constraints.maxWidth * (x / 100) - size / 2,
-      top: constraints.maxHeight * (y / 100) - size / 2,
-      child: GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room)),
-          );
-        },
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isMaintenance ? AppColors.muted : AppColors.accent,
-            border: Border.all(color: Colors.white, width: 2.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 2)),
+      left: mapSize.width * (x / 100) - _hitSize / 2,
+      top: mapSize.height * (y / 100) - _hitSize / 2,
+      width: _hitSize,
+      height: _hitSize,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (_, child) => Transform.scale(
+          scale: 1 / controller.value.getMaxScaleOnAxis(),
+          child: child,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              if (selected)
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18)),
+                ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: dotSize,
+                height: dotSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
+                ),
+                child: maintenance ? Icon(Icons.build_rounded, size: 10, color: AppColors.background) : null,
+              ),
+              // ป้าย 360° เล็ก ๆ มุมหมุด บอกว่าห้องนี้มีภาพพาโนรามา
+              if (hasPanorama(room))
+                Positioned(
+                  top: selected ? 3 : 6,
+                  right: selected ? 3 : 6,
+                  child: Container(
+                    width: 15,
+                    height: 15,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.primary, width: 1.2),
+                    ),
+                    child: Icon(Icons.threesixty_rounded, size: 10, color: AppColors.primary),
+                  ),
+                ),
+              if (selected)
+                Positioned(
+                  bottom: _hitSize / 2 + 12,
+                  left: -60,
+                  right: -60,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.ink,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        room['room_code']?.toString() ?? '',
+                        maxLines: 1,
+                        style: TextStyle(color: AppColors.background, fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
-          child: isMaintenance
-              ? const Icon(Icons.build_rounded, size: 10, color: Colors.white)
-              : null,
         ),
       ),
     );

@@ -1,11 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import 'api_config.dart';
+import 'api_client.dart';
 import 'app_theme.dart';
 import 'room_list_screen.dart';
+import 'widgets.dart';
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -22,28 +20,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
   @override
   void initState() {
     super.initState();
-    _buildingsFuture = _fetchBuildings();
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchBuildings() async {
-    final url = ApiConfig.endpoint('api/buildings');
-    final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-    if (response.statusCode != 200) {
-      throw Exception('โหลดข้อมูลอาคารไม่สำเร็จ');
-    }
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! List) {
-      throw const FormatException('รูปแบบข้อมูลอาคารไม่ถูกต้อง');
-    }
-    return decoded.map((b) => Map<String, dynamic>.from(b as Map)).toList();
-  }
-
-  Future<void> _refresh() async {
-    final future = _fetchBuildings();
-    setState(() => _buildingsFuture = future);
-    await future;
+    _buildingsFuture = Api.buildings();
   }
 
   @override
@@ -52,56 +29,33 @@ class _PlacesScreenState extends State<PlacesScreen> {
     super.dispose();
   }
 
+  Future<void> _refresh() async {
+    final future = Api.buildings();
+    setState(() => _buildingsFuture = future);
+    try {
+      await future;
+    } catch (_) {
+      // ข้อผิดพลาดแสดงในหน้าจออยู่แล้ว
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'เลือกอาคารเรียน',
-                style: TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'เลือกอาคารเพื่อดูรายการห้องเรียนทั้งหมด',
-                style: TextStyle(color: AppColors.muted, fontSize: 15),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.line),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x120F172A), blurRadius: 16, offset: Offset(0, 6)),
-                  ],
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-                  style: const TextStyle(color: AppColors.ink),
-                  decoration: const InputDecoration(
-                    hintText: 'ค้นหาชื่อตึก รหัสอาคาร เช่น LH3',
-                    hintStyle: TextStyle(color: AppColors.muted, fontSize: 14),
-                    prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(child: _buildBody()),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const PageHeader(title: 'อาคารเรียน', subtitle: 'เลือกอาคารเพื่อดูห้องเรียนทั้งหมด'),
+          const SizedBox(height: 16),
+          AppSearchField(
+            controller: _searchController,
+            hint: 'ค้นหาชื่ออาคาร หรือรหัส เช่น LH3',
+            onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
           ),
-        ),
+          const SizedBox(height: 16),
+          Expanded(child: _buildBody()),
+        ],
       ),
     );
   }
@@ -110,21 +64,19 @@ class _PlacesScreenState extends State<PlacesScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _buildingsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
 
-        if (snapshot.hasError) {
-          return _buildStatusCard(
-            icon: Icons.error_outline_rounded,
-            iconColor: Colors.redAccent,
-            tint: const Color(0xFFFFEDED),
-            title: 'เกิดข้อผิดพลาด',
-            subtitle: '${snapshot.error}',
+        if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _refresh);
+
+        final buildings = snapshot.data ?? const [];
+        if (buildings.isEmpty) {
+          return const StateView(
+            icon: Icons.apartment_outlined,
+            title: 'ยังไม่มีอาคารในระบบ',
+            message: 'รอผู้ดูแลเพิ่มข้อมูลอาคาร',
           );
         }
 
-        final buildings = snapshot.data ?? const [];
         final visible = buildings.where((b) {
           if (_query.isEmpty) return true;
           final name = (b['name']?.toString() ?? '').toLowerCase();
@@ -132,41 +84,36 @@ class _PlacesScreenState extends State<PlacesScreen> {
           return name.contains(_query) || code.contains(_query);
         }).toList();
 
-        if (buildings.isEmpty) {
-          return _buildStatusCard(
-            icon: Icons.domain_outlined,
-            iconColor: AppColors.primary,
-            tint: AppColors.blueTint,
-            title: 'ยังไม่มีอาคารในระบบ',
-            subtitle: 'รอแอดมินเพิ่มข้อมูลอาคาร',
-          );
-        }
-
         if (visible.isEmpty) {
-          return _buildStatusCard(
+          return const StateView(
             icon: Icons.search_off_rounded,
-            iconColor: AppColors.muted,
-            tint: AppColors.blueTint,
             title: 'ไม่พบอาคารที่ค้นหา',
-            subtitle: 'ลองค้นหาด้วยชื่ออื่นหรือรหัสอาคาร',
+            message: 'ลองค้นหาด้วยชื่ออื่นหรือรหัสอาคาร',
           );
         }
 
         return RefreshIndicator(
-          color: AppColors.primary,
           onRefresh: _refresh,
           child: ListView.separated(
-            padding: const EdgeInsets.only(bottom: 20),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
             itemCount: visible.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 16),
-            itemBuilder: (context, index) => _buildBuildingCard(context, visible[index]),
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => _BuildingCard(building: visible[index]),
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildBuildingCard(BuildContext context, Map<String, dynamic> building) {
+class _BuildingCard extends StatelessWidget {
+  final Map<String, dynamic> building;
+
+  const _BuildingCard({required this.building});
+
+  @override
+  Widget build(BuildContext context) {
     final code = building['code']?.toString() ?? '-';
     final name = building['name']?.toString() ?? '-';
     final description = building['description']?.toString();
@@ -174,134 +121,98 @@ class _PlacesScreenState extends State<PlacesScreen> {
     final floorCount = building['floor_count']?.toString() ?? '0';
     final roomCount = building['room_count']?.toString() ?? '0';
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: appCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.blueTint,
-              borderRadius: BorderRadius.circular(6),
-              border: const Border(left: BorderSide(color: AppColors.primary, width: 3)),
-            ),
-            child: Text(
-              '[ $code ]',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                fontFamily: 'monospace',
-                color: AppColors.primary,
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name)),
+        ),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: appCardDecoration(radius: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const IconBadge(Icons.apartment_rounded, size: 48),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          code,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                        Text(
+                          name,
+                          style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            name,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.ink),
-          ),
-          if (description != null && description.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(description, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
-          ],
-          if (location != null && location.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.place_outlined, size: 14, color: AppColors.muted),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(location, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+              if (description != null && description.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(description, style: TextStyle(color: AppColors.muted, fontSize: 13.5, height: 1.4)),
+              ],
+              if (location != null && location.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.place_outlined, size: 15, color: AppColors.muted),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(location, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _buildStatChip(Icons.layers_outlined, '$floorCount ชั้น'),
-              const SizedBox(width: 10),
-              _buildStatChip(Icons.meeting_room_outlined, '$roomCount ห้อง'),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _StatChip(icon: Icons.layers_outlined, label: '$floorCount ชั้น'),
+                  _StatChip(icon: Icons.meeting_room_outlined, label: '$roomCount ห้อง'),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => RoomListScreen(buildingName: name)),
-                );
-              },
-              child: const Text('เลือกอาคารนี้'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildStatChip(IconData icon, String label) {
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _StatChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.line),
-      ),
+      decoration: BoxDecoration(color: AppColors.fill, borderRadius: BorderRadius.circular(999)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppColors.muted),
+          Icon(icon, size: 14, color: AppColors.primary),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(color: AppColors.ink, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: AppColors.ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatusCard({
-    required IconData icon,
-    required Color iconColor,
-    required Color tint,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(28),
-        decoration: appCardDecoration(color: tint),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: iconColor,
-              child: Icon(icon, color: Colors.white, size: 32),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: const TextStyle(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w700),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, height: 1.5),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// เก็บ "รายการโปรด" และ "ห้องที่ค้นหา/ดูล่าสุด" แบบถาวรในเครื่อง
@@ -26,9 +27,13 @@ class RoomStore {
     }
   }
 
+  /// เพิ่มค่าทุกครั้งที่รายการโปรด/ประวัติเปลี่ยน ให้หน้าที่แสดงรายการฟังแล้วโหลดใหม่
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
   static Future<void> _save(String key, List<Map<String, dynamic>> rooms) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, jsonEncode(rooms));
+    revision.value++;
   }
 
   static Future<List<Map<String, dynamic>>> loadFavorites() => _load(_favoritesKey);
@@ -68,4 +73,6 @@ class RoomStore {
   }
 
   static Future<void> clearRecents() => _save(_recentsKey, const []);
+
+  static Future<void> clearFavorites() => _save(_favoritesKey, const []);
 }

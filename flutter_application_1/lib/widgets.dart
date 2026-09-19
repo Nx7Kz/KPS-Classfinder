@@ -1,0 +1,424 @@
+import 'package:flutter/material.dart';
+
+import 'api_client.dart';
+import 'app_theme.dart';
+import 'room_utils.dart';
+
+/// หัวข้อใหญ่ของแต่ละแท็บ
+class PageHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+
+  const PageHeader({super.key, required this.title, this.subtitle, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(subtitle!, style: TextStyle(color: AppColors.muted, fontSize: 14, height: 1.4)),
+              ],
+            ],
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+class SectionTitle extends StatelessWidget {
+  final String title;
+  final Widget? trailing;
+
+  const SectionTitle(this.title, {super.key, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// ช่องค้นหาแบบพื้นเทาอ่อนมุมมน
+class AppSearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final FocusNode? focusNode;
+  final bool autofocus;
+
+  const AppSearchField({
+    super.key,
+    required this.controller,
+    required this.hint,
+    this.onChanged,
+    this.onSubmitted,
+    this.focusNode,
+    this.autofocus = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: TextInputAction.search,
+      style: TextStyle(color: AppColors.ink, fontSize: 16),
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+      decoration: InputDecoration(
+        hintText: hint,
+        prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (_, value, _) {
+            if (value.text.isEmpty) return const SizedBox.shrink();
+            return IconButton(
+              tooltip: 'ล้างคำค้นหา',
+              icon: Icon(Icons.close_rounded, color: AppColors.muted),
+              onPressed: () {
+                controller.clear();
+                onChanged?.call('');
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// ไอคอนในกรอบสี่เหลี่ยมมนพื้นเขียวอ่อน
+class IconBadge extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final Color? background;
+  final Color? color;
+
+  const IconBadge(
+    this.icon, {
+    super.key,
+    this.size = 44,
+    this.background,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: background ?? AppColors.tint,
+        borderRadius: BorderRadius.circular(size * 0.3),
+      ),
+      child: Icon(icon, color: color ?? AppColors.primary, size: size * 0.5),
+    );
+  }
+}
+
+/// ป้ายสถานะเล็ก ๆ เช่น "ปิดปรับปรุง"
+class StatusPill extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool _warning;
+
+  const StatusPill({super.key, required this.label, this.icon}) : _warning = false;
+
+  const StatusPill.maintenance({super.key})
+      : label = 'ปิดปรับปรุง',
+        icon = Icons.build_rounded,
+        _warning = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _warning ? AppColors.warning : AppColors.primary;
+    final background = _warning ? AppColors.warningTint : AppColors.tint;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(999)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[Icon(icon, size: 12, color: color), const SizedBox(width: 4)],
+          Text(label, style: TextStyle(color: color, fontSize: 11.5, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+/// แถวห้องเรียนมาตรฐาน ใช้ในผลค้นหา / รายการห้อง / รายการโปรด
+class RoomTile extends StatelessWidget {
+  final Map<String, dynamic> room;
+  final VoidCallback onTap;
+  final bool showBuilding;
+  final Widget? trailing;
+  final IconData icon;
+
+  const RoomTile({
+    super.key,
+    required this.room,
+    required this.onTap,
+    this.showBuilding = true,
+    this.trailing,
+    this.icon = Icons.meeting_room_rounded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final code = room['room_code']?.toString() ?? '-';
+    final where = [
+      if (showBuilding) room['building_name']?.toString() ?? '-',
+      floorLabel(floorOf(room)),
+    ].join(' · ');
+    final summary = roomSummary(room);
+
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: appCardDecoration(),
+          child: Row(
+            children: [
+              IconBadge(icon),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            code,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        if (hasPanorama(room)) ...[
+                          const SizedBox(width: 8),
+                          const StatusPill(label: '360°', icon: Icons.threesixty_rounded),
+                        ],
+                        if (isMaintenance(room)) ...[const SizedBox(width: 8), const StatusPill.maintenance()],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      where,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    if (summary != null)
+                      Text(
+                        summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                      ),
+                  ],
+                ),
+              ),
+              trailing ?? Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// หน้าจอสถานะกลางจอ: ว่าง / ผิดพลาด (มีปุ่มลองใหม่)
+class StateView extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final bool isError;
+
+  const StateView({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.message,
+    this.actionLabel,
+    this.onAction,
+    this.isError = false,
+  });
+
+  factory StateView.error(Object error, {VoidCallback? onRetry}) {
+    final connection = error is ApiException && error.isConnection;
+    return StateView(
+      icon: connection ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+      title: connection ? 'เชื่อมต่อไม่ได้' : 'เกิดข้อผิดพลาด',
+      message: error is ApiException ? error.message : 'ไม่สามารถโหลดข้อมูลได้ ลองใหม่อีกครั้ง',
+      actionLabel: onRetry == null ? null : 'ลองอีกครั้ง',
+      onAction: onRetry,
+      isError: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconBadge(
+              icon,
+              size: 64,
+              background: isError ? AppColors.dangerTint : AppColors.tint,
+              color: isError ? AppColors.danger : AppColors.primary,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            if (message != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                message!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.muted, height: 1.5),
+              ),
+            ],
+            if (actionLabel != null) ...[
+              const SizedBox(height: 20),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(minimumSize: const Size(140, 46)),
+                onPressed: onAction,
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LoadingView extends StatelessWidget {
+  const LoadingView({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Center(child: CircularProgressIndicator(strokeWidth: 3));
+}
+
+/// แถบชิปเลื่อนแนวนอน (เลือกอาคาร / ชั้น)
+class ChipRow extends StatelessWidget {
+  final List<String> labels;
+  final String? selected;
+  final ValueChanged<String> onSelected;
+  final EdgeInsetsGeometry padding;
+
+  const ChipRow({
+    super.key,
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+    this.padding = EdgeInsets.zero,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: padding,
+        itemCount: labels.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final label = labels[index];
+          final isSelected = label == selected;
+          return ChoiceChip(
+            label: Text(label),
+            selected: isSelected,
+            labelStyle: TextStyle(
+              color: isSelected ? AppColors.onPrimary : AppColors.ink,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+            onSelected: (_) => onSelected(label),
+          );
+        },
+      ),
+    );
+  }
+}
+
+Future<bool> confirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'ยืนยัน',
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(title),
+      content: Text(message, style: TextStyle(color: AppColors.muted, height: 1.5)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text('ยกเลิก', style: TextStyle(color: AppColors.muted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(confirmLabel, style: TextStyle(color: AppColors.danger)),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+void showAppSnack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 2)));
+}
