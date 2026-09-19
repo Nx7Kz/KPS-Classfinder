@@ -8,6 +8,10 @@ services:
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: admin1234
       SESSION_SECRET: change-this-session-secret
+    volumes:
+      # เก็บไฟล์ที่อัปโหลดจากแดชบอร์ดไว้ในเครื่อง ไม่หายเมื่อ build/สร้าง container ใหม่
+      - ./public/panoramas:/app/public/panoramas
+      - ./public/floorplans:/app/public/floorplans
     depends_on:
       - db
   db:

@@ -78,12 +78,12 @@
   <div id="dashboardSection" class="app-shell d-none">
     <aside class="sidebar">
       <div class="sidebar-brand">KPS ClassFinder<br><span class="fw-normal text-secondary" style="font-size:.75rem;">Admin Console</span></div>
-      <nav class="sidebar-nav d-flex flex-column gap-1 flex-grow-1">
+      <nav class="sidebar-nav d-flex flex-row flex-md-column gap-1 flex-grow-1">
         <a class="nav-link active" data-page="overview" onclick="showPage('overview')">📊 Overview</a>
         <a class="nav-link" data-page="buildings-rooms" onclick="showPage('buildings-rooms')">🏢 Buildings &amp; Rooms</a>
-        <a class="nav-link disabled" aria-disabled="true">🖼️ 360 Panorama Editor <span class="badge badge-soon ms-auto">เร็ว ๆ นี้</span></a>
-        <a class="nav-link disabled" aria-disabled="true">🗓️ Schedule &amp; Bookings <span class="badge badge-soon ms-auto">เร็ว ๆ นี้</span></a>
-        <a class="nav-link disabled" aria-disabled="true">📜 System Logs <span class="badge badge-soon ms-auto">เร็ว ๆ นี้</span></a>
+        <a class="nav-link" data-page="floor-plans" onclick="showPage('floor-plans')">🗺️ Floor Plans</a>
+        <a class="nav-link" data-page="panoramas" onclick="showPage('panoramas')">🖼️ 360 Panorama Editor</a>
+        <a class="nav-link" data-page="logs" onclick="showPage('logs')">📜 System Logs</a>
         <a class="nav-link" data-page="settings" onclick="showPage('settings')">⚙️ Settings</a>
       </nav>
       <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-sm mt-3" onclick="logout()">ออกจากระบบ</button>
@@ -120,21 +120,30 @@
                 <div class="card-body">
                   <div class="stat-label">ห้องที่มีภาพพาโนรามา 360°</div>
                   <div class="stat-value" id="statPanoramaCount">-</div>
-                  <div class="text-secondary small" id="statPanoramaPercent">ยังไม่เปิดใช้งาน</div>
+                  <div class="text-secondary small" id="statPanoramaPercent">-</div>
                 </div>
               </div>
             </div>
             <div class="col-6 col-lg-3">
               <div class="card stat-card h-100">
                 <div class="card-body">
-                  <div class="stat-label">การเข้าชมวันนี้</div>
-                  <div class="stat-value" id="statVisitsToday">-</div>
-                  <div class="text-secondary small">ยังไม่เปิดใช้งาน</div>
+                  <div class="stat-label">ห้องที่ปักหมุดบนแผนที่แล้ว</div>
+                  <div class="stat-value" id="statPinnedCount">-</div>
+                  <div class="text-secondary small" id="statPinnedPercent">-</div>
                 </div>
               </div>
             </div>
           </div>
-          <p class="text-secondary small">ไปที่เมนู "Buildings &amp; Rooms" ด้านซ้ายเพื่อจัดการข้อมูลอาคารและห้องเรียน</p>
+
+          <div class="card building-card">
+            <div class="card-header d-flex justify-content-between align-items-center p-3">
+              <h2 class="h6 mb-0">กิจกรรมล่าสุด</h2>
+              <button class="btn btn-sm btn-outline-secondary" type="button" onclick="showPage('logs')">ดูทั้งหมด</button>
+            </div>
+            <ul class="list-group list-group-flush" id="recentActivityList">
+              <li class="list-group-item text-secondary small">กำลังโหลด...</li>
+            </ul>
+          </div>
         </section>
 
         <!-- ============ PAGE: Buildings & Rooms ============ -->
@@ -164,16 +173,18 @@
 
           <section class="toolbar p-3 p-md-4 mb-4">
             <div class="row g-3 align-items-end">
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-3">
                 <label for="buildingSelect" class="form-label fw-semibold">อาคาร</label>
                 <select id="buildingSelect" class="form-select" onchange="fetchRooms()"></select>
               </div>
-              <div class="col-12 col-md-5">
+              <div class="col-12 col-md-4">
                 <label for="roomFilter" class="form-label fw-semibold">ค้นหาห้อง</label>
                 <input id="roomFilter" class="form-control" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง" oninput="renderRooms()">
               </div>
-              <div class="col-12 col-md-3 d-grid">
+              <div class="col-12 col-md-5 d-flex flex-wrap gap-2 justify-content-md-end">
                 <button class="btn btn-primary" type="button" onclick="openCreateModal()">+ เพิ่มห้องเรียน</button>
+                <button class="btn btn-outline-secondary" type="button" id="exportCsvButton" title="ส่งออกห้องเรียนของทุกอาคาร" onclick="exportRoomsCsv()">⬇ ส่งออก CSV</button>
+                <button class="btn btn-outline-secondary" type="button" onclick="openImportCsvModal()">⬆ นำเข้า CSV</button>
               </div>
             </div>
           </section>
@@ -186,11 +197,19 @@
               </div>
               <span id="roomCount" class="badge text-bg-light border">0 ห้อง</span>
             </div>
+            <div id="bulkBar" class="d-none justify-content-between align-items-center gap-2 flex-wrap px-3 px-md-4 py-2 bg-danger-subtle border-bottom">
+              <span class="small fw-semibold" id="bulkCount"></span>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearRoomSelection()">ยกเลิกการเลือก</button>
+                <button type="button" id="bulkDeleteButton" class="btn btn-sm btn-danger" onclick="deleteSelectedRooms()">ลบที่เลือก</button>
+              </div>
+            </div>
             <div class="card-body p-0">
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                   <thead class="table-light">
                     <tr>
+                      <th scope="col" style="width:44px;"><input type="checkbox" class="form-check-input" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)"></th>
                       <th scope="col">ชื่อ / รหัสห้อง</th>
                       <th scope="col">ชั้น</th>
                       <th scope="col">ประเภท / ความจุ</th>
@@ -206,17 +225,156 @@
           </section>
         </section>
 
+        <!-- ============ PAGE: Floor Plans ============ -->
+        <section id="page-floor-plans" class="page-section d-none">
+          <section class="toolbar p-3 p-md-4 mb-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-md-5">
+                <label for="fpBuildingSelect" class="form-label fw-semibold">อาคาร</label>
+                <select id="fpBuildingSelect" class="form-select" onchange="loadFloorPlans()"></select>
+              </div>
+              <div class="col-12 col-md-7 d-flex justify-content-md-end">
+                <button class="btn btn-primary" type="button" id="fpAddButton" onclick="openFloorPlanModal()">+ เพิ่มแผนผังชั้น</button>
+              </div>
+            </div>
+          </section>
+          <p class="text-secondary small">แผนผังชั้นใช้ทั้งตอนปักหมุดห้อง (เมนู Buildings &amp; Rooms) และแสดงเป็นแผนที่ในแอปมือถือ ชื่อ "ชั้น" ต้องตรงกับค่าชั้นของห้อง เช่น 1, 2, 3</p>
+          <div id="floorPlanGrid" class="row g-3"></div>
+        </section>
+
+        <!-- ============ PAGE: 360 Panorama Editor ============ -->
+        <section id="page-panoramas" class="page-section d-none">
+          <section class="toolbar p-3 p-md-4 mb-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-md-4">
+                <label for="panoBuildingSelect" class="form-label fw-semibold">อาคาร</label>
+                <select id="panoBuildingSelect" class="form-select" onchange="loadPanoRooms()"></select>
+              </div>
+              <div class="col-12 col-md-5">
+                <label for="panoRoomSelect" class="form-label fw-semibold">ห้อง</label>
+                <select id="panoRoomSelect" class="form-select" onchange="loadPanoramas()"></select>
+              </div>
+              <div class="col-12 col-md-3 d-grid">
+                <button class="btn btn-primary" type="button" id="panoUploadButton" onclick="openPanoUploadModal()" disabled>+ เพิ่มภาพ 360°</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card room-card">
+            <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
+              <div>
+                <h1 class="h5 mb-1">ภาพพาโนรามา 360°</h1>
+                <p class="text-secondary mb-0 small" id="panoRoomSummary">เลือกห้องเพื่อจัดการภาพ</p>
+              </div>
+              <span id="panoCount" class="badge text-bg-light border">0 ภาพ</span>
+            </div>
+            <div class="card-body">
+              <div id="panoGrid" class="row g-3"></div>
+            </div>
+          </section>
+        </section>
+
+        <!-- ============ PAGE: System Logs ============ -->
+        <section id="page-logs" class="page-section d-none">
+          <section class="toolbar p-3 p-md-4 mb-4">
+            <div class="row g-3 align-items-end">
+              <div class="col-6 col-md-3">
+                <label for="logEntity" class="form-label fw-semibold">ประเภทข้อมูล</label>
+                <select id="logEntity" class="form-select" onchange="loadLogs(0)">
+                  <option value="">ทั้งหมด</option>
+                  <option value="session">การเข้าสู่ระบบ</option>
+                  <option value="room">ห้องเรียน</option>
+                  <option value="building">อาคาร</option>
+                  <option value="floor_plan">แผนผังชั้น</option>
+                  <option value="panorama">ภาพ 360°</option>
+                  <option value="hotspot">จุดเชื่อม</option>
+                  <option value="admin">บัญชีผู้ดูแล</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label for="logAction" class="form-label fw-semibold">การกระทำ</label>
+                <select id="logAction" class="form-select" onchange="loadLogs(0)">
+                  <option value="">ทั้งหมด</option>
+                  <option value="login">เข้าสู่ระบบ</option>
+                  <option value="login_failed">เข้าสู่ระบบไม่สำเร็จ</option>
+                  <option value="logout">ออกจากระบบ</option>
+                  <option value="create">เพิ่ม</option>
+                  <option value="update">แก้ไข</option>
+                  <option value="delete">ลบ</option>
+                  <option value="upload">อัปโหลด</option>
+                  <option value="import">นำเข้า CSV</option>
+                  <option value="export">ส่งออก CSV</option>
+                  <option value="change_password">เปลี่ยนรหัสผ่าน</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-4">
+                <label for="logSearch" class="form-label fw-semibold">ค้นหา</label>
+                <input id="logSearch" class="form-control" type="search" placeholder="ค้นในรายละเอียดหรือชื่อผู้ใช้" oninput="debounceLogSearch()">
+              </div>
+              <div class="col-12 col-md-2 d-grid">
+                <button class="btn btn-outline-secondary" type="button" onclick="loadLogs(logOffset)">รีเฟรช</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card room-card">
+            <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
+              <h1 class="h5 mb-0">บันทึกกิจกรรมของผู้ดูแลระบบ</h1>
+              <span id="logTotal" class="badge text-bg-light border">0 รายการ</span>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th scope="col">เวลา</th>
+                      <th scope="col">การกระทำ</th>
+                      <th scope="col">ข้อมูล</th>
+                      <th scope="col">รายละเอียด</th>
+                      <th scope="col">ผู้ใช้</th>
+                      <th scope="col">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+              <span class="small text-secondary" id="logRange"></span>
+              <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="logPrev" onclick="loadLogs(logOffset - LOG_PAGE_SIZE)">‹ ก่อนหน้า</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="logNext" onclick="loadLogs(logOffset + LOG_PAGE_SIZE)">ถัดไป ›</button>
+              </div>
+            </div>
+          </section>
+        </section>
+
         <!-- ============ PAGE: Settings ============ -->
         <section id="page-settings" class="page-section d-none">
-          <div class="card building-card">
+          <div class="card building-card mb-4">
             <div class="card-body p-4">
               <h2 class="h6 mb-3">บัญชีผู้ดูแลระบบ</h2>
-              <p class="text-secondary small mb-1">ชื่อผู้ใช้ปัจจุบัน: <strong id="settingsUsername">-</strong></p>
-              <p class="text-secondary small mb-0">
-                การเปลี่ยนรหัสผ่านทำได้โดยตั้งค่าตัวแปรแวดล้อม <code>ADMIN_PASSWORD</code> หรือ <code>ADMIN_PASSWORD_HASH</code>
-                ใน <code>docker-compose.yml</code> แล้วรีสตาร์ท backend
-              </p>
+              <p class="text-secondary small mb-0">ชื่อผู้ใช้ปัจจุบัน: <strong id="settingsUsername">-</strong></p>
             </div>
+          </div>
+
+          <div class="card building-card" style="max-width:520px;">
+            <form class="card-body p-4" id="passwordForm" onsubmit="changePassword(event)">
+              <h2 class="h6 mb-3">เปลี่ยนรหัสผ่าน</h2>
+              <div class="mb-3">
+                <label for="currentPassword" class="form-label">รหัสผ่านปัจจุบัน</label>
+                <input id="currentPassword" type="password" class="form-control" required autocomplete="current-password">
+              </div>
+              <div class="mb-3">
+                <label for="newPassword" class="form-label">รหัสผ่านใหม่ <span class="text-secondary small">(อย่างน้อย 8 ตัวอักษร)</span></label>
+                <input id="newPassword" type="password" class="form-control" required minlength="8" autocomplete="new-password">
+              </div>
+              <div class="mb-3">
+                <label for="confirmPassword" class="form-label">ยืนยันรหัสผ่านใหม่</label>
+                <input id="confirmPassword" type="password" class="form-control" required minlength="8" autocomplete="new-password">
+              </div>
+              <button id="passwordSaveButton" type="submit" class="btn btn-primary">บันทึกรหัสผ่านใหม่</button>
+            </form>
           </div>
         </section>
       </div>
@@ -253,7 +411,20 @@
             </div>
             <div class="col-12 col-md-6">
               <label for="roomType" class="form-label">ประเภทห้อง</label>
-              <input id="roomType" class="form-control" maxlength="50" placeholder="เช่น ห้องบรรยาย, Lab, ห้องประชุม">
+              <select id="roomType" class="form-select">
+                <option value="">ไม่ระบุ</option>
+                <option value="ห้องบรรยาย">ห้องบรรยาย</option>
+                <option value="ห้องปฏิบัติการ (Lab)">ห้องปฏิบัติการ (Lab)</option>
+                <option value="ห้องคอมพิวเตอร์">ห้องคอมพิวเตอร์</option>
+                <option value="ห้องประชุม">ห้องประชุม</option>
+                <option value="ห้องสัมมนา">ห้องสัมมนา</option>
+                <option value="ห้องสมุด / ห้องอ่านหนังสือ">ห้องสมุด / ห้องอ่านหนังสือ</option>
+                <option value="ห้องสำนักงาน">ห้องสำนักงาน</option>
+                <option value="ร้านค้า / โรงอาหาร">ร้านค้า / โรงอาหาร</option>
+                <option value="ห้องน้ำ">ห้องน้ำ</option>
+                <option value="__other__">อื่นๆ (ระบุเอง)</option>
+              </select>
+              <input id="roomTypeOther" class="form-control mt-2 d-none" maxlength="50" placeholder="ระบุประเภทห้อง">
             </div>
             <div class="col-12 col-md-6">
               <label for="roomCapacity" class="form-label">ความจุ (ที่นั่ง)</label>
@@ -346,6 +517,145 @@
     </div>
   </div>
 
+  <!-- ============ Modal: Floor plan ============ -->
+  <div class="modal fade" id="floorPlanModal" tabindex="-1" aria-labelledby="floorPlanModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="saveFloorPlan(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="floorPlanModalTitle">เพิ่มแผนผังชั้น</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input id="fpId" type="hidden">
+          <p class="small text-secondary mb-3">อาคาร: <strong id="fpModalBuilding"></strong></p>
+          <div class="mb-3">
+            <label for="fpFloor" class="form-label">ชั้น</label>
+            <input id="fpFloor" class="form-control" list="fpFloorOptions" maxlength="50" required autocomplete="off" placeholder="เช่น 1, 2, 3">
+            <datalist id="fpFloorOptions"></datalist>
+          </div>
+          <div class="mb-3">
+            <label for="fpImage" class="form-label">รูปแผนผัง <span class="text-secondary small">(PNG / JPG / WebP ไม่เกิน 10 MB)</span></label>
+            <input id="fpImage" type="file" class="form-control" accept="image/png,image/jpeg,image/webp" required onchange="previewSelectedImage(this, 'fpPreview')">
+            <img id="fpPreview" class="img-fluid rounded border mt-2 d-none" alt="ตัวอย่างแผนผัง">
+          </div>
+          <div id="fpReplaceWarning" class="alert alert-warning small d-none mb-0">
+            ตำแหน่งหมุดของห้องเก็บเป็นเปอร์เซ็นต์ของรูป ถ้ารูปใหม่มีสัดส่วนหรือผังต่างจากเดิม หมุดเดิมอาจไม่ตรงตำแหน่ง ควรตรวจสอบหมุดหลังเปลี่ยนรูป
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="fpSaveButton" type="submit" class="btn btn-primary">อัปโหลด</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: Upload panorama ============ -->
+  <div class="modal fade" id="panoUploadModal" tabindex="-1" aria-labelledby="panoUploadModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="uploadPanorama(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="panoUploadModalTitle">เพิ่มภาพ 360°</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-secondary mb-3">ห้อง: <strong id="panoUploadRoom"></strong></p>
+          <div class="mb-3" id="panoFileGroup">
+            <label for="panoImage" class="form-label">ไฟล์ภาพ 360° <span class="text-secondary small">(equirectangular อัตราส่วน 2:1, ไม่เกิน 20 MB)</span></label>
+            <input id="panoImage" type="file" class="form-control" accept="image/png,image/jpeg,image/webp" required onchange="previewSelectedImage(this, 'panoPreview')">
+            <img id="panoPreview" class="img-fluid rounded border mt-2 d-none" alt="ตัวอย่างภาพ">
+          </div>
+          <div class="mb-3">
+            <label for="panoLabel" class="form-label">ป้ายชื่อตำแหน่ง (ไม่บังคับ)</label>
+            <input id="panoLabel" class="form-control" maxlength="100" placeholder="เช่น หน้าห้อง, มุมกระดาน">
+          </div>
+          <div class="mb-0">
+            <label for="panoSortOrder" class="form-label">ลำดับการแสดง</label>
+            <input id="panoSortOrder" type="number" class="form-control" value="0">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="panoUploadSave" type="submit" class="btn btn-primary">อัปโหลด</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: Hotspot editor ============ -->
+  <div class="modal fade" id="hotspotModal" tabindex="-1" aria-labelledby="hotspotModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="hotspotModalTitle">จัดการจุดเชื่อม</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-secondary mb-2">คลิกบนรูปเพื่อวางจุดเชื่อมใหม่ (ระบบแปลงตำแหน่งเป็นมุม yaw/pitch ของภาพ 360° ให้อัตโนมัติ) คลิกหมุดที่มีอยู่เพื่อแก้ไข</p>
+          <div id="hotspotImageContainer" class="position-relative border rounded overflow-hidden mb-3" style="background:#111;">
+            <img id="hotspotImage" src="" alt="ภาพ 360°" style="width:100%; display:block; cursor:crosshair;" draggable="false" onclick="handleHotspotImageClick(event)">
+          </div>
+          <form id="hotspotForm" class="row g-3 align-items-end" onsubmit="saveHotspot(event)">
+            <input id="hotspotId" type="hidden">
+            <input id="hotspotYaw" type="hidden">
+            <input id="hotspotPitch" type="hidden">
+            <div class="col-12"><span class="small text-secondary" id="hotspotCoordText"></span></div>
+            <div class="col-12 col-md-3">
+              <label for="hotspotIconType" class="form-label small">ไอคอน</label>
+              <select id="hotspotIconType" class="form-select form-select-sm">
+                <option value="arrow">ลูกศร (ทางเดิน)</option>
+                <option value="door">ประตู</option>
+                <option value="stairs">บันได</option>
+                <option value="info">ข้อมูล</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-4">
+              <label for="hotspotLabel" class="form-label small">ป้ายชื่อ</label>
+              <input id="hotspotLabel" class="form-control form-control-sm" maxlength="100" placeholder="เช่น ไปทางประตูหลัง">
+            </div>
+            <div class="col-12 col-md-3">
+              <label for="hotspotTarget" class="form-label small">เชื่อมไปยังภาพ</label>
+              <select id="hotspotTarget" class="form-select form-select-sm"><option value="">ไม่เชื่อมไปไหน</option></select>
+            </div>
+            <div class="col-12 col-md-2 d-grid">
+              <button type="submit" class="btn btn-sm btn-primary" id="hotspotSaveButton" disabled>บันทึกจุดเชื่อม</button>
+            </div>
+          </form>
+          <hr>
+          <p class="small fw-semibold mb-2">จุดเชื่อมทั้งหมดในภาพนี้</p>
+          <div id="hotspotList" class="list-group"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: CSV import ============ -->
+  <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="importModalTitle">นำเข้าห้องเรียนจากไฟล์ CSV</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-secondary">
+            ไฟล์ต้องเป็น CSV (UTF-8) และมีคอลัมน์ <code>building_code</code>, <code>room_code</code>, <code>floor</code>
+            คอลัมน์เสริม: <code>room_type, capacity, status, seats, outlets, ac, wifi, pin_x, pin_y</code>
+            ห้องที่มีรหัสซ้ำกับในระบบจะถูก<strong>อัปเดต</strong> เฉพาะคอลัมน์ที่อยู่ในไฟล์ (ช่องว่าง = ล้างค่า) ห้องใหม่จะถูกเพิ่ม
+            ถ้ามีแถวใดผิดพลาด จะไม่นำเข้าเลยทั้งไฟล์ (สูงสุด 2,000 แถว)
+            <a href="#" onclick="downloadCsvTemplate(event)">ดาวน์โหลดไฟล์ตัวอย่าง</a>
+          </p>
+          <input id="importFile" type="file" class="form-control" accept=".csv,text/csv" onchange="previewImportCsv()">
+          <div id="importResult" class="mt-3"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
+          <button id="importConfirmButton" type="button" class="btn btn-primary" onclick="confirmImportCsv()" disabled>นำเข้า</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     let rooms = [];
@@ -354,10 +664,14 @@
     let buildingModal;
     let currentPinX = null;
     let currentPinY = null;
+    let selectedRoomIds = new Set();
 
     const PAGE_TITLES = {
       'overview': 'Overview',
       'buildings-rooms': 'Buildings & Rooms',
+      'floor-plans': 'Floor Plans',
+      'panoramas': '360 Panorama Editor',
+      'logs': 'System Logs',
       'settings': 'Settings',
     };
 
@@ -371,6 +685,106 @@
 
       if (page === 'overview') loadOverview();
       if (page === 'buildings-rooms') { loadBuildings(); }
+      if (page === 'floor-plans') loadFloorPlansPage();
+      if (page === 'panoramas') loadPanoramasPage();
+      if (page === 'logs') loadLogs(0);
+    }
+
+    // ============ Shared helpers for the newer pages ============
+    class SessionExpiredError extends Error {}
+
+    // เรียก API แล้วคืน JSON ถ้า 401 จะพากลับหน้า login ถ้าไม่สำเร็จจะ throw Error พร้อมข้อความจากเซิร์ฟเวอร์
+    async function api(url, options = {}) {
+      const response = await fetch(url, options);
+      if (response.status === 401) {
+        showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+        throw new SessionExpiredError('session expired');
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(data.error || 'ทำรายการไม่สำเร็จ');
+        error.data = data;
+        throw error;
+      }
+      return data;
+    }
+
+    function jsonRequest(method, body) {
+      return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+    }
+
+    function reportError(error) {
+      if (error instanceof SessionExpiredError) return;
+      showStatus(error.message || 'เกิดข้อผิดพลาด', 'danger');
+    }
+
+    function setBusy(button, busy, busyText, idleText) {
+      button.disabled = busy;
+      button.textContent = busy ? busyText : idleText;
+    }
+
+    function formatDateTime(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'medium' });
+    }
+
+    function floorSort(first, second) {
+      const a = Number(first), b = Number(second);
+      if (!Number.isNaN(a) && !Number.isNaN(b)) return a - b;
+      return String(first).localeCompare(String(second), 'th');
+    }
+
+    // อ่านรายชื่ออาคารล่าสุดสำหรับ dropdown ของหน้าต่างๆ (ไม่กระทบตารางในหน้า Buildings & Rooms)
+    async function refreshBuildingList() {
+      buildings = await api('/api/buildings');
+      return buildings;
+    }
+
+    function fillSelect(select, options, placeholder) {
+      const previous = select.value;
+      select.innerHTML = (placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '') +
+        options.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+      if (options.some(option => String(option.value) === previous)) select.value = previous;
+    }
+
+    function previewSelectedImage(input, imageId) {
+      const image = document.getElementById(imageId);
+      if (image.dataset.objectUrl) URL.revokeObjectURL(image.dataset.objectUrl);
+      const file = input.files && input.files[0];
+      if (!file) {
+        image.classList.add('d-none');
+        image.removeAttribute('src');
+        delete image.dataset.objectUrl;
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      image.dataset.objectUrl = url;
+      image.src = url;
+      image.classList.remove('d-none');
+    }
+
+    function validateImageFile(file, maxMb) {
+      if (!file) return 'กรุณาเลือกไฟล์รูปภาพ';
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return 'ไฟล์ต้องเป็นรูป PNG, JPG หรือ WebP เท่านั้น';
+      if (file.size > maxMb * 1024 * 1024) return `ไฟล์ใหญ่เกินไป (สูงสุด ${maxMb} MB)`;
+      return null;
+    }
+
+    const ACTION_LABELS = {
+      login: 'เข้าสู่ระบบ', login_failed: 'เข้าสู่ระบบไม่สำเร็จ', logout: 'ออกจากระบบ', create: 'เพิ่ม', update: 'แก้ไข',
+      delete: 'ลบ', upload: 'อัปโหลด', import: 'นำเข้า CSV', export: 'ส่งออก CSV', change_password: 'เปลี่ยนรหัสผ่าน',
+    };
+    const ACTION_COLORS = {
+      login: 'success', login_failed: 'warning', logout: 'secondary', create: 'success', update: 'primary',
+      delete: 'danger', upload: 'info', import: 'dark', export: 'dark', change_password: 'dark',
+    };
+    const ENTITY_LABELS = {
+      session: 'การเข้าสู่ระบบ', room: 'ห้องเรียน', building: 'อาคาร', floor_plan: 'แผนผังชั้น',
+      panorama: 'ภาพ 360°', hotspot: 'จุดเชื่อม', admin: 'บัญชีผู้ดูแล',
+    };
+
+    function actionBadge(action) {
+      return `<span class="badge text-bg-${ACTION_COLORS[action] || 'secondary'}">${escapeHtml(ACTION_LABELS[action] || action)}</span>`;
     }
 
     function currentBuilding() {
@@ -383,15 +797,26 @@
       }[character]));
     }
 
+    let statusTimer = null;
+
+    // ข้อความแจ้งเตือนหายเองหลังไม่กี่วินาที (ข้อผิดพลาดค้างนานกว่า) เพื่อไม่ให้ข้อความเก่าค้างอยู่บนจอ
     function showStatus(message, type = 'success') {
       document.getElementById('statusMessage').innerHTML = `
         <div class="alert alert-${type} alert-dismissible fade show shadow-sm" role="alert">
           ${escapeHtml(message)}
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="ปิด"></button>
         </div>`;
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(clearStatus, type === 'danger' ? 7000 : 4000);
+    }
+
+    function clearStatus() {
+      clearTimeout(statusTimer);
+      document.getElementById('statusMessage').innerHTML = '';
     }
 
     function showDashboard() {
+      clearStatus();
       document.getElementById('loginSection').classList.add('d-none');
       document.getElementById('dashboardSection').classList.remove('d-none');
       document.getElementById('dashboardSection').classList.add('d-flex');
@@ -460,17 +885,30 @@
     // ============ Overview ============
     async function loadOverview() {
       try {
-        const response = await fetch('/api/admin/overview');
-        if (!response.ok) throw new Error('โหลดสถิติไม่สำเร็จ');
-        const stats = await response.json();
+        const stats = await api('/api/admin/overview');
+        const totalRooms = Number(stats.room_count) || 0;
+        const percentOfRooms = (count) => totalRooms > 0 ? `${Math.round((Number(count) / totalRooms) * 100)}% ของห้องทั้งหมด` : '-';
+
         document.getElementById('statBuildingCount').textContent = stats.building_count;
         document.getElementById('statRoomCount').textContent = stats.room_count;
         document.getElementById('statRoomSplit').textContent =
           `เปิดใช้งาน ${stats.active_room_count} • ปิดปรับปรุง ${stats.maintenance_room_count}`;
         document.getElementById('statPanoramaCount').textContent = stats.rooms_with_panorama_count;
-        document.getElementById('statVisitsToday').textContent = stats.visits_today;
+        document.getElementById('statPanoramaPercent').textContent = percentOfRooms(stats.rooms_with_panorama_count);
+        document.getElementById('statPinnedCount').textContent = stats.pinned_room_count;
+        document.getElementById('statPinnedPercent').textContent = percentOfRooms(stats.pinned_room_count);
+
+        const list = document.getElementById('recentActivityList');
+        list.innerHTML = stats.recent_activity.length === 0
+          ? '<li class="list-group-item text-secondary small">ยังไม่มีกิจกรรม</li>'
+          : stats.recent_activity.map(item => `
+            <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
+              ${actionBadge(item.action)}
+              <span class="flex-grow-1">${escapeHtml(item.detail || '-')}</span>
+              <span class="text-secondary small">${escapeHtml(item.username || '-')} • ${escapeHtml(formatDateTime(item.created_at))}</span>
+            </li>`).join('');
       } catch (error) {
-        showStatus(error.message, 'danger');
+        reportError(error);
       }
     }
 
@@ -608,7 +1046,7 @@
       const building = currentBuilding();
       if (!building) return;
       document.getElementById('buildingSummary').textContent = building;
-      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
+      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
 
       try {
         const response = await fetch(`/api/building/${encodeURIComponent(building)}`);
@@ -622,16 +1060,25 @@
       }
     }
 
-    function renderRooms() {
+    function getVisibleRooms() {
       const query = document.getElementById('roomFilter').value.trim().toLocaleLowerCase();
-      const visibleRooms = rooms
+      return rooms
         .filter(room => String(room.room_code ?? '').toLocaleLowerCase().includes(query))
         .sort(roomSort);
+    }
+
+    function renderRooms() {
+      const visibleRooms = getVisibleRooms();
       const tbody = document.getElementById('roomTableBody');
       document.getElementById('roomCount').textContent = `${visibleRooms.length} ห้อง`;
 
+      // เก็บไว้เฉพาะห้องที่ยังมองเห็นอยู่ เพื่อให้จำนวนที่แสดงตรงกับที่จะถูกลบจริงเสมอ
+      const visibleIds = new Set(visibleRooms.map(room => Number(room.id)));
+      selectedRoomIds = new Set([...selectedRoomIds].filter(id => visibleIds.has(id)));
+      updateBulkBar(visibleRooms.length);
+
       if (visibleRooms.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
         return;
       }
 
@@ -642,8 +1089,10 @@
         const statusBadge = room.status === 'maintenance'
           ? '<span class="badge text-bg-warning">ปิดปรับปรุง</span>'
           : '<span class="badge text-bg-success">เปิดใช้งาน</span>';
+        const isSelected = selectedRoomIds.has(Number(room.id));
         return `
-        <tr>
+        <tr class="${isSelected ? 'table-active' : ''}">
+          <td><input type="checkbox" class="form-check-input" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
           <td class="room-name">${escapeHtml(room.room_code || '-')}</td>
           <td><span class="badge rounded-pill floor-badge">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
           <td>${typeCapacity}</td>
@@ -659,18 +1108,113 @@
       }).join('');
     }
 
+    // ============ Bulk select / delete ============
+    function updateBulkBar(visibleCount) {
+      const count = selectedRoomIds.size;
+      const bar = document.getElementById('bulkBar');
+      bar.classList.toggle('d-none', count === 0);
+      bar.classList.toggle('d-flex', count > 0);
+      document.getElementById('bulkCount').textContent = `เลือกแล้ว ${count} ห้อง`;
+
+      const selectAll = document.getElementById('selectAllRooms');
+      selectAll.disabled = visibleCount === 0;
+      selectAll.checked = visibleCount > 0 && count === visibleCount;
+      selectAll.indeterminate = count > 0 && count < visibleCount;
+    }
+
+    function toggleRoomSelection(id, checked) {
+      if (checked) selectedRoomIds.add(Number(id));
+      else selectedRoomIds.delete(Number(id));
+      renderRooms();
+    }
+
+    function toggleSelectAllRooms(checked) {
+      selectedRoomIds = checked ? new Set(getVisibleRooms().map(room => Number(room.id))) : new Set();
+      renderRooms();
+    }
+
+    function clearRoomSelection() {
+      selectedRoomIds = new Set();
+      renderRooms();
+    }
+
+    async function deleteSelectedRooms() {
+      const ids = [...selectedRoomIds];
+      if (ids.length === 0) return;
+
+      const names = rooms.filter(room => selectedRoomIds.has(Number(room.id))).map(room => room.room_code);
+      const preview = names.slice(0, 5).join(', ') + (names.length > 5 ? ` และอีก ${names.length - 5} ห้อง` : '');
+      if (!confirm(`ต้องการลบห้องที่เลือก ${ids.length} ห้องใช่หรือไม่?\n\n${preview}\n\nการลบไม่สามารถย้อนกลับได้`)) return;
+
+      const button = document.getElementById('bulkDeleteButton');
+      button.disabled = true;
+      button.textContent = 'กำลังลบ...';
+
+      try {
+        const response = await fetch('/api/rooms/bulk-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        if (response.status === 401) {
+          showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+          return;
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'ลบห้องเรียนไม่สำเร็จ');
+
+        selectedRoomIds = new Set();
+        await fetchRooms();
+        await loadBuildings();
+        showStatus(data.message || 'ลบห้องเรียนแล้ว');
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'ลบที่เลือก';
+      }
+    }
+
     function openCreateModal() {
       document.getElementById('roomModalTitle').textContent = 'เพิ่มห้องเรียน';
       document.getElementById('roomId').value = '';
       document.getElementById('roomForm').reset();
       document.getElementById('roomFloor').value = '1';
       document.getElementById('roomStatus').value = 'active';
+      setRoomTypeField('');
       document.getElementById('formBuildingName').textContent = currentBuilding();
       currentPinX = null;
       currentPinY = null;
       loadFloorPlanForModal();
       roomModal.show();
       document.getElementById('roomCode').focus();
+    }
+
+    // ประเภทห้อง: เลือกจากรายการ หรือเลือก "อื่นๆ" แล้วพิมพ์เอง
+    function setRoomTypeField(value) {
+      const select = document.getElementById('roomType');
+      const other = document.getElementById('roomTypeOther');
+      const text = (value || '').trim();
+      const isPreset = Array.from(select.options).some(o => o.value === text && o.value !== '__other__');
+      if (!text || isPreset) {
+        select.value = text;
+        other.value = '';
+      } else {
+        select.value = '__other__';
+        other.value = text;
+      }
+      syncRoomTypeOther();
+    }
+
+    function syncRoomTypeOther() {
+      const isOther = document.getElementById('roomType').value === '__other__';
+      document.getElementById('roomTypeOther').classList.toggle('d-none', !isOther);
+    }
+
+    function getRoomTypeValue() {
+      const selected = document.getElementById('roomType').value;
+      if (selected === '__other__') return document.getElementById('roomTypeOther').value.trim() || null;
+      return selected || null;
     }
 
     function openEditModal(id) {
@@ -681,7 +1225,7 @@
       document.getElementById('roomId').value = room.id;
       document.getElementById('roomCode').value = room.room_code || '';
       document.getElementById('roomFloor').value = room.floor || '-';
-      document.getElementById('roomType').value = room.room_type || '';
+      setRoomTypeField(room.room_type);
       document.getElementById('roomCapacity').value = room.capacity ?? '';
       document.getElementById('roomStatus').value = room.status || 'active';
       const amenities = room.amenities || {};
@@ -782,7 +1326,7 @@
         floor,
         pin_x: currentPinX,
         pin_y: currentPinY,
-        room_type: document.getElementById('roomType').value.trim() || null,
+        room_type: getRoomTypeValue(),
         capacity: capacityValue !== '' ? Number(capacityValue) : null,
         status: document.getElementById('roomStatus').value,
         amenities: Object.keys(amenities).length > 0 ? amenities : null,
@@ -833,9 +1377,732 @@
       }
     }
 
+    // ============ CSV export / import ============
+    let importModal;
+    let importCsvText = '';
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function exportRoomsCsv() {
+      const button = document.getElementById('exportCsvButton');
+      const idleText = '⬇ ส่งออก CSV';
+      setBusy(button, true, 'กำลังส่งออก...', idleText);
+      try {
+        const response = await fetch('/api/admin/rooms/export.csv');
+        if (response.status === 401) {
+          showLogin('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
+          return;
+        }
+        if (!response.ok) throw new Error('ส่งออกไฟล์ CSV ไม่สำเร็จ');
+        const blob = await response.blob();
+        const match = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') || '');
+        triggerDownload(blob, match ? match[1] : 'rooms.csv');
+        showStatus('ส่งออกห้องเรียนเป็นไฟล์ CSV แล้ว');
+      } catch (error) {
+        showStatus(error.message, 'danger');
+      } finally {
+        setBusy(button, false, '', idleText);
+      }
+    }
+
+    function downloadCsvTemplate(event) {
+      event.preventDefault();
+      const header = 'building_code,room_code,floor,room_type,capacity,status,seats,outlets,ac,wifi,pin_x,pin_y';
+      const example = [buildings[0] ? buildings[0].code : 'LH3', 'LH3-101', '1', 'ห้องบรรยาย', '60', 'active', '60', '20', '2', 'KU-Google', '', ''].join(',');
+      triggerDownload(new Blob(['﻿' + header + '\r\n' + example + '\r\n'], { type: 'text/csv;charset=utf-8' }), 'rooms-template.csv');
+    }
+
+    function openImportCsvModal() {
+      importCsvText = '';
+      document.getElementById('importFile').value = '';
+      document.getElementById('importResult').innerHTML = '';
+      document.getElementById('importConfirmButton').disabled = true;
+      importModal.show();
+    }
+
+    function renderImportPreview(data) {
+      const summary = data.summary;
+      let html = `
+        <div class="d-flex gap-2 flex-wrap mb-3">
+          <span class="badge text-bg-light border">ทั้งหมด ${summary.total} แถว</span>
+          <span class="badge text-bg-success">เพิ่มใหม่ ${summary.create}</span>
+          <span class="badge text-bg-primary">อัปเดต ${summary.update}</span>
+          <span class="badge text-bg-${summary.errors > 0 ? 'danger' : 'secondary'}">ผิดพลาด ${summary.errors}</span>
+        </div>`;
+
+      const badRows = data.rows.filter(row => row.errors.length > 0);
+      if (badRows.length > 0) {
+        html += `<div class="alert alert-danger small"><strong>พบข้อผิดพลาด ${badRows.length} แถว จึงยังนำเข้าไม่ได้ กรุณาแก้ไขไฟล์แล้วเลือกใหม่</strong><ul class="mb-0 mt-2">` +
+          badRows.slice(0, 20).map(row => `<li>แถว ${row.row}: ${escapeHtml(row.errors.join(' | '))}</li>`).join('') +
+          (badRows.length > 20 ? `<li>...และอีก ${badRows.length - 20} แถว</li>` : '') + '</ul></div>';
+      } else {
+        html += '<div class="alert alert-success small">ตรวจสอบผ่านทุกแถว กด "นำเข้า" เพื่อบันทึกลงระบบ</div>';
+      }
+
+      const actionBadgeFor = (row) => row.errors.length > 0 ? '<span class="badge text-bg-danger">ผิดพลาด</span>'
+        : row.action === 'update' ? '<span class="badge text-bg-primary">อัปเดต</span>' : '<span class="badge text-bg-success">เพิ่มใหม่</span>';
+      html += `
+        <div class="table-responsive border rounded" style="max-height:260px; overflow-y:auto;">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light"><tr><th>แถว</th><th>รหัสห้อง</th><th>อาคาร</th><th>ผล</th></tr></thead>
+            <tbody>${data.rows.slice(0, 100).map(row => `
+              <tr><td>${row.row}</td><td>${escapeHtml(row.room_code)}</td><td>${escapeHtml(row.building)}</td><td>${actionBadgeFor(row)}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` + (data.rows.length > 100 ? `<p class="small text-secondary mt-2 mb-0">แสดง 100 แถวแรกจากทั้งหมด ${data.rows.length} แถว</p>` : '');
+      document.getElementById('importResult').innerHTML = html;
+    }
+
+    async function previewImportCsv() {
+      const file = document.getElementById('importFile').files[0];
+      const result = document.getElementById('importResult');
+      const confirmButton = document.getElementById('importConfirmButton');
+      importCsvText = '';
+      confirmButton.disabled = true;
+
+      if (!file) {
+        result.innerHTML = '';
+        return;
+      }
+      if (file.size > 2.5 * 1024 * 1024) {
+        result.innerHTML = '<div class="alert alert-danger mb-0">ไฟล์ใหญ่เกินไป (สูงสุด 2.5 MB)</div>';
+        return;
+      }
+
+      result.innerHTML = '<div class="text-secondary small">กำลังตรวจสอบไฟล์...</div>';
+      try {
+        const text = await file.text();
+        const data = await api('/api/admin/rooms/import', jsonRequest('POST', { csv: text, dry_run: true }));
+        importCsvText = text;
+        renderImportPreview(data);
+        confirmButton.disabled = !data.can_import;
+      } catch (error) {
+        if (error instanceof SessionExpiredError) {
+          importModal.hide();
+          return;
+        }
+        result.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function confirmImportCsv() {
+      if (!importCsvText) return;
+      if (!confirm('ต้องการนำเข้าข้อมูลห้องเรียนจากไฟล์นี้ใช่หรือไม่? ห้องที่มีอยู่แล้วจะถูกอัปเดต')) return;
+
+      const button = document.getElementById('importConfirmButton');
+      setBusy(button, true, 'กำลังนำเข้า...', 'นำเข้า');
+      try {
+        const data = await api('/api/admin/rooms/import', jsonRequest('POST', { csv: importCsvText }));
+        importModal.hide();
+        importCsvText = '';
+        await fetchRooms();
+        await loadBuildings();
+        showStatus(data.message);
+      } catch (error) {
+        if (error instanceof SessionExpiredError) importModal.hide();
+        else if (error.data && error.data.rows) renderImportPreview(error.data);
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'นำเข้า');
+        button.disabled = !importCsvText;
+      }
+    }
+
+    // ============ Floor plans ============
+    let floorPlans = [];
+    let floorPlanModal;
+
+    function selectedFloorPlanBuilding() {
+      const id = Number(document.getElementById('fpBuildingSelect').value);
+      return buildings.find(building => Number(building.id) === id) || null;
+    }
+
+    async function loadFloorPlansPage() {
+      try {
+        await refreshBuildingList();
+        fillSelect(document.getElementById('fpBuildingSelect'), buildings.map(building => ({ value: building.id, label: building.name })));
+        await loadFloorPlans();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    async function loadFloorPlans() {
+      const building = selectedFloorPlanBuilding();
+      const grid = document.getElementById('floorPlanGrid');
+      document.getElementById('fpAddButton').disabled = !building;
+
+      if (!building) {
+        floorPlans = [];
+        grid.innerHTML = '<div class="col-12"><div class="empty-state text-center">ยังไม่มีอาคารในระบบ กรุณาเพิ่มอาคารก่อน</div></div>';
+        return;
+      }
+
+      grid.innerHTML = '<div class="col-12 text-center text-secondary py-4">กำลังโหลดข้อมูล...</div>';
+      try {
+        const plans = await api(`/api/admin/floorplans?building_id=${building.id}`);
+        floorPlans = plans.sort((first, second) => floorSort(first.floor, second.floor));
+        renderFloorPlans();
+      } catch (error) {
+        floorPlans = [];
+        grid.innerHTML = '';
+        reportError(error);
+      }
+    }
+
+    function renderFloorPlans() {
+      const grid = document.getElementById('floorPlanGrid');
+      if (floorPlans.length === 0) {
+        grid.innerHTML = '<div class="col-12"><div class="card building-card"><div class="empty-state text-center">อาคารนี้ยังไม่มีแผนผังชั้น กด "+ เพิ่มแผนผังชั้น" เพื่ออัปโหลด</div></div></div>';
+        return;
+      }
+      grid.innerHTML = floorPlans.map(plan => `
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="card building-card h-100">
+            <div class="bg-light p-2" style="height:200px;">
+              <img src="${escapeHtml(plan.image_url)}" alt="แผนผังชั้น ${escapeHtml(plan.floor)}" style="width:100%; height:100%; object-fit:contain;">
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <h3 class="h6 mb-0">ชั้น ${escapeHtml(plan.floor)}</h3>
+                <span class="badge text-bg-light border">${Number(plan.width)}×${Number(plan.height)} px</span>
+              </div>
+              <p class="small text-secondary mb-3">${Number(plan.room_count)} ห้องในชั้นนี้ • ปักหมุดแล้ว ${Number(plan.pinned_count)} ห้อง</p>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openFloorPlanModal(${Number(plan.id)})">เปลี่ยนรูป</button>
+                <a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(plan.image_url)}" target="_blank" rel="noopener">ดูรูปเต็ม</a>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteFloorPlan(${Number(plan.id)})">ลบ</button>
+              </div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    async function openFloorPlanModal(id) {
+      const building = selectedFloorPlanBuilding();
+      if (!building) return;
+      const plan = id ? floorPlans.find(item => Number(item.id) === Number(id)) : null;
+
+      document.getElementById('fpId').value = plan ? plan.id : '';
+      document.getElementById('floorPlanModalTitle').textContent = plan ? 'เปลี่ยนรูปแผนผังชั้น' : 'เพิ่มแผนผังชั้น';
+      document.getElementById('fpModalBuilding').textContent = building.name;
+      const floorInput = document.getElementById('fpFloor');
+      floorInput.value = plan ? plan.floor : '';
+      floorInput.readOnly = Boolean(plan);
+      const imageInput = document.getElementById('fpImage');
+      imageInput.value = '';
+      previewSelectedImage(imageInput, 'fpPreview');
+      document.getElementById('fpReplaceWarning').classList.toggle('d-none', !plan);
+      document.getElementById('fpSaveButton').textContent = plan ? 'เปลี่ยนรูป' : 'อัปโหลด';
+      floorPlanModal.show();
+
+      // แนะนำชั้นที่มีห้องอยู่จริงในอาคารนี้และยังไม่มีแผนผัง
+      const datalist = document.getElementById('fpFloorOptions');
+      datalist.innerHTML = '';
+      try {
+        const buildingRooms = await api(`/api/building/${encodeURIComponent(building.name)}`);
+        const taken = new Set(floorPlans.map(item => String(item.floor)));
+        const suggestions = [...new Set(buildingRooms.map(room => String(room.floor)).filter(floor => floor && floor !== '-'))]
+          .filter(floor => !taken.has(floor)).sort(floorSort);
+        datalist.innerHTML = suggestions.map(floor => `<option value="${escapeHtml(floor)}"></option>`).join('');
+      } catch (error) {
+        // คำแนะนำชั้นเป็นแค่ตัวช่วย ถ้าโหลดไม่ได้ก็พิมพ์เองได้
+      }
+    }
+
+    async function saveFloorPlan(event) {
+      event.preventDefault();
+      const building = selectedFloorPlanBuilding();
+      const id = document.getElementById('fpId').value;
+      const file = document.getElementById('fpImage').files[0];
+      const fileError = validateImageFile(file, 10);
+      if (fileError) {
+        showStatus(fileError, 'danger');
+        return;
+      }
+
+      const form = new FormData();
+      form.append('image', file);
+      if (!id) {
+        form.append('building_id', building.id);
+        form.append('floor', document.getElementById('fpFloor').value.trim());
+      }
+
+      const button = document.getElementById('fpSaveButton');
+      const idleText = id ? 'เปลี่ยนรูป' : 'อัปโหลด';
+      setBusy(button, true, 'กำลังอัปโหลด...', idleText);
+      try {
+        const data = await api(id ? `/api/admin/floorplans/${id}` : '/api/admin/floorplans', { method: id ? 'PUT' : 'POST', body: form });
+        floorPlanModal.hide();
+        await loadFloorPlans();
+        showStatus(data.message);
+      } catch (error) {
+        if (error instanceof SessionExpiredError) floorPlanModal.hide();
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', idleText);
+      }
+    }
+
+    async function deleteFloorPlan(id) {
+      const plan = floorPlans.find(item => Number(item.id) === Number(id));
+      if (!plan) return;
+      const extra = plan.pinned_count > 0 ? `\nห้องที่ปักหมุดไว้ ${plan.pinned_count} ห้องจะยังเก็บพิกัดไว้ แต่แผนที่ชั้นนี้จะไม่แสดงในแอปจนกว่าจะเพิ่มแผนผังใหม่` : '';
+      if (!confirm(`ต้องการลบแผนผังชั้น ${plan.floor} ของ "${plan.building_name}" ใช่หรือไม่?${extra}`)) return;
+
+      try {
+        const data = await api(`/api/admin/floorplans/${id}`, { method: 'DELETE' });
+        await loadFloorPlans();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    // ============ 360 Panorama editor ============
+    let panoRooms = [];
+    let panoramas = [];
+    let panoRequestId = 0;
+    let panoUploadModal;
+    let hotspotModal;
+    let editingPanoramaId = null;
+    let currentHotspotPanoramaId = null;
+
+    const HOTSPOT_ICONS = { arrow: '➜', door: '🚪', stairs: '🪜', info: 'ℹ️' };
+
+    function selectedPanoRoom() {
+      const id = document.getElementById('panoRoomSelect').value;
+      return panoRooms.find(room => String(room.id) === String(id)) || null;
+    }
+
+    async function loadPanoramasPage() {
+      try {
+        await refreshBuildingList();
+        fillSelect(document.getElementById('panoBuildingSelect'), buildings.map(building => ({ value: building.name, label: building.name })));
+        await loadPanoRooms();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    async function loadPanoRooms() {
+      const buildingName = document.getElementById('panoBuildingSelect').value;
+      const select = document.getElementById('panoRoomSelect');
+      if (!buildingName) {
+        panoRooms = [];
+        select.innerHTML = '';
+        await loadPanoramas();
+        return;
+      }
+      try {
+        panoRooms = (await api(`/api/building/${encodeURIComponent(buildingName)}`)).sort(roomSort);
+        fillSelect(select, panoRooms.map(room => ({ value: room.id, label: `${room.room_code} (ชั้น ${room.floor || '-'})` })));
+      } catch (error) {
+        panoRooms = [];
+        select.innerHTML = '';
+        reportError(error);
+      }
+      await loadPanoramas();
+    }
+
+    async function loadPanoramas() {
+      const room = selectedPanoRoom();
+      const grid = document.getElementById('panoGrid');
+      document.getElementById('panoUploadButton').disabled = !room;
+
+      if (!room) {
+        panoramas = [];
+        document.getElementById('panoRoomSummary').textContent = 'เลือกห้องเพื่อจัดการภาพ';
+        document.getElementById('panoCount').textContent = '0 ภาพ';
+        grid.innerHTML = '<div class="col-12 empty-state text-center">ยังไม่มีห้องในอาคารนี้</div>';
+        return;
+      }
+
+      document.getElementById('panoRoomSummary').textContent = `${room.room_code} • ${room.building_name} ชั้น ${room.floor || '-'}`;
+      grid.innerHTML = '<div class="col-12 text-center text-secondary py-4">กำลังโหลดข้อมูล...</div>';
+      const requestId = ++panoRequestId;
+      try {
+        const list = await api(`/api/rooms/${room.id}/panoramas`);
+        if (requestId !== panoRequestId) return;
+        panoramas = list;
+      } catch (error) {
+        if (requestId !== panoRequestId) return;
+        panoramas = [];
+        reportError(error);
+      }
+      renderPanoramas();
+    }
+
+    function renderPanoramas() {
+      const grid = document.getElementById('panoGrid');
+      document.getElementById('panoCount').textContent = `${panoramas.length} ภาพ`;
+      if (panoramas.length === 0) {
+        grid.innerHTML = '<div class="col-12 empty-state text-center">ห้องนี้ยังไม่มีภาพ 360° กด "+ เพิ่มภาพ 360°" เพื่ออัปโหลด</div>';
+        return;
+      }
+      grid.innerHTML = panoramas.map(pano => `
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="card h-100">
+            <img src="${escapeHtml(pano.image_url)}" class="card-img-top" style="height:160px; object-fit:cover;" alt="ภาพ 360°">
+            <div class="card-body">
+              <h3 class="h6 mb-1">${escapeHtml(pano.position_label || `ภาพ #${pano.id}`)}</h3>
+              <p class="text-secondary small mb-3">ลำดับ ${Number(pano.sort_order)} • ${pano.hotspots.length} จุดเชื่อม</p>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openHotspotEditor(${Number(pano.id)})">จัดการจุดเชื่อม</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openPanoUploadModal(${Number(pano.id)})">แก้ไข</button>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deletePanorama(${Number(pano.id)})">ลบ</button>
+              </div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    // ใช้ modal เดียวกันทั้งอัปโหลดภาพใหม่ และแก้ไขป้ายชื่อ/ลำดับของภาพเดิม (ไม่ต้องเลือกไฟล์)
+    function openPanoUploadModal(editId) {
+      const room = selectedPanoRoom();
+      if (!room) return;
+      const pano = editId ? panoramas.find(item => Number(item.id) === Number(editId)) : null;
+      editingPanoramaId = pano ? pano.id : null;
+
+      document.getElementById('panoUploadModalTitle').textContent = pano ? 'แก้ไขภาพ 360°' : 'เพิ่มภาพ 360°';
+      document.getElementById('panoUploadRoom').textContent = room.room_code;
+      const fileInput = document.getElementById('panoImage');
+      fileInput.value = '';
+      fileInput.required = !pano;
+      previewSelectedImage(fileInput, 'panoPreview');
+      document.getElementById('panoFileGroup').classList.toggle('d-none', Boolean(pano));
+      document.getElementById('panoLabel').value = pano ? (pano.position_label || '') : '';
+      document.getElementById('panoSortOrder').value = pano ? pano.sort_order : panoramas.length;
+      document.getElementById('panoUploadSave').textContent = pano ? 'บันทึก' : 'อัปโหลด';
+      panoUploadModal.show();
+    }
+
+    async function uploadPanorama(event) {
+      event.preventDefault();
+      const room = selectedPanoRoom();
+      if (!room) return;
+      const label = document.getElementById('panoLabel').value.trim();
+      const sortOrder = Number(document.getElementById('panoSortOrder').value) || 0;
+      const button = document.getElementById('panoUploadSave');
+      const idleText = editingPanoramaId ? 'บันทึก' : 'อัปโหลด';
+
+      let request;
+      let url;
+      if (editingPanoramaId) {
+        url = `/api/panoramas/${editingPanoramaId}`;
+        request = jsonRequest('PUT', { position_label: label, sort_order: sortOrder });
+      } else {
+        const file = document.getElementById('panoImage').files[0];
+        const fileError = validateImageFile(file, 20);
+        if (fileError) {
+          showStatus(fileError, 'danger');
+          return;
+        }
+        const form = new FormData();
+        form.append('image', file);
+        form.append('position_label', label);
+        form.append('sort_order', String(sortOrder));
+        url = `/api/rooms/${room.id}/panoramas`;
+        request = { method: 'POST', body: form };
+      }
+
+      setBusy(button, true, 'กำลังบันทึก...', idleText);
+      try {
+        const data = await api(url, request);
+        panoUploadModal.hide();
+        await loadPanoramas();
+        showStatus(data.message);
+      } catch (error) {
+        if (error instanceof SessionExpiredError) panoUploadModal.hide();
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', idleText);
+      }
+    }
+
+    async function deletePanorama(id) {
+      const pano = panoramas.find(item => Number(item.id) === Number(id));
+      if (!pano) return;
+      if (!confirm(`ต้องการลบภาพ 360° "${pano.position_label || `#${pano.id}`}" ใช่หรือไม่?\nจุดเชื่อมทั้งหมดในภาพนี้ และจุดเชื่อมจากภาพอื่นที่ชี้มาที่ภาพนี้จะถูกลบ/ยกเลิกด้วย`)) return;
+
+      try {
+        const data = await api(`/api/panoramas/${id}`, { method: 'DELETE' });
+        await loadPanoramas();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    // ---- Hotspots ----
+    // ภาพ equirectangular: แกน x ตลอดความกว้าง = yaw -180..180, แกน y ตลอดความสูง = pitch 90..-90
+    function percentToAngles(xPercent, yPercent) {
+      return { yaw: (xPercent / 100) * 360 - 180, pitch: 90 - (yPercent / 100) * 180 };
+    }
+
+    function anglesToPercent(yaw, pitch) {
+      return { x: ((Number(yaw) + 180) / 360) * 100, y: ((90 - Number(pitch)) / 180) * 100 };
+    }
+
+    function currentHotspotPanorama() {
+      return panoramas.find(item => Number(item.id) === Number(currentHotspotPanoramaId)) || null;
+    }
+
+    function clearPendingHotspotMarker() {
+      document.querySelectorAll('#hotspotImageContainer .hotspot-pending').forEach(element => element.remove());
+    }
+
+    function resetHotspotForm() {
+      document.getElementById('hotspotForm').reset();
+      document.getElementById('hotspotId').value = '';
+      document.getElementById('hotspotYaw').value = '';
+      document.getElementById('hotspotPitch').value = '';
+      document.getElementById('hotspotCoordText').textContent = 'ยังไม่ได้เลือกตำแหน่ง — คลิกบนรูปด้านบนก่อน';
+      document.getElementById('hotspotSaveButton').disabled = true;
+      document.getElementById('hotspotSaveButton').textContent = 'บันทึกจุดเชื่อม';
+      clearPendingHotspotMarker();
+    }
+
+    function openHotspotEditor(panoramaId) {
+      currentHotspotPanoramaId = panoramaId;
+      const pano = currentHotspotPanorama();
+      if (!pano) return;
+      document.getElementById('hotspotModalTitle').textContent = `จัดการจุดเชื่อม — ${pano.position_label || `ภาพ #${pano.id}`}`;
+      document.getElementById('hotspotImage').src = pano.image_url;
+      renderHotspotEditor(true);
+      hotspotModal.show();
+    }
+
+    function renderHotspotEditor(resetForm) {
+      const pano = currentHotspotPanorama();
+      if (!pano) return;
+      const others = panoramas.filter(item => Number(item.id) !== Number(pano.id));
+      document.getElementById('hotspotTarget').innerHTML = '<option value="">ไม่เชื่อมไปไหน</option>' +
+        others.map(item => `<option value="${Number(item.id)}">${escapeHtml(item.position_label || `ภาพ #${item.id}`)}</option>`).join('');
+      if (resetForm) resetHotspotForm();
+      renderHotspotMarkers();
+      renderHotspotList();
+    }
+
+    function makeMarker(className, xPercent, yPercent, background, content, title) {
+      const marker = document.createElement('div');
+      marker.className = `${className} position-absolute d-flex align-items-center justify-content-center`;
+      marker.style.cssText = `left:${xPercent}%; top:${yPercent}%; transform:translate(-50%,-50%); width:28px; height:28px; border-radius:50%; background:${background}; color:#fff; border:2px solid #fff; box-shadow:0 0 0 1px ${background};`;
+      marker.textContent = content;
+      if (title) marker.title = title;
+      return marker;
+    }
+
+    function renderHotspotMarkers() {
+      const container = document.getElementById('hotspotImageContainer');
+      container.querySelectorAll('.hotspot-marker').forEach(element => element.remove());
+      const pano = currentHotspotPanorama();
+      if (!pano) return;
+      pano.hotspots.forEach(hotspot => {
+        const { x, y } = anglesToPercent(hotspot.yaw, hotspot.pitch);
+        const marker = makeMarker('hotspot-marker', x, y, '#00503a', HOTSPOT_ICONS[hotspot.icon_type] || '➜', hotspot.label || '');
+        marker.style.cursor = 'pointer';
+        marker.onclick = (event) => { event.stopPropagation(); loadHotspotIntoForm(hotspot.id); };
+        container.appendChild(marker);
+      });
+    }
+
+    function renderHotspotList() {
+      const pano = currentHotspotPanorama();
+      const list = document.getElementById('hotspotList');
+      if (!pano || pano.hotspots.length === 0) {
+        list.innerHTML = '<p class="text-secondary small mb-0">ยังไม่มีจุดเชื่อมในภาพนี้</p>';
+        return;
+      }
+      list.innerHTML = pano.hotspots.map(hotspot => {
+        const target = panoramas.find(item => Number(item.id) === Number(hotspot.target_panorama_id));
+        return `
+          <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            <div>
+              <strong>${escapeHtml(hotspot.label || '(ไม่มีป้ายชื่อ)')}</strong>
+              <span class="text-secondary small d-block">
+                ${escapeHtml(HOTSPOT_ICONS[hotspot.icon_type] || '')} ${escapeHtml(hotspot.icon_type)} • yaw ${Number(hotspot.yaw).toFixed(1)}°, pitch ${Number(hotspot.pitch).toFixed(1)}°
+                ${target ? `• ไปยัง "${escapeHtml(target.position_label || `ภาพ #${target.id}`)}"` : ''}
+              </span>
+            </div>
+            <div class="text-nowrap">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadHotspotIntoForm(${Number(hotspot.id)})">แก้ไข</button>
+              <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="deleteHotspot(${Number(hotspot.id)})">ลบ</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function loadHotspotIntoForm(hotspotId) {
+      const pano = currentHotspotPanorama();
+      const hotspot = pano && pano.hotspots.find(item => Number(item.id) === Number(hotspotId));
+      if (!hotspot) return;
+      clearPendingHotspotMarker();
+      document.getElementById('hotspotId').value = hotspot.id;
+      document.getElementById('hotspotYaw').value = hotspot.yaw;
+      document.getElementById('hotspotPitch').value = hotspot.pitch;
+      document.getElementById('hotspotIconType').value = hotspot.icon_type;
+      document.getElementById('hotspotLabel').value = hotspot.label || '';
+      document.getElementById('hotspotTarget').value = hotspot.target_panorama_id || '';
+      document.getElementById('hotspotCoordText').textContent =
+        `กำลังแก้ไขจุดเชื่อม #${hotspot.id} — yaw ${Number(hotspot.yaw).toFixed(1)}°, pitch ${Number(hotspot.pitch).toFixed(1)}° (คลิกบนรูปเพื่อย้ายตำแหน่ง)`;
+      document.getElementById('hotspotSaveButton').disabled = false;
+      document.getElementById('hotspotSaveButton').textContent = 'บันทึกการแก้ไข';
+    }
+
+    function handleHotspotImageClick(event) {
+      const image = document.getElementById('hotspotImage');
+      const rect = image.getBoundingClientRect();
+      const xPercent = Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100));
+      const yPercent = Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100));
+      const { yaw, pitch } = percentToAngles(xPercent, yPercent);
+
+      // คลิกบนรูปขณะกำลังแก้ไขจุดเดิม = ย้ายตำแหน่งของจุดนั้น, ไม่งั้นเป็นการวางจุดใหม่
+      const editing = document.getElementById('hotspotId').value !== '';
+      document.getElementById('hotspotYaw').value = yaw.toFixed(3);
+      document.getElementById('hotspotPitch').value = pitch.toFixed(3);
+      document.getElementById('hotspotCoordText').textContent =
+        `${editing ? 'ย้ายไปที่' : 'ตำแหน่งใหม่'} — yaw ${yaw.toFixed(1)}°, pitch ${pitch.toFixed(1)}° (กรอกรายละเอียดด้านล่างแล้วกดบันทึก)`;
+      document.getElementById('hotspotSaveButton').disabled = false;
+
+      clearPendingHotspotMarker();
+      document.getElementById('hotspotImageContainer').appendChild(makeMarker('hotspot-pending', xPercent, yPercent, '#d97706', '＋', 'ตำแหน่งที่เลือก'));
+    }
+
+    async function saveHotspot(event) {
+      event.preventDefault();
+      const id = document.getElementById('hotspotId').value;
+      const yaw = document.getElementById('hotspotYaw').value;
+      const pitch = document.getElementById('hotspotPitch').value;
+      if (yaw === '' || pitch === '') return;
+
+      const payload = {
+        target_panorama_id: document.getElementById('hotspotTarget').value || null,
+        yaw: Number(yaw),
+        pitch: Number(pitch),
+        icon_type: document.getElementById('hotspotIconType').value,
+        label: document.getElementById('hotspotLabel').value.trim() || null,
+      };
+
+      const button = document.getElementById('hotspotSaveButton');
+      const idleText = id ? 'บันทึกการแก้ไข' : 'บันทึกจุดเชื่อม';
+      setBusy(button, true, 'กำลังบันทึก...', idleText);
+      try {
+        const data = await api(id ? `/api/hotspots/${id}` : `/api/panoramas/${currentHotspotPanoramaId}/hotspots`,
+          jsonRequest(id ? 'PUT' : 'POST', payload));
+        await loadPanoramas();
+        renderHotspotEditor(true);
+        showStatus(data.message);
+      } catch (error) {
+        if (error instanceof SessionExpiredError) hotspotModal.hide();
+        reportError(error);
+        setBusy(button, false, '', idleText);
+      }
+    }
+
+    async function deleteHotspot(id) {
+      if (!confirm('ต้องการลบจุดเชื่อมนี้ใช่หรือไม่?')) return;
+      try {
+        const data = await api(`/api/hotspots/${id}`, { method: 'DELETE' });
+        await loadPanoramas();
+        renderHotspotEditor(true);
+        showStatus(data.message);
+      } catch (error) {
+        if (error instanceof SessionExpiredError) hotspotModal.hide();
+        reportError(error);
+      }
+    }
+
+    // ============ System logs ============
+    const LOG_PAGE_SIZE = 25;
+    let logOffset = 0;
+    let logRequestId = 0;
+    let logSearchTimer = null;
+
+    function debounceLogSearch() {
+      clearTimeout(logSearchTimer);
+      logSearchTimer = setTimeout(() => loadLogs(0), 350);
+    }
+
+    async function loadLogs(offset) {
+      logOffset = Math.max(0, Number(offset) || 0);
+      const params = new URLSearchParams({ limit: LOG_PAGE_SIZE, offset: logOffset });
+      for (const [key, elementId] of [['entity', 'logEntity'], ['action', 'logAction'], ['q', 'logSearch']]) {
+        const value = document.getElementById(elementId).value.trim();
+        if (value) params.set(key, value);
+      }
+
+      const requestId = ++logRequestId;
+      try {
+        const data = await api(`/api/admin/logs?${params}`);
+        if (requestId !== logRequestId) return;
+
+        document.getElementById('logTableBody').innerHTML = data.rows.length === 0
+          ? '<tr><td colspan="6" class="text-center empty-state">ไม่พบบันทึกกิจกรรม</td></tr>'
+          : data.rows.map(row => `
+            <tr>
+              <td class="text-nowrap small">${escapeHtml(formatDateTime(row.created_at))}</td>
+              <td>${actionBadge(row.action)}</td>
+              <td class="small">${escapeHtml(ENTITY_LABELS[row.entity] || row.entity)}</td>
+              <td>${escapeHtml(row.detail || '-')}</td>
+              <td class="small">${escapeHtml(row.username || '-')}</td>
+              <td class="small text-secondary">${escapeHtml(row.ip || '-')}</td>
+            </tr>`).join('');
+
+        const from = data.total === 0 ? 0 : data.offset + 1;
+        const to = Math.min(data.offset + data.rows.length, data.total);
+        document.getElementById('logTotal').textContent = `${data.total} รายการ`;
+        document.getElementById('logRange').textContent = `แสดง ${from}–${to} จาก ${data.total}`;
+        document.getElementById('logPrev').disabled = data.offset <= 0;
+        document.getElementById('logNext').disabled = data.offset + LOG_PAGE_SIZE >= data.total;
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    // ============ Settings: change password ============
+    async function changePassword(event) {
+      event.preventDefault();
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      if (newPassword !== document.getElementById('confirmPassword').value) {
+        showStatus('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน', 'danger');
+        return;
+      }
+
+      const button = document.getElementById('passwordSaveButton');
+      setBusy(button, true, 'กำลังบันทึก...', 'บันทึกรหัสผ่านใหม่');
+      try {
+        const data = await api('/api/admin/change-password', jsonRequest('POST', { current_password: currentPassword, new_password: newPassword }));
+        document.getElementById('passwordForm').reset();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'บันทึกรหัสผ่านใหม่');
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      roomModal = new bootstrap.Modal(document.getElementById('roomModal'));
+      document.getElementById('roomType').addEventListener('change', () => {
+        syncRoomTypeOther();
+        if (document.getElementById('roomType').value === '__other__') document.getElementById('roomTypeOther').focus();
+      });
+      roomModal =new bootstrap.Modal(document.getElementById('roomModal'));
       buildingModal = new bootstrap.Modal(document.getElementById('buildingModal'));
+      floorPlanModal = new bootstrap.Modal(document.getElementById('floorPlanModal'));
+      panoUploadModal = new bootstrap.Modal(document.getElementById('panoUploadModal'));
+      hotspotModal = new bootstrap.Modal(document.getElementById('hotspotModal'));
+      importModal = new bootstrap.Modal(document.getElementById('importModal'));
       checkSession();
     });
   </script>

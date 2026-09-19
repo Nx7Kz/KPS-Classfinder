@@ -5,3 +5,6 @@ node_modules/
 Thumbs.db
 .DS_Store
 .claude/settings.local.json
+# ภาพพาโนรามาที่อัปโหลดผ่านแดชบอร์ด (ไฟล์ใหญ่/ข้อมูลผู้ใช้) เก็บโฟลเดอร์ไว้ด้วย .gitkeep
+kps_backend/public/panoramas/*
+!kps_backend/public/panoramas/.gitkeep

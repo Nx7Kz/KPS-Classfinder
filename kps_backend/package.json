@@ -13,9 +13,12 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "csv-parse": "^7.0.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
+    "image-size": "^2.0.4",
+    "multer": "^2.4.0",
     "mysql2": "^3.23.3"
   }
 }
