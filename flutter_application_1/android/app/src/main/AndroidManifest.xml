@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- แอปเรียก API ของเซิร์ฟเวอร์ ต้องมีสิทธิ์อินเทอร์เน็ตในบิลด์ release ด้วย -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="flutter_application_1"
+        android:label="KPS ClassFinder"
+        android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
