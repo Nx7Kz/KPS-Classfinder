@@ -141,11 +141,12 @@ class _RoomListScreenState extends State<RoomListScreen> {
                     children: [
                       for (final group in groups) ...[
                         SectionTitle('${floorLabel(group.key)} · ${group.value.length} ห้อง'),
-                        for (final room in group.value)
+                        for (final (i, room) in group.value.indexed)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: RoomTile(
                               room: room,
+                              entranceIndex: i,
                               showBuilding: false,
                               highlight: _query,
                               onTap: () => openRoom(context, room),

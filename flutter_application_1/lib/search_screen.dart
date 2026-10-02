@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_theme.dart';
+import 'motion.dart';
 import 'room_detail_screen.dart';
 import 'room_list_screen.dart';
 import 'room_store.dart';
@@ -188,11 +189,12 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return [
       SectionTitle('ผลการค้นหา (${_results.length})'),
-      for (final room in _results)
+      for (final (i, room) in _results.indexed)
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: RoomTile(
             room: room,
+            entranceIndex: i,
             highlight: _query,
             onTap: () {
               _focusNode.unfocus();
@@ -262,7 +264,7 @@ class _SearchScreenState extends State<SearchScreen> {
               for (final building in buildings)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: _BuildingShortcut(building: building),
+                  child: Pressable(child: _BuildingShortcut(building: building)),
                 ),
             ],
           );
@@ -290,7 +292,10 @@ class _RecentChip extends StatelessWidget {
       onPressed: onOpen,
       deleteIcon: Icon(Icons.close_rounded, size: 16, color: AppColors.muted),
       deleteButtonTooltipMessage: 'ลบออกจากประวัติ',
-      onDeleted: () => RoomStore.removeRecent(room),
+      onDeleted: () {
+        Haptics.tap();
+        RoomStore.removeRecent(room);
+      },
     );
   }
 }

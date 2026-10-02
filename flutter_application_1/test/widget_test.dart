@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_application_1/app_theme.dart';
 import 'package:flutter_application_1/main.dart';
+import 'package:flutter_application_1/motion.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -53,5 +54,29 @@ void main() {
     await tester.tap(find.text('สว่าง'));
     await tester.pumpAndSettle();
     expect(AppColors.dark, isFalse);
+  });
+
+  testWidgets('list items fade in, and stay still when reduce motion is on', (WidgetTester tester) async {
+    Future<double> opacityAfter(Duration elapsed, {required bool reduce}) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(disableAnimations: reduce),
+          child: const Directionality(
+            textDirection: TextDirection.ltr,
+            child: FadeSlideIn(index: 2, child: Text('room')),
+          ),
+        ),
+      );
+      await tester.pump(elapsed);
+      final opacity = tester.widgetList<Opacity>(find.ancestor(of: find.text('room'), matching: find.byType(Opacity)));
+      return opacity.isEmpty ? 1.0 : opacity.first.opacity;
+    }
+
+    expect(await opacityAfter(const Duration(milliseconds: 60), reduce: false), lessThan(1.0));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Opacity>(find.ancestor(of: find.text('room'), matching: find.byType(Opacity))).opacity, 1.0);
+
+    await tester.pumpWidget(const SizedBox());
+    expect(await opacityAfter(Duration.zero, reduce: true), 1.0);
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_theme.dart';
+import 'motion.dart';
 import 'room_list_screen.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
@@ -102,7 +103,10 @@ class _PlacesScreenState extends State<PlacesScreen> {
             padding: const EdgeInsets.only(bottom: 24),
             itemCount: visible.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) => _BuildingCard(building: visible[index], query: _query),
+            itemBuilder: (context, index) => FadeSlideIn(
+              index: index,
+              child: Pressable(child: _BuildingCard(building: visible[index], query: _query)),
+            ),
           ),
         );
       },

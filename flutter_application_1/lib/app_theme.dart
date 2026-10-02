@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -92,6 +93,16 @@ ThemeData buildAppTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     splashFactory: InkSparkle.splashFactory,
+    // เปลี่ยนหน้าแบบเลื่อน+จางนุ่ม ๆ ส่วน iOS ใช้แบบปัดย้อนกลับของ iOS ตามที่ผู้ใช้คุ้น
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+      },
+    ),
     dividerTheme: DividerThemeData(color: AppColors.line, space: 1, thickness: 1),
     appBarTheme: AppBarTheme(
       backgroundColor: AppColors.background,

@@ -62,11 +62,12 @@ class _SavedScreenState extends State<SavedScreen> {
           ),
         if (_favorites.isNotEmpty) ...[
           SectionTitle('ห้องโปรด (${_favorites.length})'),
-          for (final room in _favorites)
+          for (final (i, room) in _favorites.indexed)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: RoomTile(
                 room: room,
+                entranceIndex: i,
                 icon: Icons.star_rounded,
                 onTap: () => openRoom(context, room),
                 trailing: IconButton(
@@ -88,11 +89,12 @@ class _SavedScreenState extends State<SavedScreen> {
               child: Text('ล้างประวัติ', style: TextStyle(color: AppColors.muted)),
             ),
           ),
-          for (final room in _recents)
+          for (final (i, room) in _recents.indexed)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: RoomTile(
                 room: room,
+                entranceIndex: i,
                 icon: Icons.history_rounded,
                 onTap: () => openRoom(context, room),
               ),

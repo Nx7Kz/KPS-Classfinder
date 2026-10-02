@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'api_client.dart';
 import 'app_theme.dart';
 import 'map_screen.dart';
+import 'motion.dart';
 import 'panorama_screen.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
@@ -81,6 +82,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   }
 
   Future<void> _toggleFavorite() async {
+    Haptics.tap();
     final nowFavorite = await RoomStore.toggleFavorite(room);
     if (!mounted) return;
     setState(() => _isFavorite = nowFavorite);
@@ -160,9 +162,18 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           IconButton(
             tooltip: _isFavorite ? 'นำออกจากห้องโปรด' : 'บันทึกเป็นห้องโปรด',
             onPressed: _isLoadingFavorite ? null : _toggleFavorite,
-            icon: Icon(
-              _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-              color: _isFavorite ? AppColors.primary : AppColors.muted,
+            // ดาวเด้งขึ้นเล็กน้อยทุกครั้งที่สลับ (ปิดเองเมื่อเครื่องตั้งลดการเคลื่อนไหว)
+            icon: AnimatedSwitcher(
+              duration: reduceMotion(context) ? Duration.zero : const Duration(milliseconds: 260),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                child: child,
+              ),
+              child: Icon(
+                _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                key: ValueKey(_isFavorite),
+                color: _isFavorite ? AppColors.primary : AppColors.muted,
+              ),
             ),
           ),
           const SizedBox(width: 4),

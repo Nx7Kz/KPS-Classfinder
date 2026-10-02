@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_theme.dart';
+import 'motion.dart';
 import 'panorama_screen.dart';
 import 'room_detail_screen.dart';
 import 'room_utils.dart';
@@ -34,6 +35,10 @@ class _MapScreenState extends State<MapScreen> {
   // เพิ่มค่าทุกครั้งที่ต้องการให้แผนที่ซูมไปที่ห้องที่เลือก (เช่น เลือกจากการค้นหา)
   int _focusToken = 0;
 
+  // แผงข้อมูลห้องใต้แผนที่ ลากขึ้นเพื่อดูห้องทั้งชั้น ลากลงเพื่อเหลือแค่ห้องที่เลือก
+  final DraggableScrollableController _sheet = DraggableScrollableController();
+  ScrollController? _sheetScroll; // รายการในแผง ใช้เลื่อนกลับบนสุดตอนหุบ
+
   bool get _standalone => widget.initialBuilding != null;
 
   @override
@@ -42,6 +47,34 @@ class _MapScreenState extends State<MapScreen> {
     _buildingsFuture = Api.buildings();
     _floor = widget.initialFloor;
     _selectedId = widget.focusRoom?['id'];
+  }
+
+  @override
+  void dispose() {
+    _sheet.dispose();
+    super.dispose();
+  }
+
+  void _moveSheet({required bool expand}) {
+    if (!_sheet.isAttached) return;
+    // หุบแล้วต้องเห็นห้องที่เลือกด้านบนสุดของแผง ไม่ใช่รายการที่เลื่อนค้างไว้
+    final list = _sheetScroll;
+    if (!expand && list != null && list.hasClients && list.offset > 0) list.jumpTo(0);
+    final target = expand ? _sheetMax : _sheetMin;
+    if (reduceMotion(context)) {
+      _sheet.jumpTo(target);
+    } else {
+      _sheet.animateTo(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+    }
+  }
+
+  double _sheetMin = 0.3;
+  static const _sheetMax = 0.9;
+  static const _sheetPeek = 172.0; // ความสูงตอนหุบ (px) พอดีกับข้อมูลห้อง + ปุ่ม
+
+  void _selectRoom(Map<String, dynamic> room) {
+    setState(() => _selectedId = room['id']);
+    _moveSheet(expand: false);
   }
 
   void _retry() {
@@ -75,6 +108,7 @@ class _MapScreenState extends State<MapScreen> {
   void _goToRoom(Map<String, dynamic> room) {
     final building = room['building_name']?.toString();
     if (building == null) return;
+    Haptics.select();
     setState(() {
       if (building != _building) {
         _building = building;
@@ -214,33 +248,62 @@ class _MapScreenState extends State<MapScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 labels: floors.map(floorLabel).toList(),
                 selected: floorLabel(_floor!),
-                onSelected: (label) => setState(() {
-                  _floor = floors.firstWhere((f) => floorLabel(f) == label);
-                  _selectedId = null;
-                }),
+                onSelected: (label) {
+                  setState(() {
+                    _floor = floors.firstWhere((f) => floorLabel(f) == label);
+                    _selectedId = null;
+                  });
+                  // หุบหลังเฟรมถัดไป ให้เนื้อหาชั้นใหม่วาดเสร็จก่อน ไม่งั้นแอนิเมชันหุบโดนยกเลิก
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _moveSheet(expand: false);
+                  });
+                },
               ),
               const SizedBox(height: 10),
             ],
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _FloorPlanView(
-                  key: ValueKey('$_building|$_floor'),
-                  focusToken: _focusToken,
-                  building: _building!,
-                  floor: _floor!,
-                  rooms: roomsOnFloor,
-                  selectedId: selected?['id'],
-                  onSelect: (room) => setState(() => _selectedId = room['id']),
-                  onFullscreen: () => _openFullscreen(roomsOnFloor),
-                ),
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  _sheetMin = (_sheetPeek / box.maxHeight).clamp(0.15, 0.6);
+                  return Stack(
+                    children: [
+                      // แผนที่เว้นที่ด้านล่างให้แผงตอนหุบ หมุดจึงไม่ถูกแผงบัง
+                      Positioned.fill(
+                        bottom: _sheetPeek - 16,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _FloorPlanView(
+                            key: ValueKey('$_building|$_floor'),
+                            focusToken: _focusToken,
+                            building: _building!,
+                            floor: _floor!,
+                            rooms: roomsOnFloor,
+                            selectedId: selected?['id'],
+                            onSelect: _selectRoom,
+                            onFullscreen: () => _openFullscreen(roomsOnFloor),
+                          ),
+                        ),
+                      ),
+                      DraggableScrollableSheet(
+                        controller: _sheet,
+                        initialChildSize: _sheetMin,
+                        minChildSize: _sheetMin,
+                        maxChildSize: _sheetMax,
+                        snap: true,
+                        builder: (context, scrollController) => _RoomSheet(
+                          scrollController: _sheetScroll = scrollController,
+                          floor: _floor!,
+                          rooms: roomsOnFloor,
+                          selected: selected,
+                          onPick: _selectRoom,
+                          onShowAll: () => _moveSheet(expand: true),
+                          onClear: () => setState(() => _selectedId = null),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-            ),
-            _MapFooter(
-              floor: _floor!,
-              rooms: roomsOnFloor,
-              selected: selected,
-              onPick: (room) => setState(() => _selectedId = room['id']),
             ),
           ],
         );
@@ -368,11 +431,90 @@ class _MapSearchSheetState extends State<_MapSearchSheet> {
         final room = _results[index];
         return RoomTile(
           room: room,
+          entranceIndex: index,
           highlight: _query,
           icon: hasPin(room) ? Icons.location_on_rounded : Icons.meeting_room_outlined,
           onTap: () => Navigator.pop(context, room),
         );
       },
+    );
+  }
+}
+
+/// แผงข้อมูลห้องใต้แผนที่แบบลากขึ้น-ลงได้
+/// หุบ: แสดงห้องที่เลือก (หรือปุ่มรายการห้อง/ภาพ 360°) / ลากขึ้น: แสดงห้องทั้งหมดในชั้นนี้
+class _RoomSheet extends StatelessWidget {
+  final ScrollController scrollController;
+  final String floor;
+  final List<Map<String, dynamic>> rooms;
+  final Map<String, dynamic>? selected;
+  final ValueChanged<Map<String, dynamic>> onPick;
+  final VoidCallback onShowAll;
+  final VoidCallback onClear;
+
+  const _RoomSheet({
+    required this.scrollController,
+    required this.floor,
+    required this.rooms,
+    required this.selected,
+    required this.onPick,
+    required this.onShowAll,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: AppColors.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        children: [
+          // ที่จับลาก: บอกผู้ใช้ว่าแผงนี้ลากขึ้นได้
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(999)),
+            ),
+          ),
+          _MapFooter(
+            floor: floor,
+            rooms: rooms,
+            selected: selected,
+            onPick: onPick,
+            embedded: true,
+            onShowList: onShowAll,
+            onClear: onClear,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+            child: Text(
+              'ห้องทั้งหมดใน${floorLabel(floor)} (${rooms.length})',
+              style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
+          for (final room in rooms)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: RoomTile(
+                room: room,
+                showBuilding: false,
+                icon: hasPin(room) ? Icons.location_on_rounded : Icons.meeting_room_outlined,
+                // ห้องที่มีหมุด: เลือกบนแผนที่แล้วหุบแผง / ไม่มีหมุด: เปิดรายละเอียดห้องแทน
+                onTap: () => hasPin(room) ? onPick(room) : openRoom(context, room),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -384,11 +526,21 @@ class _MapFooter extends StatelessWidget {
   final Map<String, dynamic>? selected;
   final ValueChanged<Map<String, dynamic>> onPick;
 
+  /// อยู่ในแผงลากได้ (ไม่ต้องเว้นขอบนอก) และใช้ [onShowList] แทนการเปิดหน้าต่างรายการห้อง
+  final bool embedded;
+  final VoidCallback? onShowList;
+
+  /// ยกเลิกการเลือกห้อง (กลับไปแสดงปุ่มรายการห้อง/ภาพ 360°)
+  final VoidCallback? onClear;
+
   const _MapFooter({
     required this.floor,
     required this.rooms,
     required this.selected,
     required this.onPick,
+    this.embedded = false,
+    this.onShowList,
+    this.onClear,
   });
 
   /// only360 = true: แสดงเฉพาะห้องที่มีภาพ 360° แล้วแตะเพื่อเปิดภาพได้เลย
@@ -461,7 +613,7 @@ class _MapFooter extends StatelessWidget {
     );
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+      margin: embedded ? EdgeInsets.zero : const EdgeInsets.fromLTRB(20, 10, 20, 14),
       padding: const EdgeInsets.all(12),
       decoration: appCardDecoration(color: room == null ? AppColors.fill : AppColors.tint, radius: 18),
       child: room == null
@@ -483,7 +635,7 @@ class _MapFooter extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         style: smallButton,
-                        onPressed: () => _openList(context),
+                        onPressed: onShowList ?? () => _openList(context),
                         icon: const Icon(Icons.list_rounded, size: 18),
                         label: const Text('รายการห้อง', maxLines: 1, softWrap: false),
                       ),
@@ -533,6 +685,12 @@ class _MapFooter extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (onClear != null)
+                      IconButton(
+                        tooltip: 'ยกเลิกการเลือก',
+                        icon: Icon(Icons.close_rounded, color: AppColors.muted),
+                        onPressed: onClear,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -765,7 +923,10 @@ class _FloorPlanViewState extends State<_FloorPlanView> with SingleTickerProvide
                           position: _pinOffset(room),
                           controller: _controller,
                           selected: room['id'] == widget.selectedId,
-                          onTap: () => widget.onSelect(room),
+                          onTap: () {
+                            Haptics.select();
+                            widget.onSelect(room);
+                          },
                         ),
                       // ป้ายชื่อวาดเป็นชั้นแยกทับหมุดทั้งหมด จะได้ไม่โดนหมุดที่อยู่ใกล้กันบัง
                       for (final room in pinned)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_theme.dart';
+import 'motion.dart';
 import 'room_utils.dart';
 
 /// หัวข้อใหญ่ของแต่ละแท็บ
@@ -189,6 +190,9 @@ class RoomTile extends StatelessWidget {
   final Widget? trailing;
   final IconData icon;
 
+  /// ลำดับในรายการ ใส่แล้วการ์ดจะค่อย ๆ ปรากฏไล่ตามลำดับ (null = ไม่มีแอนิเมชันเข้า)
+  final int? entranceIndex;
+
   /// คำค้นที่จะไฮไลต์ในรหัสห้อง (ไม่สนตัวพิมพ์เล็ก/ใหญ่) ว่างหรือ null = ไม่ไฮไลต์
   final String? highlight;
 
@@ -200,6 +204,7 @@ class RoomTile extends StatelessWidget {
     this.trailing,
     this.icon = Icons.meeting_room_rounded,
     this.highlight,
+    this.entranceIndex,
   });
 
   @override
@@ -211,64 +216,68 @@ class RoomTile extends StatelessWidget {
     ].join(' · ');
     final summary = roomSummary(room);
 
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+    final tile = Pressable(
+      child: Material(
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: appCardDecoration(),
-          child: Row(
-            children: [
-              IconBadge(icon),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: HighlightText(
-                            code,
-                            query: highlight,
-                            maxLines: 1,
-                            style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: appCardDecoration(),
+            child: Row(
+              children: [
+                IconBadge(icon),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: HighlightText(
+                              code,
+                              query: highlight,
+                              maxLines: 1,
+                              style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
+                            ),
                           ),
-                        ),
-                        if (hasPanorama(room)) ...[
-                          const SizedBox(width: 8),
-                          const StatusPill(label: '360°', icon: Icons.threesixty_rounded),
+                          if (hasPanorama(room)) ...[
+                            const SizedBox(width: 8),
+                            const StatusPill(label: '360°', icon: Icons.threesixty_rounded),
+                          ],
+                          if (isMaintenance(room)) ...[const SizedBox(width: 8), const StatusPill.maintenance()],
                         ],
-                        if (isMaintenance(room)) ...[const SizedBox(width: 8), const StatusPill.maintenance()],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    // ค้นหาได้ทั้งชื่ออาคารและประเภทห้อง จึงไฮไลต์บรรทัดเหล่านี้ด้วย
-                    HighlightText(
-                      where,
-                      query: highlight,
-                      maxLines: 1,
-                      style: TextStyle(color: AppColors.muted, fontSize: 13),
-                    ),
-                    if (summary != null)
+                      ),
+                      const SizedBox(height: 2),
+                      // ค้นหาได้ทั้งชื่ออาคารและประเภทห้อง จึงไฮไลต์บรรทัดเหล่านี้ด้วย
                       HighlightText(
-                        summary,
+                        where,
                         query: highlight,
                         maxLines: 1,
-                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                        style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
-                  ],
+                      if (summary != null)
+                        HighlightText(
+                          summary,
+                          query: highlight,
+                          maxLines: 1,
+                          style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              trailing ?? Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-            ],
+                trailing ?? Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              ],
+            ),
           ),
         ),
       ),
     );
+    final index = entranceIndex;
+    return index == null ? tile : FadeSlideIn(index: index, child: tile);
   }
 }
 
@@ -419,7 +428,10 @@ class ChipRow extends StatelessWidget {
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
-            onSelected: (_) => onSelected(label),
+            onSelected: (_) {
+              if (!isSelected) Haptics.select();
+              onSelected(label);
+            },
           );
         },
       ),

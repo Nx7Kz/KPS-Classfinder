@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 import 'map_screen.dart';
+import 'motion.dart';
 import 'places_screen.dart';
 import 'saved_screen.dart';
 import 'search_screen.dart';
@@ -14,8 +15,15 @@ class MainNav extends StatefulWidget {
   State<MainNav> createState() => _MainNavState();
 }
 
-class _MainNavState extends State<MainNav> {
+class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+
+  // จางเข้าเบา ๆ ตอนสลับแท็บ (ใช้ controller ตัวเดียว ไม่สร้างแท็บใหม่ สถานะในแท็บจึงไม่หาย)
+  late final AnimationController _fade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+    value: 1,
+  );
 
   // IndexedStack เก็บสถานะของแต่ละแท็บไว้ (เช่น อาคาร/ชั้นที่เลือกในแผนที่) ไม่โหลดใหม่ทุกครั้งที่สลับ
   final List<Widget> _screens = const [
@@ -27,11 +35,31 @@ class _MainNavState extends State<MainNav> {
   ];
 
   @override
+  void dispose() {
+    _fade.dispose();
+    super.dispose();
+  }
+
+  void _onTab(int index) {
+    if (index == _selectedIndex) return;
+    Haptics.select();
+    setState(() => _selectedIndex = index);
+    if (reduceMotion(context)) {
+      _fade.value = 1;
+    } else {
+      _fade.forward(from: 0.25);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _selectedIndex, children: _screens),
+        child: FadeTransition(
+          opacity: CurvedAnimation(parent: _fade, curve: Curves.easeOut),
+          child: IndexedStack(index: _selectedIndex, children: _screens),
+        ),
       ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
@@ -39,7 +67,7 @@ class _MainNavState extends State<MainNav> {
         ),
         child: NavigationBar(
           selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+          onDestinationSelected: _onTab,
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.search_rounded),
