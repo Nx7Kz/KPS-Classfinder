@@ -44,7 +44,8 @@ class _SavedScreenState extends State<SavedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded) return const LoadingView();
+    // อ่านจากเครื่องเสร็จในเสี้ยววินาที แสดงว่างไว้ก่อนเพื่อไม่ให้มีอะไรกะพริบ
+    if (!_loaded) return const SizedBox.shrink();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),

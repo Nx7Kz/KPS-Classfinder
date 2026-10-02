@@ -64,6 +64,10 @@ class ThemeController {
   }
 }
 
+/// ฟอนต์ไทยที่ฝังในแอป (ประกาศใน pubspec.yaml) ต้องใส่ใน TextStyle ของธีมทุกตัวด้วย
+/// เพราะ style ที่กำหนดตรง ๆ ในธีมของปุ่ม/แถบบน/เมนู จะแทนที่ค่าเริ่มต้นทั้งก้อน ไม่รับ fontFamily ต่อ
+const appFontFamily = 'IBMPlexSansThai';
+
 ThemeData buildAppTheme() {
   final brightness = AppColors.dark ? Brightness.dark : Brightness.light;
   final scheme = ColorScheme.fromSeed(
@@ -83,6 +87,8 @@ ThemeData buildAppTheme() {
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
+    // ฟอนต์ไทยที่ฝังในแอป (ดู pubspec.yaml)
+    fontFamily: appFontFamily,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     splashFactory: InkSparkle.splashFactory,
@@ -94,7 +100,7 @@ ThemeData buildAppTheme() {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
+      titleTextStyle: TextStyle(fontFamily: appFontFamily, 
         color: AppColors.ink,
         fontSize: 18,
         fontWeight: FontWeight.w700,
@@ -109,7 +115,7 @@ ThemeData buildAppTheme() {
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
-        return TextStyle(
+        return TextStyle(fontFamily: appFontFamily, 
           color: selected ? AppColors.primary : AppColors.muted,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           fontSize: 11.5,
@@ -126,7 +132,7 @@ ThemeData buildAppTheme() {
         foregroundColor: AppColors.onPrimary,
         minimumSize: const Size(0, 50),
         shape: buttonShape,
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        textStyle: TextStyle(fontFamily: appFontFamily, fontSize: 15, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -135,19 +141,19 @@ ThemeData buildAppTheme() {
         minimumSize: const Size(0, 50),
         side: BorderSide(color: AppColors.line),
         shape: buttonShape,
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        textStyle: TextStyle(fontFamily: appFontFamily, fontSize: 15, fontWeight: FontWeight.w600),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: AppColors.primary,
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        textStyle: TextStyle(fontFamily: appFontFamily, fontWeight: FontWeight.w600),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.fill,
-      hintStyle: TextStyle(color: AppColors.muted, fontSize: 15),
+      hintStyle: TextStyle(fontFamily: appFontFamily, color: AppColors.muted, fontSize: 15),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -176,21 +182,21 @@ ThemeData buildAppTheme() {
       side: BorderSide(color: AppColors.line),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       showCheckmark: false,
-      labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink),
-      secondaryLabelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
+      labelStyle: TextStyle(fontFamily: appFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.ink),
+      secondaryLabelStyle: TextStyle(fontFamily: appFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: AppColors.dark ? const Color(0xFF2A3B31) : const Color(0xFF10241A),
-      contentTextStyle: const TextStyle(color: Colors.white),
+      contentTextStyle: TextStyle(fontFamily: appFontFamily, color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: AppColors.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titleTextStyle: TextStyle(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w700),
+      titleTextStyle: TextStyle(fontFamily: appFontFamily, color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w700),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: AppColors.surface,

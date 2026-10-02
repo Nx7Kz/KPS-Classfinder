@@ -48,6 +48,30 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
+
+# ไอคอนแอปและหน้า splash สร้างจากโลโก้ใน assets/branding (ต้นฉบับ: logo_source.png)
+# แก้รูปแล้วสั่งใหม่ด้วย: dart run flutter_launcher_icons  และ  dart run flutter_native_splash:create
+flutter_launcher_icons:
+  image_path: assets/branding/app_icon.png
+  android: launcher_icon
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/branding/app_icon_foreground.png
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    background_color: "#FFFFFF"
+    theme_color: "#15803D"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/branding/splash_logo.png
+  android_12:
+    color: "#FFFFFF"
+    image: assets/branding/splash_logo.png
+  web: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -59,6 +83,20 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # ฟอนต์ไทย IBM Plex Sans Thai (SIL OFL, ไฟล์ license อยู่ใน assets/fonts/OFL.txt)
+  # ฝังไว้ในแอปเพื่อให้แสดงผลเหมือนกันทุกเครื่องและใช้ได้แม้ไม่มีอินเทอร์เน็ต
+  fonts:
+    - family: IBMPlexSansThai
+      fonts:
+        - asset: assets/fonts/IBMPlexSansThai-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansThai-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansThai-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansThai-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

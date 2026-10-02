@@ -57,7 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
       children: [
-        const PageHeader(title: 'ตั้งค่า', subtitle: 'การเชื่อมต่อและข้อมูลในเครื่อง'),
+        const PageHeader(title: 'ตั้งค่า', subtitle: 'การแสดงผลและข้อมูลในเครื่อง'),
         const SectionTitle('การแสดงผล'),
         const _ThemePicker(),
         const SectionTitle('ข้อมูลในเครื่อง'),

@@ -7,6 +7,7 @@ import 'map_screen.dart';
 import 'panorama_screen.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
+import 'skeleton.dart';
 import 'widgets.dart';
 
 /// เปิดหน้ารายละเอียดห้อง (ใช้ร่วมกันทุกหน้า)
@@ -29,6 +30,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   bool _isFavorite = false;
   bool _isLoadingFavorite = true;
   List<Map<String, dynamic>> _panoramas = const [];
+  bool _panoramasLoaded = false;
 
   Map<String, dynamic> get room => widget.room;
 
@@ -57,7 +59,24 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       final panoramas = await Api.panoramas(id);
       if (!mounted) return;
       setState(() => _panoramas = panoramas);
-    } catch (_) {}
+    } catch (_) {
+      // ไม่มีก็ไม่แสดง
+    } finally {
+      if (mounted) setState(() => _panoramasLoaded = true);
+    }
+  }
+
+  /// การ์ดตัวอย่างภาพ 360°: แสดงเฉพาะห้องที่มีภาพ ระหว่างโหลดใช้โครงร่างขนาดเท่าการ์ด
+  /// (รู้ล่วงหน้าจาก panorama_count ที่มากับข้อมูลห้อง จึงไม่มีการ์ดว่างกะพริบในห้องที่ไม่มีภาพ)
+  List<Widget> _buildPanoramaSection() {
+    if (_panoramasLoaded ? _panoramas.isEmpty : !hasPanorama(room)) return const [];
+    return [
+      const SectionTitle('ภาพ 360°'),
+      if (!_panoramasLoaded)
+        const Shimmer(child: SkeletonBox(height: 190, radius: 16))
+      else
+        _PanoramaPreview(panoramas: _panoramas, onOpen: _openPanorama),
+    ];
   }
 
   Future<void> _toggleFavorite() async {
@@ -179,6 +198,9 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               ),
             ),
           ],
+          const SectionTitle('ตำแหน่งในอาคาร'),
+          _MiniMap(room: room, onOpen: _openMap),
+          ..._buildPanoramaSection(),
           const SectionTitle('ข้อมูลห้อง'),
           Container(
             decoration: appCardDecoration(),
@@ -207,21 +229,6 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 if (amenities['ac'] != null)
                   _AmenityChip(Icons.ac_unit_rounded, '${amenities['ac']} เครื่องปรับอากาศ'),
                 if (amenities['wifi'] != null) _AmenityChip(Icons.wifi_rounded, '${amenities['wifi']}'),
-              ],
-            ),
-          ],
-          if (!hasPin(room)) ...[
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: AppColors.muted),
-                SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'ห้องนี้ยังไม่มีหมุดบนแผนที่ แต่ยังเปิดดูแผนที่ชั้นนี้ได้',
-                    style: TextStyle(color: AppColors.muted, fontSize: 13),
-                  ),
-                ),
               ],
             ),
           ],
@@ -256,6 +263,334 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// แผนที่ย่อ: ผังชั้นของห้องนี้พร้อมหมุดที่ไฮไลต์ แตะเพื่อเปิดแผนที่เต็ม
+/// โหลดผังไม่ได้ก็ไม่ทำให้หน้ารายละเอียดพัง แค่แสดงข้อความแทน
+class _MiniMap extends StatefulWidget {
+  final Map<String, dynamic> room;
+  final VoidCallback onOpen;
+
+  const _MiniMap({required this.room, required this.onOpen});
+
+  @override
+  State<_MiniMap> createState() => _MiniMapState();
+}
+
+class _MiniMapState extends State<_MiniMap> {
+  late final Future<FloorPlan?> _future = _load();
+
+  Future<FloorPlan?> _load() async {
+    final building = widget.room['building_name']?.toString();
+    if (building == null) return null;
+    try {
+      return await Api.floorPlan(building, floorOf(widget.room));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<FloorPlan?>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Shimmer(child: AspectRatio(aspectRatio: 1.45, child: SkeletonBox(radius: 16)));
+        }
+        final plan = snapshot.data;
+        return Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: widget.onOpen,
+            child: Ink(
+              decoration: appCardDecoration(),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: plan == null ? _buildNoPlan() : _buildPlan(plan),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNoPlan() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const IconBadge(Icons.map_outlined),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ยังไม่มีแผนผังของ${floorLabel(floorOf(widget.room))}',
+                  style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'แตะเพื่อดูรายชื่อห้องในชั้นนี้',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlan(FloorPlan plan) {
+    final pinned = hasPin(widget.room);
+    final x = (double.tryParse('${widget.room['pin_x']}') ?? 0) / 100;
+    final y = (double.tryParse('${widget.room['pin_y']}') ?? 0) / 100;
+
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: plan.aspectRatio,
+          child: LayoutBuilder(
+            builder: (context, box) => Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned.fill(
+                  child: Image.network(
+                    plan.imageUrl,
+                    fit: BoxFit.fill,
+                    errorBuilder: (_, _, _) => Center(
+                      child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 36),
+                    ),
+                  ),
+                ),
+                if (pinned)
+                  Positioned(
+                    left: box.maxWidth * x - _PulsingPin.size / 2,
+                    top: box.maxHeight * y - _PulsingPin.size / 2,
+                    child: _PulsingPin(label: widget.room['room_code']?.toString() ?? ''),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        // แถบใต้รูป: ไม่ทับแผนผัง จึงไม่บังหมุดหรือคำอธิบายสีในรูป
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+          decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+          child: Row(
+            children: [
+              Icon(
+                pinned ? Icons.location_on_rounded : Icons.info_outline_rounded,
+                size: 18,
+                color: pinned ? AppColors.primary : AppColors.muted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  pinned
+                      ? '${floorLabel(floorOf(widget.room))} · ${widget.room['room_code'] ?? ''}'
+                      : 'ห้องนี้ยังไม่ได้ปักหมุดบนแผนผัง',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppColors.ink, fontSize: 13.5, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                'แผนที่เต็ม',
+                style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.open_in_full_rounded, size: 16, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// ภาพย่อของภาพ 360° แรกของห้อง (ตัดส่วนกลางภาพ) พร้อมจำนวนมุมและปุ่มเปิดดู
+class _PanoramaPreview extends StatelessWidget {
+  final List<Map<String, dynamic>> panoramas;
+  final VoidCallback onOpen;
+
+  const _PanoramaPreview({required this.panoramas, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final first = panoramas.first;
+    final label = first['position_label']?.toString();
+    final count = panoramas.length;
+
+    return Material(
+      color: Colors.black,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: SizedBox(
+          height: 190,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ภาพ 360° (2:1) ขอบบน/ล่างคือเพดาน/พื้นที่ถูกยืด จึงขยายเข้าไปเอาช่วงกลาง (ระดับสายตา) มาแสดง
+              Transform.scale(
+                scale: 1.4,
+                child: Image.network(
+                  Api.assetUrl(first['image_url'].toString()),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppColors.fill,
+                    child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 36),
+                  ),
+                ),
+              ),
+              // ไล่เงาด้านล่างให้ข้อความอ่านออกบนภาพทุกแบบ
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x00000000), Color(0x00000000), Color(0xB3000000)],
+                    stops: [0, 0.45, 1],
+                  ),
+                ),
+              ),
+              Center(
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(Icons.threesixty_rounded, color: Colors.white, size: 30),
+                ),
+              ),
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 12,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label != null && label.isNotEmpty ? label : 'ภาพ 360° ภายในห้อง',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            count > 1 ? '$count มุม · แตะเพื่อดูรอบทิศ' : 'แตะเพื่อดูรอบทิศ',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.open_in_full_rounded, color: Colors.white, size: 18),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// หมุดของห้องนี้: วงแหวนกระเพื่อมรอบจุด พร้อมป้ายรหัสห้องด้านบน
+class _PulsingPin extends StatefulWidget {
+  static const size = 48.0;
+
+  final String label;
+
+  const _PulsingPin({required this.label});
+
+  @override
+  State<_PulsingPin> createState() => _PulsingPinState();
+}
+
+class _PulsingPinState extends State<_PulsingPin> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.of(context).disableAnimations;
+    final color = AppColors.primary;
+
+    return SizedBox(
+      width: _PulsingPin.size,
+      height: _PulsingPin.size,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (_, _) {
+              final t = still ? 0.5 : _controller.value;
+              return Container(
+                width: 18 + 30 * t,
+                height: 18 + 30 * t,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.35 * (1 - t)),
+                ),
+              );
+            },
+          ),
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 1))],
+            ),
+          ),
+          if (widget.label.isNotEmpty)
+            Positioned(
+              bottom: _PulsingPin.size / 2 + 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10241A),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

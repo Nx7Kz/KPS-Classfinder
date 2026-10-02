@@ -7,6 +7,8 @@ import 'app_theme.dart';
 import 'room_detail_screen.dart';
 import 'room_list_screen.dart';
 import 'room_store.dart';
+import 'room_utils.dart';
+import 'skeleton.dart';
 import 'widgets.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -159,7 +161,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Widget> _buildResults() {
     if (_isSearching && _results.isEmpty) {
-      return const [Padding(padding: EdgeInsets.only(top: 48), child: LoadingView())];
+      return [const SectionTitleSkeleton(width: 110), SkeletonList.rooms(count: 4)];
     }
 
     if (_searchError != null) {
@@ -191,6 +193,7 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: const EdgeInsets.only(bottom: 10),
           child: RoomTile(
             room: room,
+            highlight: _query,
             onTap: () {
               _focusNode.unfocus();
               openRoom(context, room);
@@ -211,15 +214,20 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Text('ล้าง', style: TextStyle(color: AppColors.muted)),
         ),
       ),
-      for (final room in _recents.take(5))
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: RoomTile(
-            room: room,
-            icon: Icons.history_rounded,
-            onTap: () => openRoom(context, room),
-          ),
+      // ชิปแนวนอนเลื่อนได้ กินพื้นที่น้อยกว่าการ์ด แตะซ้ำได้เร็ว (รายการเต็มอยู่ในแท็บ "บันทึก")
+      // Clip.none ให้ชิปเลื่อนล้นขอบ padding ไปถึงขอบจอได้ ดูต่อเนื่องเหมือนแถบเลื่อน
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        child: Row(
+          children: [
+            for (final room in _recents) ...[
+              _RecentChip(room: room, onOpen: () => openRoom(context, room)),
+              const SizedBox(width: 8),
+            ],
+          ],
         ),
+      ),
     ];
   }
 
@@ -230,7 +238,7 @@ class _SearchScreenState extends State<SearchScreen> {
         future: _buildingsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: LoadingView());
+            return SkeletonList(count: 2, itemBuilder: (_) => const RoomTileSkeleton(titleWidth: 160));
           }
           if (snapshot.hasError) {
             return SizedBox(
@@ -261,6 +269,29 @@ class _SearchScreenState extends State<SearchScreen> {
         },
       ),
     ];
+  }
+}
+
+/// ชิปห้องที่ดูล่าสุด: แตะเพื่อเปิด, กด ✕ เพื่อลบรายการนี้ออกจากประวัติ
+class _RecentChip extends StatelessWidget {
+  final Map<String, dynamic> room;
+  final VoidCallback onOpen;
+
+  const _RecentChip({required this.room, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final code = room['room_code']?.toString() ?? '-';
+    return InputChip(
+      avatar: Icon(Icons.history_rounded, size: 18, color: AppColors.primary),
+      label: Text(code),
+      labelStyle: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w600),
+      tooltip: '${room['building_name'] ?? ''} · ${floorLabel(floorOf(room))}',
+      onPressed: onOpen,
+      deleteIcon: Icon(Icons.close_rounded, size: 16, color: AppColors.muted),
+      deleteButtonTooltipMessage: 'ลบออกจากประวัติ',
+      onDeleted: () => RoomStore.removeRecent(room),
+    );
   }
 }
 

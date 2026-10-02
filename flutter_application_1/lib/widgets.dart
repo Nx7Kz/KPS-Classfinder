@@ -189,6 +189,9 @@ class RoomTile extends StatelessWidget {
   final Widget? trailing;
   final IconData icon;
 
+  /// คำค้นที่จะไฮไลต์ในรหัสห้อง (ไม่สนตัวพิมพ์เล็ก/ใหญ่) ว่างหรือ null = ไม่ไฮไลต์
+  final String? highlight;
+
   const RoomTile({
     super.key,
     required this.room,
@@ -196,6 +199,7 @@ class RoomTile extends StatelessWidget {
     this.showBuilding = true,
     this.trailing,
     this.icon = Icons.meeting_room_rounded,
+    this.highlight,
   });
 
   @override
@@ -227,10 +231,10 @@ class RoomTile extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
+                          child: HighlightText(
                             code,
+                            query: highlight,
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -263,6 +267,44 @@ class RoomTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// ข้อความที่ไฮไลต์ทุกช่วงที่ตรงกับ [query] (ไม่สนตัวพิมพ์เล็ก/ใหญ่) ด้วยพื้นเขียวอ่อน + สีเขียว
+/// ช่วยให้เห็นทันทีว่าผลลัพธ์แต่ละรายการตรงกับคำค้นตรงไหน
+class HighlightText extends StatelessWidget {
+  final String text;
+  final String? query;
+  final TextStyle style;
+  final int? maxLines;
+
+  const HighlightText(this.text, {super.key, required this.query, required this.style, this.maxLines});
+
+  @override
+  Widget build(BuildContext context) {
+    final q = query?.trim().toLowerCase() ?? '';
+    final lower = text.toLowerCase();
+    if (q.isEmpty || !lower.contains(q)) {
+      return Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style);
+    }
+
+    final match = style.copyWith(color: AppColors.primary, backgroundColor: AppColors.tint);
+    final spans = <TextSpan>[];
+    var start = 0;
+    while (true) {
+      final index = lower.indexOf(q, start);
+      if (index < 0) break;
+      if (index > start) spans.add(TextSpan(text: text.substring(start, index)));
+      spans.add(TextSpan(text: text.substring(index, index + q.length), style: match));
+      start = index + q.length;
+    }
+    if (start < text.length) spans.add(TextSpan(text: text.substring(start)));
+
+    return Text.rich(
+      TextSpan(style: style, children: spans),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -339,13 +381,6 @@ class StateView extends StatelessWidget {
       ),
     );
   }
-}
-
-class LoadingView extends StatelessWidget {
-  const LoadingView({super.key});
-
-  @override
-  Widget build(BuildContext context) => const Center(child: CircularProgressIndicator(strokeWidth: 3));
 }
 
 /// แถบชิปเลื่อนแนวนอน (เลือกอาคาร / ชั้น)

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'app_theme.dart';
 import 'room_list_screen.dart';
+import 'skeleton.dart';
 import 'widgets.dart';
 
 class PlacesScreen extends StatefulWidget {
@@ -64,7 +65,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _buildingsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.connectionState != ConnectionState.done) {
+          return SkeletonList(count: 3, spacing: 12, itemBuilder: (_) => const BuildingCardSkeleton());
+        }
 
         if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _refresh);
 
@@ -99,7 +102,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
             padding: const EdgeInsets.only(bottom: 24),
             itemCount: visible.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) => _BuildingCard(building: visible[index]),
+            itemBuilder: (context, index) => _BuildingCard(building: visible[index], query: _query),
           ),
         );
       },
@@ -109,8 +112,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
 
 class _BuildingCard extends StatelessWidget {
   final Map<String, dynamic> building;
+  final String query;
 
-  const _BuildingCard({required this.building});
+  const _BuildingCard({required this.building, this.query = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -143,8 +147,9 @@ class _BuildingCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        HighlightText(
                           code,
+                          query: query,
                           style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 12.5,
@@ -152,8 +157,9 @@ class _BuildingCard extends StatelessWidget {
                             letterSpacing: 0.6,
                           ),
                         ),
-                        Text(
+                        HighlightText(
                           name,
+                          query: query,
                           style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                       ],

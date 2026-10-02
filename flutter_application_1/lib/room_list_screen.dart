@@ -4,6 +4,7 @@ import 'api_client.dart';
 import 'map_screen.dart';
 import 'room_detail_screen.dart';
 import 'room_utils.dart';
+import 'skeleton.dart';
 import 'widgets.dart';
 
 class RoomListScreen extends StatefulWidget {
@@ -61,7 +62,21 @@ class _RoomListScreenState extends State<RoomListScreen> {
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _roomsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+          if (snapshot.connectionState != ConnectionState.done) {
+            return SkeletonList.rooms(
+              count: 6,
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              header: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBox(height: 50, radius: 14),
+                  SizedBox(height: 12),
+                  ChipRowSkeleton(widths: [76, 56, 56, 56]),
+                  SectionTitleSkeleton(),
+                ],
+              ),
+            );
+          }
           if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _reload);
 
           final rooms = snapshot.data ?? const [];
@@ -132,6 +147,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
                             child: RoomTile(
                               room: room,
                               showBuilding: false,
+                              highlight: _query,
                               onTap: () => openRoom(context, room),
                             ),
                           ),

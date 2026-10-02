@@ -5,6 +5,7 @@ import 'app_theme.dart';
 import 'panorama_screen.dart';
 import 'room_detail_screen.dart';
 import 'room_utils.dart';
+import 'skeleton.dart';
 import 'widgets.dart';
 
 /// แผนที่ผังชั้นของอาคาร: เลือกอาคาร → เลือกชั้น → แตะหมุดเพื่อดูห้อง
@@ -65,7 +66,7 @@ class _MapScreenState extends State<MapScreen> {
     final content = FutureBuilder<List<Map<String, dynamic>>>(
       future: _buildingsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.connectionState != ConnectionState.done) return const MapSkeleton();
         if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _retry);
 
         final names = (snapshot.data ?? const []).map((b) => b['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
@@ -108,11 +109,26 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, 14),
-          child: PageHeader(title: 'แผนที่', subtitle: 'เลือกอาคารและชั้น แล้วแตะหมุดเพื่อดูห้อง'),
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: PageHeader(title: 'แผนที่'),
         ),
         Expanded(child: content),
       ],
+    );
+  }
+
+  void _openFullscreen(List<Map<String, dynamic>> roomsOnFloor) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _FullscreenMap(
+          building: _building!,
+          floor: _floor!,
+          rooms: roomsOnFloor,
+          selectedId: _selectedId,
+          onSelect: (room) => setState(() => _selectedId = room['id']),
+        ),
+      ),
     );
   }
 
@@ -120,7 +136,7 @@ class _MapScreenState extends State<MapScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _roomsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.connectionState != ConnectionState.done) return const MapSkeleton(showBuildingChips: false);
         if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _reloadRooms);
 
         final rooms = snapshot.data ?? const [];
@@ -166,6 +182,7 @@ class _MapScreenState extends State<MapScreen> {
                   rooms: roomsOnFloor,
                   selectedId: selected?['id'],
                   onSelect: (room) => setState(() => _selectedId = room['id']),
+                  onFullscreen: () => _openFullscreen(roomsOnFloor),
                 ),
               ),
             ),
@@ -370,12 +387,15 @@ class _MapFooter extends StatelessWidget {
 }
 
 /// โหลดรูปผังของอาคาร+ชั้น แล้ววาดหมุดตามตำแหน่ง % ของแต่ละห้อง
+/// พื้นที่ซูม/เลื่อนครอบทั้งกรอบการ์ด (ไม่ใช่แค่ขนาดรูป) จึงลากรูปที่ซูมแล้วไปใช้พื้นที่ว่างได้
+/// ถ้าตอนสร้างมีห้องที่เลือกอยู่ (เช่น มาจากหน้ารายละเอียดห้อง) จะซูมเข้าไปที่หมุดห้องนั้นให้เอง
 class _FloorPlanView extends StatefulWidget {
   final String building;
   final String floor;
   final List<Map<String, dynamic>> rooms;
   final Object? selectedId;
   final ValueChanged<Map<String, dynamic>> onSelect;
+  final VoidCallback? onFullscreen;
 
   const _FloorPlanView({
     super.key,
@@ -384,36 +404,102 @@ class _FloorPlanView extends StatefulWidget {
     required this.rooms,
     required this.selectedId,
     required this.onSelect,
+    this.onFullscreen,
   });
 
   @override
   State<_FloorPlanView> createState() => _FloorPlanViewState();
 }
 
-class _FloorPlanViewState extends State<_FloorPlanView> {
+class _FloorPlanViewState extends State<_FloorPlanView> with SingleTickerProviderStateMixin {
+  static const _maxScale = 6.0;
+  static const _focusScale = 2.2;
+
   late Future<FloorPlan?> _future;
   final TransformationController _controller = TransformationController();
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+  );
+  Animation<Matrix4>? _tween;
+
+  // ขนาดกรอบและตำแหน่งรูปในกรอบ (คำนวณตอนจัดวางล่าสุด) ใช้คำนวณการซูม
+  Size _viewport = Size.zero;
+  Rect _imageRect = Rect.zero;
+  late final Object? _focusId = widget.selectedId;
+  bool _focused = false;
 
   @override
   void initState() {
     super.initState();
     _future = Api.floorPlan(widget.building, widget.floor);
+    _anim.addListener(() {
+      final tween = _tween;
+      if (tween != null) _controller.value = tween.value;
+    });
   }
 
   @override
   void dispose() {
+    _anim.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   void _reload() => setState(() => _future = Api.floorPlan(widget.building, widget.floor));
 
+  double get _scale => _controller.value.getMaxScaleOnAxis();
+
+  /// matrix ที่ซูมระดับ [scale] โดยให้จุด [scene] (พิกัดในกรอบ) อยู่กลางจอ และไม่เลื่อนจนเห็นขอบว่าง
+  Matrix4 _matrixFor(double scale, Offset scene) {
+    if (scale <= 1.0001) return Matrix4.identity();
+    final w = _viewport.width;
+    final h = _viewport.height;
+    final tx = (w / 2 - scale * scene.dx).clamp(w - scale * w, 0.0);
+    final ty = (h / 2 - scale * scene.dy).clamp(h - scale * h, 0.0);
+    return Matrix4(scale, 0, 0, 0, 0, scale, 0, 0, 0, 0, 1, 0, tx, ty, 0, 1);
+  }
+
+  void _animateTo(Matrix4 target) {
+    if (MediaQuery.of(context).disableAnimations) {
+      _controller.value = target;
+      return;
+    }
+    _tween = Matrix4Tween(begin: _controller.value, end: target)
+        .animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
+    _anim.forward(from: 0);
+  }
+
+  void _zoomBy(double factor) {
+    final center = _controller.toScene(Offset(_viewport.width / 2, _viewport.height / 2));
+    _animateTo(_matrixFor((_scale * factor).clamp(1.0, _maxScale), center));
+  }
+
+  Offset _pinOffset(Map<String, dynamic> room) {
+    final x = (double.tryParse('${room['pin_x']}') ?? 0) / 100;
+    final y = (double.tryParse('${room['pin_y']}') ?? 0) / 100;
+    return Offset(_imageRect.left + _imageRect.width * x, _imageRect.top + _imageRect.height * y);
+  }
+
+  void _focusSelectedOnce() {
+    if (_focused || _focusId == null) return;
+    _focused = true;
+    for (final room in widget.rooms) {
+      if (room['id'] == _focusId && hasPin(room)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _animateTo(_matrixFor(_focusScale, _pinOffset(room)));
+        });
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<FloorPlan?>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.connectionState != ConnectionState.done) return const Shimmer(child: SkeletonBox(radius: 16));
         if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _reload);
 
         final plan = snapshot.data;
@@ -446,62 +532,90 @@ class _FloorPlanViewState extends State<_FloorPlanView> {
       clipBehavior: Clip.antiAlias,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // คำนวณกรอบให้พอดีสัดส่วนภาพก่อนส่งเข้า InteractiveViewer (มันบังคับให้ลูกเต็มกรอบเสมอ)
-          var width = constraints.maxWidth;
-          var height = width / plan.aspectRatio;
-          if (height > constraints.maxHeight) {
-            height = constraints.maxHeight;
-            width = height * plan.aspectRatio;
+          // รูปพอดีกรอบตามสัดส่วนจริง วางกึ่งกลาง ส่วนพื้นที่ซูมเท่ากับทั้งกรอบ
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          var iw = w;
+          var ih = iw / plan.aspectRatio;
+          if (ih > h) {
+            ih = h;
+            iw = ih * plan.aspectRatio;
           }
+          _viewport = Size(w, h);
+          _imageRect = Rect.fromLTWH((w - iw) / 2, (h - ih) / 2, iw, ih);
+          _focusSelectedOnce();
 
           return Stack(
             children: [
-              Center(
+              InteractiveViewer(
+                transformationController: _controller,
+                minScale: 1,
+                maxScale: _maxScale,
+                onInteractionStart: (_) => _anim.stop(),
                 child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: InteractiveViewer(
-                    transformationController: _controller,
-                    minScale: 1,
-                    maxScale: 5,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Image.network(
-                            plan.imageUrl,
-                            fit: BoxFit.fill,
-                            errorBuilder: (_, _, _) => Center(
-                              child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 40),
-                            ),
+                  width: w,
+                  height: h,
+                  child: Stack(
+                    children: [
+                      Positioned.fromRect(
+                        rect: _imageRect,
+                        child: Image.network(
+                          plan.imageUrl,
+                          fit: BoxFit.fill,
+                          errorBuilder: (_, _, _) => Center(
+                            child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 40),
                           ),
                         ),
-                        for (final room in pinned)
-                          _PinMarker(
-                            key: ValueKey(room['id'] ?? room['room_code']),
-                            room: room,
-                            mapSize: Size(width, height),
-                            controller: _controller,
-                            selected: room['id'] == widget.selectedId,
-                            onTap: () => widget.onSelect(room),
-                          ),
-                      ],
-                    ),
+                      ),
+                      for (final room in pinned)
+                        _PinMarker(
+                          key: ValueKey('pin-${room['id'] ?? room['room_code']}'),
+                          room: room,
+                          position: _pinOffset(room),
+                          controller: _controller,
+                          selected: room['id'] == widget.selectedId,
+                          onTap: () => widget.onSelect(room),
+                        ),
+                      // ป้ายชื่อวาดเป็นชั้นแยกทับหมุดทั้งหมด จะได้ไม่โดนหมุดที่อยู่ใกล้กันบัง
+                      for (final room in pinned)
+                        _PinMarker(
+                          key: ValueKey('label-${room['id'] ?? room['room_code']}'),
+                          room: room,
+                          position: _pinOffset(room),
+                          controller: _controller,
+                          selected: room['id'] == widget.selectedId,
+                          onTap: () {},
+                          labelsOnly: true,
+                        ),
+                    ],
                   ),
                 ),
               ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Material(
-                  color: AppColors.surface,
-                  shape: CircleBorder(side: BorderSide(color: AppColors.line)),
-                  child: IconButton(
-                    tooltip: 'รีเซ็ตมุมมอง',
-                    iconSize: 20,
-                    color: AppColors.primary,
-                    icon: const Icon(Icons.center_focus_strong_rounded),
-                    onPressed: () => _controller.value = Matrix4.identity(),
+              if (widget.onFullscreen != null)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _MapButton(
+                    icon: Icons.fullscreen_rounded,
+                    tooltip: 'เต็มจอ',
+                    onTap: widget.onFullscreen!,
                   ),
+                ),
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Column(
+                  children: [
+                    _MapButton(icon: Icons.add_rounded, tooltip: 'ซูมเข้า', onTap: () => _zoomBy(1.6)),
+                    const SizedBox(height: 6),
+                    _MapButton(icon: Icons.remove_rounded, tooltip: 'ซูมออก', onTap: () => _zoomBy(1 / 1.6)),
+                    const SizedBox(height: 6),
+                    _MapButton(
+                      icon: Icons.center_focus_strong_rounded,
+                      tooltip: 'รีเซ็ตมุมมอง',
+                      onTap: () => _animateTo(Matrix4.identity()),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -512,109 +626,247 @@ class _FloorPlanViewState extends State<_FloorPlanView> {
   }
 }
 
+/// ปุ่มกลมเล็กบนแผนที่ (ซูม/รีเซ็ต/เต็มจอ)
+class _MapButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _MapButton({required this.icon, required this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: CircleBorder(side: BorderSide(color: AppColors.line)),
+      child: IconButton(
+        tooltip: tooltip,
+        iconSize: 22,
+        color: AppColors.primary,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(icon),
+        onPressed: onTap,
+      ),
+    );
+  }
+}
+
+/// แผนที่แบบเต็มจอ: ชั้นเดียวกับที่เปิดมา ไม่มีหัวข้อ/ชิปเลือกชั้น ให้พื้นที่แผนผังมากที่สุด
+/// เลือกหมุดในหน้านี้แล้วหน้าแผนที่ปกติจะเลือกห้องเดียวกันตามไปด้วย (ผ่าน onSelect)
+class _FullscreenMap extends StatefulWidget {
+  final String building;
+  final String floor;
+  final List<Map<String, dynamic>> rooms;
+  final Object? selectedId;
+  final ValueChanged<Map<String, dynamic>> onSelect;
+
+  const _FullscreenMap({
+    required this.building,
+    required this.floor,
+    required this.rooms,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  @override
+  State<_FullscreenMap> createState() => _FullscreenMapState();
+}
+
+class _FullscreenMapState extends State<_FullscreenMap> {
+  late Object? _selectedId = widget.selectedId;
+
+  void _select(Map<String, dynamic> room) {
+    setState(() => _selectedId = room['id']);
+    widget.onSelect(room);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Map<String, dynamic>? selected;
+    for (final room in widget.rooms) {
+      if (room['id'] != null && room['id'] == _selectedId) selected = room;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'ปิดเต็มจอ',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(floorLabel(widget.floor)),
+            Text(
+              widget.building,
+              style: TextStyle(color: AppColors.muted, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _FloorPlanView(
+                  building: widget.building,
+                  floor: widget.floor,
+                  rooms: widget.rooms,
+                  selectedId: _selectedId,
+                  onSelect: _select,
+                ),
+              ),
+            ),
+            _MapFooter(floor: widget.floor, rooms: widget.rooms, selected: selected, onPick: _select),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// หมุดห้อง: ขนาดคงที่บนหน้าจอแม้ซูมแผนที่ (ชดเชยด้วย 1/scale) และไฮไลต์ + ป้ายชื่อเมื่อถูกเลือก
+/// เมื่อซูมเข้าเกิน [_labelFrom] ทุกหมุดจะค่อย ๆ แสดงป้ายรหัสห้อง (ตอนซูมออกซ่อนไว้กันป้ายทับกัน)
 class _PinMarker extends StatelessWidget {
   final Map<String, dynamic> room;
-  final Size mapSize;
+  final Offset position;
   final TransformationController controller;
   final bool selected;
   final VoidCallback onTap;
+  final bool labelsOnly;
 
   const _PinMarker({
     super.key,
     required this.room,
-    required this.mapSize,
+    required this.position,
     required this.controller,
     required this.selected,
     required this.onTap,
+    this.labelsOnly = false,
   });
 
   static const _hitSize = 44.0;
+  static const _labelFrom = 1.8; // เริ่มแสดงป้ายที่ระดับซูมนี้
+  static const _labelFull = 2.3; // ป้ายชัดเต็มที่ระดับซูมนี้
 
   @override
   Widget build(BuildContext context) {
-    final x = double.tryParse('${room['pin_x']}') ?? 0;
-    final y = double.tryParse('${room['pin_y']}') ?? 0;
-    final maintenance = isMaintenance(room);
-    final dotSize = selected ? 26.0 : 18.0;
-    final color = maintenance ? AppColors.muted : (selected ? AppColors.primaryDark : AppColors.primary);
-
     return Positioned(
-      left: mapSize.width * (x / 100) - _hitSize / 2,
-      top: mapSize.height * (y / 100) - _hitSize / 2,
+      left: position.dx - _hitSize / 2,
+      top: position.dy - _hitSize / 2,
       width: _hitSize,
       height: _hitSize,
       child: AnimatedBuilder(
         animation: controller,
-        builder: (_, child) => Transform.scale(
-          scale: 1 / controller.value.getMaxScaleOnAxis(),
-          child: child,
-        ),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              if (selected)
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18)),
-                ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: dotSize,
-                height: dotSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                  border: Border.all(color: Colors.white, width: 2.5),
-                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
-                ),
-                child: maintenance ? Icon(Icons.build_rounded, size: 10, color: AppColors.background) : null,
-              ),
-              // ป้าย 360° เล็ก ๆ มุมหมุด บอกว่าห้องนี้มีภาพพาโนรามา
-              if (hasPanorama(room))
-                Positioned(
-                  top: selected ? 3 : 6,
-                  right: selected ? 3 : 6,
-                  child: Container(
-                    width: 15,
-                    height: 15,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primary, width: 1.2),
-                    ),
-                    child: Icon(Icons.threesixty_rounded, size: 10, color: AppColors.primary),
-                  ),
-                ),
-              if (selected)
-                Positioned(
-                  bottom: _hitSize / 2 + 12,
-                  left: -60,
-                  right: -60,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.ink,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        room['room_code']?.toString() ?? '',
-                        maxLines: 1,
-                        style: TextStyle(color: AppColors.background, fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        builder: (_, _) {
+          final scale = controller.value.getMaxScaleOnAxis();
+          final labelOpacity = ((scale - _labelFrom) / (_labelFull - _labelFrom)).clamp(0.0, 1.0);
+          return Transform.scale(scale: 1 / scale, child: _buildPin(labelOpacity));
+        },
       ),
+    );
+  }
+
+  Widget _buildPin(double labelOpacity) {
+    if (labelsOnly) return IgnorePointer(child: _buildLabel(labelOpacity));
+
+    final maintenance = isMaintenance(room);
+    final dotSize = selected ? 26.0 : 18.0;
+    final color = maintenance ? AppColors.muted : (selected ? AppColors.primaryDark : AppColors.primary);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          if (selected)
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18)),
+            ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: dotSize,
+            height: dotSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
+            ),
+            child: maintenance ? Icon(Icons.build_rounded, size: 10, color: AppColors.background) : null,
+          ),
+          // ป้าย 360° เล็ก ๆ มุมหมุด บอกว่าห้องนี้มีภาพพาโนรามา
+          if (hasPanorama(room))
+            Positioned(
+              top: selected ? 3 : 6,
+              right: selected ? 3 : 6,
+              child: Container(
+                width: 15,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.primary, width: 1.2),
+                ),
+                child: Icon(Icons.threesixty_rounded, size: 10, color: AppColors.primary),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// ชั้นป้ายชื่อ: ห้องที่เลือก = ป้ายเข้มเสมอ, ห้องอื่น = ป้ายขาวเมื่อซูมเข้า
+  Widget _buildLabel(double labelOpacity) {
+    final code = room['room_code']?.toString() ?? '';
+    if (code.isEmpty || (!selected && labelOpacity <= 0)) return const SizedBox.shrink();
+
+    final label = selected
+        ? Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(8)),
+            child: Text(
+              code,
+              maxLines: 1,
+              style: TextStyle(color: AppColors.background, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          )
+        : Opacity(
+            opacity: labelOpacity,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.line),
+                boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 3, offset: Offset(0, 1))],
+              ),
+              child: Text(
+                code,
+                maxLines: 1,
+                style: TextStyle(color: AppColors.ink, fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ),
+          );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          bottom: _hitSize / 2 + (selected ? 12 : 8),
+          left: -60,
+          right: -60,
+          child: Center(child: label),
+        ),
+      ],
     );
   }
 }

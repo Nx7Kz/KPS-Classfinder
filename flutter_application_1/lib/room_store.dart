@@ -72,6 +72,13 @@ class RoomStore {
     await _save(_recentsKey, recents.take(_maxRecents).toList());
   }
 
+  static Future<void> removeRecent(Map<String, dynamic> room) async {
+    final recents = await loadRecents();
+    final id = _roomId(room);
+    recents.removeWhere((item) => _roomId(item) == id);
+    await _save(_recentsKey, recents);
+  }
+
   static Future<void> clearRecents() => _save(_recentsKey, const []);
 
   static Future<void> clearFavorites() => _save(_favoritesKey, const []);
