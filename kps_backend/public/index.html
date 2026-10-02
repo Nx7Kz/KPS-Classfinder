@@ -508,6 +508,23 @@
             <label for="buildingLocation" class="form-label">ตำแหน่งที่ตั้ง (ไม่บังคับ)</label>
             <input id="buildingLocation" class="form-control">
           </div>
+          <!-- รูปปกอาคาร: อัปโหลด/ลบได้ทันที (ไม่ต้องกดบันทึก) แสดงบนการ์ดอาคารในแอป -->
+          <div id="buildingCoverSection" class="border-top pt-3 d-none">
+            <label class="form-label mb-1">รูปปกอาคาร <span class="text-secondary small">(แสดงบนการ์ดอาคารในแอป)</span></label>
+            <div class="rounded border bg-light overflow-hidden mb-2" style="aspect-ratio: 16 / 7;">
+              <img id="buildingCoverPreview" alt="รูปปกอาคาร" class="w-100 h-100 d-none" style="object-fit: cover;">
+              <div id="buildingCoverEmpty" class="h-100 d-flex align-items-center justify-content-center text-secondary small text-center px-3">
+                ยังไม่มีรูปปก — แอปจะใช้แผนผังชั้น 1 แทน (ถ้ามี)
+              </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <input id="buildingCoverFile" type="file" class="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" style="max-width: 260px;">
+              <button id="buildingCoverUpload" type="button" class="btn btn-sm btn-outline-primary" onclick="uploadBuildingCover()">อัปโหลดรูปปก</button>
+              <button id="buildingCoverRemove" type="button" class="btn btn-sm btn-outline-danger d-none" onclick="removeBuildingCover()">ลบรูปปก</button>
+            </div>
+            <div class="form-text">PNG, JPG หรือ WebP ไม่เกิน 10 MB แนะนำรูปแนวนอน (เช่น ภาพถ่ายด้านหน้าอาคาร)</div>
+          </div>
+          <div id="buildingCoverHint" class="form-text">บันทึกอาคารก่อน แล้วกด "แก้ไข" เพื่อเพิ่มรูปปก</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
@@ -935,7 +952,7 @@
       tbody.innerHTML = buildings.map(building => `
         <tr>
           <td><span class="badge text-bg-light border">${escapeHtml(building.code)}</span></td>
-          <td>${escapeHtml(building.name)}</td>
+          <td>${escapeHtml(building.name)}${building.cover_image ? ' <span class="badge text-bg-success-subtle text-success-emphasis border ms-1">มีรูปปก</span>' : ''}</td>
           <td>${Number(building.floor_count)}</td>
           <td>${Number(building.room_count)}</td>
           <td class="text-end text-nowrap">
@@ -956,7 +973,71 @@
       document.getElementById('buildingModalTitle').textContent = 'เพิ่มอาคาร';
       document.getElementById('buildingId').value = '';
       document.getElementById('buildingForm').reset();
+      showBuildingCover(null);
       buildingModal.show();
+    }
+
+    // ============ รูปปกอาคาร ============
+    // building = null คือโหมดเพิ่มอาคาร (ยังไม่มี id จึงอัปโหลดรูปไม่ได้)
+    function showBuildingCover(building) {
+      const section = document.getElementById('buildingCoverSection');
+      document.getElementById('buildingCoverHint').classList.toggle('d-none', Boolean(building));
+      section.classList.toggle('d-none', !building);
+      document.getElementById('buildingCoverFile').value = '';
+      if (!building) return;
+
+      const preview = document.getElementById('buildingCoverPreview');
+      const hasCover = Boolean(building.cover_image);
+      if (hasCover) preview.src = building.cover_image;
+      preview.classList.toggle('d-none', !hasCover);
+      document.getElementById('buildingCoverEmpty').classList.toggle('d-none', hasCover);
+      document.getElementById('buildingCoverRemove').classList.toggle('d-none', !hasCover);
+    }
+
+    function currentModalBuilding() {
+      const id = Number(document.getElementById('buildingId').value);
+      return buildings.find(b => Number(b.id) === id) || null;
+    }
+
+    async function uploadBuildingCover() {
+      const building = currentModalBuilding();
+      const file = document.getElementById('buildingCoverFile').files[0];
+      if (!building) return;
+      if (!file) {
+        showStatus('กรุณาเลือกไฟล์รูปปกก่อน', 'warning');
+        return;
+      }
+      const form = new FormData();
+      form.append('image', file);
+      const button = document.getElementById('buildingCoverUpload');
+      setBusy(button, true, 'กำลังอัปโหลด...', 'อัปโหลดรูปปก');
+      try {
+        const data = await api(`/api/admin/buildings/${building.id}/cover`, { method: 'POST', body: form });
+        await loadBuildings();
+        showBuildingCover(currentModalBuilding());
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'อัปโหลดรูปปก');
+      }
+    }
+
+    async function removeBuildingCover() {
+      const building = currentModalBuilding();
+      if (!building || !confirm(`ต้องการลบรูปปกของ "${building.name}" ใช่หรือไม่?`)) return;
+      const button = document.getElementById('buildingCoverRemove');
+      setBusy(button, true, 'กำลังลบ...', 'ลบรูปปก');
+      try {
+        const data = await api(`/api/admin/buildings/${building.id}/cover`, { method: 'DELETE' });
+        await loadBuildings();
+        showBuildingCover(currentModalBuilding());
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'ลบรูปปก');
+      }
     }
 
     function openEditBuildingModal(id) {
@@ -968,6 +1049,7 @@
       document.getElementById('buildingName').value = building.name || '';
       document.getElementById('buildingDescription').value = building.description || '';
       document.getElementById('buildingLocation').value = building.location || '';
+      showBuildingCover(building);
       buildingModal.show();
     }
 

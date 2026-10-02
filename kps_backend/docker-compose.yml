@@ -12,6 +12,7 @@ services:
       # เก็บไฟล์ที่อัปโหลดจากแดชบอร์ดไว้ในเครื่อง ไม่หายเมื่อ build/สร้าง container ใหม่
       - ./public/panoramas:/app/public/panoramas
       - ./public/floorplans:/app/public/floorplans
+      - ./public/covers:/app/public/covers
     depends_on:
       - db
   db:

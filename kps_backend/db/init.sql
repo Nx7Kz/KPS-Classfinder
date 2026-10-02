@@ -23,6 +23,7 @@ CREATE TABLE `buildings` (
   `description` text,
   `location` varchar(255) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `cover_image` varchar(500) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_buildings_code` (`code`),
   UNIQUE KEY `uq_buildings_name` (`name`)
@@ -31,7 +32,7 @@ CREATE TABLE `buildings` (
 
 LOCK TABLES `buildings` WRITE;
 /*!40000 ALTER TABLE `buildings` DISABLE KEYS */;
-INSERT INTO `buildings` VALUES (3,'LH3','อาคารเรียนรวม 3 (ศร.3)',NULL,NULL,'2026-09-18 18:49:58'),(4,'KH','อาคารเรียน 80 ปี',NULL,NULL,'2026-09-18 18:49:58');
+INSERT INTO `buildings` VALUES (3,'LH3','อาคารเรียนรวม 3 (ศร.3)',NULL,NULL,'2026-09-18 18:49:58',NULL),(4,'KH','อาคารเรียน 80 ปี',NULL,NULL,'2026-09-18 18:49:58',NULL);
 /*!40000 ALTER TABLE `buildings` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `rooms`;

@@ -206,8 +206,10 @@ app.post('/api/admin/change-password', requireAdmin, changePasswordLimiter, asyn
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const FLOORPLAN_DIR = path.join(PUBLIC_DIR, 'floorplans');
 const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
+const COVER_DIR = path.join(PUBLIC_DIR, 'covers');
 fs.mkdirSync(FLOORPLAN_DIR, { recursive: true });
 fs.mkdirSync(PANORAMA_DIR, { recursive: true });
+fs.mkdirSync(COVER_DIR, { recursive: true });
 
 // 🌟 สั่งให้ Express เปิดใช้งานไฟล์เว็บจากโฟลเดอร์ public 🌟
 app.use(express.static(PUBLIC_DIR));
@@ -220,6 +222,7 @@ const IMAGE_TYPE_ERROR = 'ไฟล์ต้องเป็นรูป PNG, JPG
 const UPLOAD_RULES = [
     { urlPrefix: '/floorplans/', filePrefix: 'floorplan_', dir: FLOORPLAN_DIR },
     { urlPrefix: '/panoramas/', filePrefix: 'pano_', dir: PANORAMA_DIR },
+    { urlPrefix: '/covers/', filePrefix: 'cover_', dir: COVER_DIR },
 ];
 
 function createImageUploader(maxBytes) {
@@ -235,6 +238,7 @@ function createImageUploader(maxBytes) {
 
 const floorPlanUploader = createImageUploader(10 * 1024 * 1024);
 const panoramaUploader = createImageUploader(20 * 1024 * 1024);
+const coverUploader = createImageUploader(10 * 1024 * 1024);
 
 function handleUpload(uploader, fieldName, maxMb) {
     return (req, res, next) => {
@@ -281,6 +285,7 @@ function removeUploadedFiles(urls) {
 
 const FLOORPLAN_RULE = UPLOAD_RULES[0];
 const PANORAMA_RULE = UPLOAD_RULES[1];
+const COVER_RULE = UPLOAD_RULES[2];
 
 // ==========================================
 // 🌟 API สำหรับแอป (อ่านอย่างเดียว) 🌟
@@ -313,16 +318,35 @@ app.get('/api/rooms/sample', (req, res) => {
 });
 
 // 3. สร้าง API สำหรับค้นหาห้องเรียน
+// ค้นได้ทั้งรหัสห้อง ชื่อ/รหัสอาคาร และประเภทห้อง โดยเรียงผลที่ตรงที่สุดขึ้นก่อน:
+// รหัสห้องตรงเป๊ะ > รหัสห้องขึ้นต้นด้วยคำค้น > รหัสห้องมีคำค้น > ตรงชื่อ/รหัสอาคาร > ตรงประเภทห้อง
 app.get('/api/rooms/search', (req, res) => {
-    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
 
     if (!query) {
         return res.json([]);
     }
 
-    const sql = `${ROOM_SELECT_BASE} WHERE rooms.room_code LIKE ? ORDER BY buildings.name, rooms.floor, rooms.room_code LIMIT 20`;
+    // escape อักขระพิเศษของ LIKE เพื่อให้ "_" หรือ "%" ที่ผู้ใช้พิมพ์ถูกค้นตามตัวอักษรจริง
+    const escaped = query.replace(/[\\%_]/g, char => `\\${char}`);
+    const contains = `%${escaped}%`;
+    const prefix = `${escaped}%`;
 
-    db.query(sql, [`%${query}%`], (err, results) => {
+    const sql = `${ROOM_SELECT_BASE}
+        WHERE rooms.room_code LIKE ? OR buildings.name LIKE ? OR buildings.code LIKE ? OR rooms.room_type LIKE ?
+        ORDER BY
+            CASE
+                WHEN rooms.room_code = ? THEN 0
+                WHEN rooms.room_code LIKE ? THEN 1
+                WHEN rooms.room_code LIKE ? THEN 2
+                WHEN buildings.name LIKE ? OR buildings.code LIKE ? THEN 3
+                ELSE 4
+            END,
+            buildings.name, rooms.floor, rooms.room_code
+        LIMIT 50`;
+    const params = [contains, contains, contains, contains, query, prefix, contains, contains, contains];
+
+    db.query(sql, params, (err, results) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
@@ -630,8 +654,12 @@ function validateBuildingInput({ code, name }) {
 app.get('/api/buildings', (req, res) => {
     const sql = `
         SELECT buildings.id, buildings.code, buildings.name, buildings.description, buildings.location,
+               buildings.cover_image,
                COUNT(rooms.id) AS room_count,
-               COUNT(DISTINCT rooms.floor) AS floor_count
+               COUNT(DISTINCT rooms.floor) AS floor_count,
+               -- ภาพสำรองเมื่อยังไม่มีรูปปก: แผนผังชั้น 1 (ถ้าไม่มีใช้ชั้นแรกที่มี)
+               (SELECT fp.image_url FROM floor_plans fp WHERE fp.building_id = buildings.id
+                ORDER BY fp.floor = '1' DESC, fp.floor LIMIT 1) AS floor_plan_image
         FROM buildings
         LEFT JOIN rooms ON rooms.building_id = buildings.id
         GROUP BY buildings.id
@@ -692,7 +720,7 @@ app.put('/api/buildings/:id', requireAdmin, (req, res) => {
 
 app.delete('/api/buildings/:id', requireAdmin, asyncRoute(async (req, res) => {
     const buildingId = req.params.id;
-    const [buildings] = await pdb.query('SELECT name FROM buildings WHERE id = ?', [buildingId]);
+    const [buildings] = await pdb.query('SELECT name, cover_image FROM buildings WHERE id = ?', [buildingId]);
     const [floorPlans] = await pdb.query('SELECT image_url FROM floor_plans WHERE building_id = ?', [buildingId]);
 
     try {
@@ -704,13 +732,55 @@ app.delete('/api/buildings/:id', requireAdmin, asyncRoute(async (req, res) => {
         throw err;
     }
 
-    // แผนผังชั้นของอาคารถูกลบตามอัตโนมัติ (ON DELETE CASCADE) จึงลบไฟล์ที่อัปโหลดไว้ด้วย
-    removeUploadedFiles(floorPlans.map(item => item.image_url));
+    // แผนผังชั้นของอาคารถูกลบตามอัตโนมัติ (ON DELETE CASCADE) จึงลบไฟล์ที่อัปโหลดไว้ด้วย รวมทั้งรูปปก
+    removeUploadedFiles([...floorPlans.map(item => item.image_url), buildings[0]?.cover_image]);
     logActivity(req, {
         action: 'delete', entity: 'building', entityId: Number(buildingId) || null,
         detail: `ลบอาคาร "${buildings.length > 0 ? buildings[0].name : buildingId}"`,
     });
     res.json({ message: 'ลบอาคารสำเร็จ!' });
+}));
+
+// 🌟 รูปปกอาคาร (แสดงบนการ์ดอาคารในแอป) อัปโหลดใหม่ = แทนที่รูปเดิมและลบไฟล์เก่า 🌟
+app.post('/api/admin/buildings/:id/cover', requireAdmin, handleUpload(coverUploader, 'image', 10), asyncRoute(async (req, res) => {
+    const buildingId = parsePositiveInt(req.params.id);
+    if (buildingId === null) throw new HttpError(400, 'รหัสอาคารไม่ถูกต้อง');
+    if (!req.file) throw new HttpError(400, 'กรุณาแนบไฟล์รูปปกอาคาร');
+
+    const [buildings] = await pdb.query('SELECT name, cover_image FROM buildings WHERE id = ?', [buildingId]);
+    if (buildings.length === 0) throw new HttpError(404, 'ไม่พบอาคารนี้ในระบบ');
+
+    const saved = await saveUploadedImage(req.file, COVER_RULE);
+    try {
+        await pdb.query('UPDATE buildings SET cover_image = ? WHERE id = ?', [saved.url, buildingId]);
+    } catch (err) {
+        removeUploadedFiles([saved.url]);
+        throw err;
+    }
+    removeUploadedFiles([buildings[0].cover_image]);
+
+    logActivity(req, {
+        action: 'upload', entity: 'building', entityId: buildingId,
+        detail: `อัปโหลดรูปปกอาคาร "${buildings[0].name}" (${saved.width}x${saved.height})`,
+    });
+    res.json({ message: 'อัปโหลดรูปปกอาคารสำเร็จ!', cover_image: saved.url });
+}));
+
+app.delete('/api/admin/buildings/:id/cover', requireAdmin, asyncRoute(async (req, res) => {
+    const buildingId = parsePositiveInt(req.params.id);
+    if (buildingId === null) throw new HttpError(400, 'รหัสอาคารไม่ถูกต้อง');
+
+    const [buildings] = await pdb.query('SELECT name, cover_image FROM buildings WHERE id = ?', [buildingId]);
+    if (buildings.length === 0) throw new HttpError(404, 'ไม่พบอาคารนี้ในระบบ');
+    if (!buildings[0].cover_image) return res.json({ message: 'อาคารนี้ยังไม่มีรูปปก' });
+
+    await pdb.query('UPDATE buildings SET cover_image = NULL WHERE id = ?', [buildingId]);
+    removeUploadedFiles([buildings[0].cover_image]);
+    logActivity(req, {
+        action: 'delete', entity: 'building', entityId: buildingId,
+        detail: `ลบรูปปกอาคาร "${buildings[0].name}"`,
+    });
+    res.json({ message: 'ลบรูปปกอาคารสำเร็จ!' });
 }));
 
 // ==========================================
@@ -1365,6 +1435,11 @@ async function ensureDashboardSchema(attempt = 1) {
 
         for (const statement of DASHBOARD_TABLES) {
             await pdb.query(statement);
+        }
+        // คอลัมน์รูปปกอาคาร เพิ่มให้ฐานข้อมูลเดิมที่สร้างก่อนมีฟีเจอร์นี้
+        const [coverColumn] = await pdb.query("SHOW COLUMNS FROM buildings LIKE 'cover_image'");
+        if (coverColumn.length === 0) {
+            await pdb.query('ALTER TABLE buildings ADD COLUMN cover_image VARCHAR(500) DEFAULT NULL');
         }
         if (floorPlansIsNew) {
             for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
