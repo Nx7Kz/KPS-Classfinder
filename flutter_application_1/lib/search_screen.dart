@@ -138,13 +138,13 @@ class _SearchScreenState extends State<SearchScreen> {
           const SizedBox(height: 22),
           const PageHeader(
             title: 'ค้นหาห้องเรียน',
-            subtitle: 'พิมพ์รหัสห้อง เช่น LH3-201 แล้วดูตำแหน่งบนแผนที่ได้ทันที',
+            subtitle: 'ค้นด้วยรหัสห้อง ชื่ออาคาร หรือประเภทห้อง แล้วดูตำแหน่งบนแผนที่ได้ทันที',
           ),
           const SizedBox(height: 18),
           AppSearchField(
             controller: _controller,
             focusNode: _focusNode,
-            hint: 'รหัสห้องเรียน',
+            hint: 'เช่น LH3-201, 80 ปี, ห้องบรรยาย',
             onChanged: _onChanged,
             onSubmitted: _submit,
           ),
@@ -179,8 +179,8 @@ class _SearchScreenState extends State<SearchScreen> {
           height: 240,
           child: StateView(
             icon: Icons.search_off_rounded,
-            title: 'ไม่พบห้อง "$_query"',
-            message: 'ลองตรวจสอบตัวสะกด หรือค้นหาด้วยบางส่วนของรหัสห้อง',
+            title: 'ไม่พบผลลัพธ์ของ "$_query"',
+            message: 'ลองตรวจสอบตัวสะกด หรือค้นด้วยบางส่วนของรหัสห้อง ชื่ออาคาร หรือประเภทห้อง',
           ),
         ),
       ];

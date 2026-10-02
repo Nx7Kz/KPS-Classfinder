@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
@@ -29,6 +31,8 @@ class _MapScreenState extends State<MapScreen> {
   String? _building;
   String? _floor;
   Object? _selectedId;
+  // เพิ่มค่าทุกครั้งที่ต้องการให้แผนที่ซูมไปที่ห้องที่เลือก (เช่น เลือกจากการค้นหา)
+  int _focusToken = 0;
 
   bool get _standalone => widget.initialBuilding != null;
 
@@ -55,6 +59,34 @@ class _MapScreenState extends State<MapScreen> {
       _selectedId = null;
       _roomsFuture = Api.roomsInBuilding(building);
     });
+  }
+
+  /// เปิดช่องค้นหาห้อง แล้วพาแผนที่ไปยังอาคาร/ชั้นของห้องที่เลือก พร้อมซูมไปที่หมุด
+  Future<void> _openSearch() async {
+    final room = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _MapSearchSheet(),
+    );
+    if (room == null || !mounted) return;
+    _goToRoom(room);
+  }
+
+  void _goToRoom(Map<String, dynamic> room) {
+    final building = room['building_name']?.toString();
+    if (building == null) return;
+    setState(() {
+      if (building != _building) {
+        _building = building;
+        _roomsFuture = Api.roomsInBuilding(building);
+      }
+      _floor = floorOf(room);
+      _selectedId = room['id'];
+      _focusToken++;
+    });
+    if (!hasPin(room)) {
+      showAppSnack(context, '${room['room_code'] ?? 'ห้องนี้'} ยังไม่ได้ปักหมุดบนแผนผัง แสดงชั้นของห้องให้แทน');
+    }
   }
 
   void _reloadRooms() {
@@ -102,15 +134,32 @@ class _MapScreenState extends State<MapScreen> {
     );
 
     if (_standalone) {
-      return Scaffold(appBar: AppBar(title: const Text('แผนที่')), body: content);
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('แผนที่'),
+          actions: [
+            IconButton(tooltip: 'ค้นหาห้องในแผนที่', icon: const Icon(Icons.search_rounded), onPressed: _openSearch),
+            const SizedBox(width: 4),
+          ],
+        ),
+        body: content,
+      );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: PageHeader(title: 'แผนที่'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+          child: PageHeader(
+            title: 'แผนที่',
+            trailing: IconButton.filledTonal(
+              tooltip: 'ค้นหาห้องในแผนที่',
+              style: IconButton.styleFrom(backgroundColor: AppColors.tint, foregroundColor: AppColors.primary),
+              icon: const Icon(Icons.search_rounded),
+              onPressed: _openSearch,
+            ),
+          ),
         ),
         Expanded(child: content),
       ],
@@ -177,6 +226,7 @@ class _MapScreenState extends State<MapScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _FloorPlanView(
                   key: ValueKey('$_building|$_floor'),
+                  focusToken: _focusToken,
                   building: _building!,
                   floor: _floor!,
                   rooms: roomsOnFloor,
@@ -193,6 +243,134 @@ class _MapScreenState extends State<MapScreen> {
               onPick: (room) => setState(() => _selectedId = room['id']),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+/// แผงค้นหาห้องในหน้าแผนที่ (ใช้ API ค้นหาเดียวกับแท็บค้นหา: รหัสห้อง ชื่ออาคาร ประเภทห้อง)
+/// เลือกผลลัพธ์แล้วปิดแผงพร้อมส่งห้องนั้นกลับไปให้แผนที่พาไปยังหมุด
+class _MapSearchSheet extends StatefulWidget {
+  const _MapSearchSheet();
+
+  @override
+  State<_MapSearchSheet> createState() => _MapSearchSheetState();
+}
+
+class _MapSearchSheetState extends State<_MapSearchSheet> {
+  final TextEditingController _controller = TextEditingController();
+  Timer? _debounce;
+  String _query = '';
+  List<Map<String, dynamic>> _results = const [];
+  bool _loading = false;
+  Object? _error;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    setState(() {
+      _query = query;
+      _error = null;
+      _loading = query.isNotEmpty;
+      if (query.isEmpty) _results = const [];
+    });
+    if (query.isEmpty) return;
+    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
+  }
+
+  Future<void> _search(String query) async {
+    try {
+      final results = await Api.searchRooms(query);
+      if (!mounted || _query != query) return;
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted || _query != query) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // ยกแผงขึ้นตามคีย์บอร์ด และสูงเกือบเต็มจอให้เห็นผลลัพธ์หลายรายการ
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ค้นหาห้องในแผนที่',
+                    style: TextStyle(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 12),
+                  AppSearchField(
+                    controller: _controller,
+                    hint: 'เช่น LH3-201, 80 ปี, ห้องบรรยาย',
+                    autofocus: true,
+                    onChanged: _onChanged,
+                    onSubmitted: (_) {
+                      if (_results.length == 1) Navigator.pop(context, _results.single);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_query.isEmpty) {
+      return const StateView(
+        icon: Icons.travel_explore_rounded,
+        title: 'พิมพ์เพื่อค้นหาห้อง',
+        message: 'เลือกห้องแล้วแผนที่จะพาไปยังอาคาร ชั้น และหมุดของห้องนั้นให้',
+      );
+    }
+    if (_loading && _results.isEmpty) return SkeletonList.rooms(count: 4, padding: const EdgeInsets.symmetric(horizontal: 20));
+    if (_error != null) return StateView.error(_error!, onRetry: () => _onChanged(_query));
+    if (_results.isEmpty) {
+      return StateView(
+        icon: Icons.search_off_rounded,
+        title: 'ไม่พบผลลัพธ์ของ "$_query"',
+        message: 'ลองค้นด้วยบางส่วนของรหัสห้อง ชื่ออาคาร หรือประเภทห้อง',
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: _results.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (_, index) {
+        final room = _results[index];
+        return RoomTile(
+          room: room,
+          highlight: _query,
+          icon: hasPin(room) ? Icons.location_on_rounded : Icons.meeting_room_outlined,
+          onTap: () => Navigator.pop(context, room),
         );
       },
     );
@@ -397,6 +575,9 @@ class _FloorPlanView extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>> onSelect;
   final VoidCallback? onFullscreen;
 
+  /// เปลี่ยนค่าเมื่อต้องการให้ซูมไปที่ห้องที่เลือกอีกครั้ง (กรณีอยู่ชั้นเดิมอยู่แล้ว)
+  final int focusToken;
+
   const _FloorPlanView({
     super.key,
     required this.building,
@@ -405,6 +586,7 @@ class _FloorPlanView extends StatefulWidget {
     required this.selectedId,
     required this.onSelect,
     this.onFullscreen,
+    this.focusToken = 0,
   });
 
   @override
@@ -426,7 +608,7 @@ class _FloorPlanViewState extends State<_FloorPlanView> with SingleTickerProvide
   // ขนาดกรอบและตำแหน่งรูปในกรอบ (คำนวณตอนจัดวางล่าสุด) ใช้คำนวณการซูม
   Size _viewport = Size.zero;
   Rect _imageRect = Rect.zero;
-  late final Object? _focusId = widget.selectedId;
+  late Object? _focusId = widget.selectedId;
   bool _focused = false;
 
   @override
@@ -479,6 +661,15 @@ class _FloorPlanViewState extends State<_FloorPlanView> with SingleTickerProvide
     final x = (double.tryParse('${room['pin_x']}') ?? 0) / 100;
     final y = (double.tryParse('${room['pin_y']}') ?? 0) / 100;
     return Offset(_imageRect.left + _imageRect.width * x, _imageRect.top + _imageRect.height * y);
+  }
+
+  @override
+  void didUpdateWidget(covariant _FloorPlanView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusToken != oldWidget.focusToken) {
+      _focusId = widget.selectedId;
+      _focused = false; // ซูมใหม่ตอนจัดวางรอบถัดไป
+    }
   }
 
   void _focusSelectedOnce() {

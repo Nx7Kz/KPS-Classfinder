@@ -128,74 +128,115 @@ class _BuildingCard extends StatelessWidget {
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name)),
-        ),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name))),
         child: Ink(
-          padding: const EdgeInsets.all(16),
           decoration: appCardDecoration(radius: 18),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  const IconBadge(Icons.apartment_rounded, size: 48),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              ?_BuildingCover.from(building),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        HighlightText(
-                          code,
-                          query: query,
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
+                        const IconBadge(Icons.apartment_rounded, size: 48),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              HighlightText(
+                                code,
+                                query: query,
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                              HighlightText(
+                                name,
+                                query: query,
+                                style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                            ],
                           ),
                         ),
-                        HighlightText(
-                          name,
-                          query: query,
-                          style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
-                        ),
+                        Icon(Icons.chevron_right_rounded, color: AppColors.muted),
                       ],
                     ),
-                  ),
-                  Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                ],
-              ),
-              if (description != null && description.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(description, style: TextStyle(color: AppColors.muted, fontSize: 13.5, height: 1.4)),
-              ],
-              if (location != null && location.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.place_outlined, size: 15, color: AppColors.muted),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(location, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                    if (description != null && description.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(description, style: TextStyle(color: AppColors.muted, fontSize: 13.5, height: 1.4)),
+                    ],
+                    if (location != null && location.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.place_outlined, size: 15, color: AppColors.muted),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(location, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _StatChip(icon: Icons.layers_outlined, label: '$floorCount ชั้น'),
+                        _StatChip(icon: Icons.meeting_room_outlined, label: '$roomCount ห้อง'),
+                      ],
                     ),
                   ],
                 ),
-              ],
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _StatChip(icon: Icons.layers_outlined, label: '$floorCount ชั้น'),
-                  _StatChip(icon: Icons.meeting_room_outlined, label: '$roomCount ห้อง'),
-                ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// ภาพปกบนการ์ดอาคาร: รูปถ่ายที่ผู้ดูแลอัปโหลด (เต็มกรอบ) ถ้าไม่มีใช้แผนผังชั้น 1 (ย่อให้เห็นทั้งผัง)
+/// ถ้าไม่มีทั้งสองอย่างจะไม่แสดงส่วนนี้ การ์ดเป็นแบบไอคอนเหมือนเดิม
+class _BuildingCover extends StatelessWidget {
+  final String url;
+  final bool isPhoto;
+
+  const _BuildingCover({required this.url, required this.isPhoto});
+
+  static _BuildingCover? from(Map<String, dynamic> building) {
+    final cover = building['cover_image']?.toString();
+    if (cover != null && cover.isNotEmpty) return _BuildingCover(url: Api.assetUrl(cover), isPhoto: true);
+    final plan = building['floor_plan_image']?.toString();
+    if (plan != null && plan.isNotEmpty) return _BuildingCover(url: Api.assetUrl(plan), isPhoto: false);
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 150,
+      // แผนผังเป็นรูปพื้นขาว จึงรองพื้นอ่อน ๆ และเว้นขอบให้ไม่ชิดกรอบ
+      color: isPhoto ? AppColors.fill : const Color(0xFFF7F8F6),
+      padding: isPhoto ? EdgeInsets.zero : const EdgeInsets.symmetric(vertical: 8),
+      child: Image.network(
+        url,
+        fit: isPhoto ? BoxFit.cover : BoxFit.contain,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : const Shimmer(child: SkeletonBox(radius: 0)),
+        errorBuilder: (_, _, _) => Center(child: Icon(Icons.apartment_rounded, color: AppColors.muted, size: 40)),
       ),
     );
   }
@@ -217,7 +258,10 @@ class _StatChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: AppColors.primary),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(color: AppColors.ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(color: AppColors.ink, fontSize: 12.5, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

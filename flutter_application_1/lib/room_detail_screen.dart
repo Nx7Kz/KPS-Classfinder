@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'api_client.dart';
 import 'app_theme.dart';
@@ -86,10 +87,36 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     showAppSnack(context, nowFavorite ? 'บันทึกเป็นห้องโปรดแล้ว' : 'นำออกจากห้องโปรดแล้ว');
   }
 
-  Future<void> _copy() async {
-    final text = '${room['room_code']} · ${room['building_name']} · ${floorLabel(floorOf(room))}';
+  /// ข้อความที่แชร์: รหัสห้อง อาคาร ชั้น ประเภท/ความจุ (ถ้ามี) และชื่อแอป
+  String _shareText() {
+    final lines = [
+      '${room['room_code'] ?? '-'}',
+      '${room['building_name'] ?? '-'} · ${floorLabel(floorOf(room))}',
+      ?roomSummary(room),
+      if (isMaintenance(room)) '(ปิดปรับปรุงอยู่ในขณะนี้)',
+      '',
+      'ดูตำแหน่งบนแผนที่ได้ในแอป KPS ClassFinder',
+    ];
+    return lines.join('\n');
+  }
+
+  /// เปิดเมนูแชร์ของเครื่อง (LINE, Messenger ฯลฯ) ถ้าเครื่อง/เบราว์เซอร์แชร์ไม่ได้ จะคัดลอกข้อความให้แทน
+  Future<void> _share(BuildContext buttonContext) async {
+    final text = _shareText();
+    // iPad ต้องรู้ตำแหน่งปุ่มเพื่อวางป๊อปอัปแชร์
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+
+    try {
+      final result = await SharePlus.instance.share(
+        ShareParams(text: text, subject: '${room['room_code'] ?? ''} · KPS ClassFinder', sharePositionOrigin: origin),
+      );
+      if (result.status != ShareResultStatus.unavailable) return;
+    } catch (_) {
+      // แชร์ไม่ได้ ใช้การคัดลอกแทน
+    }
     await Clipboard.setData(ClipboardData(text: text));
-    if (mounted) showAppSnack(context, 'คัดลอกข้อมูลห้องแล้ว');
+    if (mounted) showAppSnack(context, 'คัดลอกข้อมูลห้องแล้ว นำไปวางในแชทได้เลย');
   }
 
   void _openMap() {
@@ -123,10 +150,12 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       appBar: AppBar(
         title: const Text('รายละเอียดห้อง'),
         actions: [
-          IconButton(
-            tooltip: 'คัดลอกข้อมูลห้อง',
-            onPressed: _copy,
-            icon: const Icon(Icons.copy_rounded, size: 20),
+          Builder(
+            builder: (buttonContext) => IconButton(
+              tooltip: 'แชร์ห้องนี้',
+              onPressed: () => _share(buttonContext),
+              icon: const Icon(Icons.share_rounded, size: 21),
+            ),
           ),
           IconButton(
             tooltip: _isFavorite ? 'นำออกจากห้องโปรด' : 'บันทึกเป็นห้องโปรด',

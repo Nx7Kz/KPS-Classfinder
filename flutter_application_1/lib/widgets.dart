@@ -246,17 +246,18 @@ class RoomTile extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    // ค้นหาได้ทั้งชื่ออาคารและประเภทห้อง จึงไฮไลต์บรรทัดเหล่านี้ด้วย
+                    HighlightText(
                       where,
+                      query: highlight,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: AppColors.muted, fontSize: 13),
                     ),
                     if (summary != null)
-                      Text(
+                      HighlightText(
                         summary,
+                        query: highlight,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: AppColors.muted, fontSize: 12.5),
                       ),
                   ],
