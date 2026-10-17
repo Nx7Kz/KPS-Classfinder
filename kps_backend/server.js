@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const { parse: parseCsv } = require('csv-parse/sync');
 const { imageSize } = require('image-size');
+const sharp = require('sharp');
 
 const app = express();
 const port = 3000;
@@ -207,12 +208,21 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const FLOORPLAN_DIR = path.join(PUBLIC_DIR, 'floorplans');
 const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
 const COVER_DIR = path.join(PUBLIC_DIR, 'covers');
+const TOUR_IMAGE_DIR = path.join(PUBLIC_DIR, 'tour-images');
 fs.mkdirSync(FLOORPLAN_DIR, { recursive: true });
 fs.mkdirSync(PANORAMA_DIR, { recursive: true });
 fs.mkdirSync(COVER_DIR, { recursive: true });
+fs.mkdirSync(TOUR_IMAGE_DIR, { recursive: true });
 
 // 🌟 สั่งให้ Express เปิดใช้งานไฟล์เว็บจากโฟลเดอร์ public 🌟
 app.use(express.static(PUBLIC_DIR));
+
+// ไลบรารีของหน้าเดินชม (Photo Sphere Viewer + three.js) เสิร์ฟจาก node_modules ไม่ต้องพึ่ง CDN
+const NODE_MODULES_DIR = path.join(__dirname, 'node_modules');
+app.use('/vendor/three', express.static(path.join(NODE_MODULES_DIR, 'three', 'build')));
+for (const name of ['core', 'virtual-tour-plugin', 'map-plugin', 'markers-plugin']) {
+    app.use(`/vendor/psv/${name}`, express.static(path.join(NODE_MODULES_DIR, '@photo-sphere-viewer', name)));
+}
 
 const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const IMAGE_EXT_BY_TYPE = { png: '.png', jpg: '.jpg', webp: '.webp' }; // ไม่รับ SVG เพื่อกัน XSS
@@ -223,6 +233,7 @@ const UPLOAD_RULES = [
     { urlPrefix: '/floorplans/', filePrefix: 'floorplan_', dir: FLOORPLAN_DIR },
     { urlPrefix: '/panoramas/', filePrefix: 'pano_', dir: PANORAMA_DIR },
     { urlPrefix: '/covers/', filePrefix: 'cover_', dir: COVER_DIR },
+    { urlPrefix: '/tour-images/', filePrefix: 'tour_', dir: TOUR_IMAGE_DIR },
 ];
 
 function createImageUploader(maxBytes) {
@@ -239,6 +250,7 @@ function createImageUploader(maxBytes) {
 const floorPlanUploader = createImageUploader(10 * 1024 * 1024);
 const panoramaUploader = createImageUploader(20 * 1024 * 1024);
 const coverUploader = createImageUploader(10 * 1024 * 1024);
+const tourImageUploader = createImageUploader(40 * 1024 * 1024); // ภาพจากกล้อง 360° ต้นฉบับ (เช่น 8000×4000) ใหญ่ ระบบย่อให้เอง
 
 function handleUpload(uploader, fieldName, maxMb) {
     return (req, res, next) => {
@@ -286,6 +298,7 @@ function removeUploadedFiles(urls) {
 const FLOORPLAN_RULE = UPLOAD_RULES[0];
 const PANORAMA_RULE = UPLOAD_RULES[1];
 const COVER_RULE = UPLOAD_RULES[2];
+const TOUR_IMAGE_RULE = UPLOAD_RULES[3];
 
 // ==========================================
 // 🌟 API สำหรับแอป (อ่านอย่างเดียว) 🌟
@@ -297,7 +310,9 @@ const ROOM_SELECT_BASE = `
     SELECT rooms.id, rooms.room_code, buildings.name AS building_name, rooms.floor,
            rooms.pin_x, rooms.pin_y, rooms.room_type, rooms.capacity, rooms.status, rooms.amenities,
            rooms.building_id,
-           (SELECT COUNT(*) FROM panoramas WHERE panoramas.room_id = rooms.id) AS panorama_count
+           (SELECT COUNT(*) FROM panoramas WHERE panoramas.room_id = rooms.id) AS panorama_count,
+           (SELECT tp.id FROM tour_points tp WHERE tp.room_id = rooms.id AND tp.x IS NOT NULL
+               ORDER BY tp.id LIMIT 1) AS tour_point_id
     FROM rooms
     JOIN buildings ON buildings.id = rooms.building_id
 `;
@@ -722,6 +737,7 @@ app.delete('/api/buildings/:id', requireAdmin, asyncRoute(async (req, res) => {
     const buildingId = req.params.id;
     const [buildings] = await pdb.query('SELECT name, cover_image FROM buildings WHERE id = ?', [buildingId]);
     const [floorPlans] = await pdb.query('SELECT image_url FROM floor_plans WHERE building_id = ?', [buildingId]);
+    const [tourPoints] = await pdb.query('SELECT image_url FROM tour_points WHERE building_id = ?', [buildingId]);
 
     try {
         await pdb.query('DELETE FROM buildings WHERE id = ?', [buildingId]);
@@ -732,8 +748,12 @@ app.delete('/api/buildings/:id', requireAdmin, asyncRoute(async (req, res) => {
         throw err;
     }
 
-    // แผนผังชั้นของอาคารถูกลบตามอัตโนมัติ (ON DELETE CASCADE) จึงลบไฟล์ที่อัปโหลดไว้ด้วย รวมทั้งรูปปก
-    removeUploadedFiles([...floorPlans.map(item => item.image_url), buildings[0]?.cover_image]);
+    // แผนผังชั้นและจุดเดินชมของอาคารถูกลบตามอัตโนมัติ (ON DELETE CASCADE) จึงลบไฟล์ที่อัปโหลดไว้ด้วย รวมทั้งรูปปก
+    removeUploadedFiles([
+        ...floorPlans.map(item => item.image_url),
+        ...tourPoints.map(item => item.image_url),
+        buildings[0]?.cover_image,
+    ]);
     logActivity(req, {
         action: 'delete', entity: 'building', entityId: Number(buildingId) || null,
         detail: `ลบอาคาร "${buildings.length > 0 ? buildings[0].name : buildingId}"`,
@@ -1085,6 +1105,299 @@ app.delete('/api/hotspots/:id', requireAdmin, asyncRoute(async (req, res) => {
 }));
 
 // ==========================================
+// 🌟 API เดินชมอาคาร 360° แบบ Street View (Tour points & links) 🌟
+// ==========================================
+// จุดถ่าย (tour_points) วางบนแผนผังชั้นเป็น % เหมือนหมุดห้อง heading = มุม (องศา) ที่หมุนภาพ
+// ให้ทิศ "ขึ้น" ของแผนผังอยู่ที่ yaw 0 หน้าเดินชมจึงคำนวณทิศลูกศรจากตำแหน่งบนแผนผังได้เอง
+
+const TOUR_IMAGE_MAX_WIDTH = 4096; // มือถือส่วนใหญ่แสดง texture ได้สูงสุด 4096 พิกเซล
+const TOUR_LABEL_MAX_LENGTH = 100;
+const TOUR_POINT_SELECT = `
+    SELECT tp.id, tp.building_id, tp.floor, tp.image_url, tp.x, tp.y, tp.heading, tp.label, tp.room_id,
+           r.room_code, tp.created_at
+    FROM tour_points tp
+    LEFT JOIN rooms r ON r.id = tp.room_id
+`;
+
+function formatTourPoint(row) {
+    return {
+        ...row,
+        x: row.x === null ? null : Number(row.x),
+        y: row.y === null ? null : Number(row.y),
+        heading: Number(row.heading),
+    };
+}
+
+// ภาพ 360° ต้องเป็นแบบ equirectangular (กว้าง:สูง = 2:1) ย่อให้กว้างไม่เกิน 4096 แล้วบันทึกเป็น JPG
+async function saveTourImage(file) {
+    let meta;
+    try {
+        meta = await sharp(file.buffer, { limitInputPixels: 20000 * 10000 }).metadata();
+    } catch (err) {
+        throw new HttpError(400, 'ไฟล์รูปไม่ถูกต้องหรือเสียหาย');
+    }
+    if (!['jpeg', 'png', 'webp'].includes(meta.format) || !meta.width || !meta.height) {
+        throw new HttpError(400, IMAGE_TYPE_ERROR);
+    }
+    const ratio = meta.width / meta.height;
+    if (ratio < 1.95 || ratio > 2.05) {
+        throw new HttpError(400, `ภาพต้องเป็นภาพ 360° สัดส่วน 2:1 (ไฟล์นี้ ${meta.width}×${meta.height})`);
+    }
+
+    const fileName = `${TOUR_IMAGE_RULE.filePrefix}${crypto.randomBytes(8).toString('hex')}.jpg`;
+    const info = await sharp(file.buffer, { limitInputPixels: 20000 * 10000 })
+        .resize({ width: TOUR_IMAGE_MAX_WIDTH, withoutEnlargement: true })
+        .jpeg({ quality: 85, mozjpeg: true })
+        .toFile(path.join(TOUR_IMAGE_RULE.dir, fileName));
+    return { url: `${TOUR_IMAGE_RULE.urlPrefix}${fileName}`, width: info.width, height: info.height };
+}
+
+function parsePercent(value, fieldName) {
+    if (value === null || value === '') return null;
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0 || num > 100) throw new HttpError(400, `${fieldName} ต้องเป็นตัวเลข 0 ถึง 100`);
+    return Math.round(num * 1000) / 1000;
+}
+
+function normalizeHeading(value) {
+    const num = Number(value);
+    if (value === null || value === '' || !Number.isFinite(num)) throw new HttpError(400, 'ทิศของภาพต้องเป็นตัวเลข (องศา)');
+    const wrapped = ((num % 360) + 540) % 360 - 180; // เก็บเป็น -180 ถึง 180
+    return Math.round(wrapped * 1000) / 1000;
+}
+
+// อาคารที่มีจุดเดินชมวางบนแผนผังแล้ว (แท็บ "เดินชม" ในแอป)
+app.get('/api/tour/buildings', asyncRoute(async (req, res) => {
+    const [rows] = await pdb.query(`
+        SELECT b.id, b.code, b.name, b.cover_image,
+               COUNT(tp.id) AS point_count,
+               COUNT(DISTINCT tp.floor) AS floor_count,
+               (SELECT fp.image_url FROM floor_plans fp WHERE fp.building_id = b.id ORDER BY fp.floor LIMIT 1) AS floor_plan_image
+        FROM buildings b
+        JOIN tour_points tp ON tp.building_id = b.id AND tp.x IS NOT NULL AND tp.y IS NOT NULL
+        GROUP BY b.id
+        ORDER BY b.name
+    `);
+    res.json(rows);
+}));
+
+// ข้อมูลทัวร์ทั้งอาคารสำหรับหน้าเดินชม: แผนผังทุกชั้น จุดที่วางบนแผนผังแล้ว เส้นเชื่อม และหมุดห้อง (ใช้ทำป้ายห้องในภาพ)
+app.get('/api/tour/:buildingId', asyncRoute(async (req, res) => {
+    const buildingId = parsePositiveInt(req.params.buildingId);
+    if (buildingId === null) throw new HttpError(404, 'ไม่พบอาคารนี้');
+
+    const [buildings] = await pdb.query('SELECT id, code, name FROM buildings WHERE id = ?', [buildingId]);
+    if (buildings.length === 0) throw new HttpError(404, 'ไม่พบอาคารนี้');
+
+    const [points] = await pdb.query(
+        `${TOUR_POINT_SELECT} WHERE tp.building_id = ? AND tp.x IS NOT NULL AND tp.y IS NOT NULL ORDER BY tp.id`, [buildingId]);
+    const ids = points.map(point => point.id);
+    const [links] = ids.length === 0 ? [[]] : await pdb.query(
+        'SELECT point_a, point_b FROM tour_links WHERE point_a IN (?) AND point_b IN (?) ORDER BY id', [ids, ids]);
+    const [floors] = await pdb.query(
+        'SELECT floor, image_url AS image, width, height FROM floor_plans WHERE building_id = ? ORDER BY floor', [buildingId]);
+    const [rooms] = await pdb.query(
+        `SELECT id, room_code, floor, pin_x, pin_y, status FROM rooms
+         WHERE building_id = ? AND pin_x IS NOT NULL AND pin_y IS NOT NULL`, [buildingId]);
+
+    res.json({
+        building: buildings[0],
+        floors,
+        points: points.map(formatTourPoint),
+        links: links.map(link => [link.point_a, link.point_b]),
+        rooms: rooms.map(room => ({ ...room, pin_x: Number(room.pin_x), pin_y: Number(room.pin_y) })),
+    });
+}));
+
+// แดชบอร์ด: ทุกจุดของอาคาร (รวมจุดที่ยังไม่ได้วางบนแผนผัง) พร้อมเส้นเชื่อม
+app.get('/api/admin/tour/points', requireAdmin, asyncRoute(async (req, res) => {
+    const buildingId = parsePositiveInt(req.query.building_id);
+    if (buildingId === null) throw new HttpError(400, 'กรุณาเลือกอาคาร');
+
+    const [points] = await pdb.query(`${TOUR_POINT_SELECT} WHERE tp.building_id = ? ORDER BY tp.id`, [buildingId]);
+    const ids = points.map(point => point.id);
+    const [links] = ids.length === 0 ? [[]] : await pdb.query(
+        'SELECT point_a, point_b FROM tour_links WHERE point_a IN (?) ORDER BY id', [ids]);
+    res.json({ points: points.map(formatTourPoint), links: links.map(link => [link.point_a, link.point_b]) });
+}));
+
+app.post('/api/admin/tour/points', requireAdmin, handleUpload(tourImageUploader, 'image', 40), asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    const buildingId = parsePositiveInt(body.building_id);
+    const floor = typeof body.floor === 'string' ? body.floor.trim() : '';
+    if (buildingId === null) throw new HttpError(400, 'กรุณาเลือกอาคาร');
+    if (!floor || floor.length > FLOOR_MAX_LENGTH) throw new HttpError(400, 'กรุณาระบุชั้น');
+    if (!req.file) throw new HttpError(400, 'กรุณาแนบไฟล์ภาพ 360°');
+
+    const [buildings] = await pdb.query('SELECT name FROM buildings WHERE id = ?', [buildingId]);
+    if (buildings.length === 0) throw new HttpError(400, 'ไม่พบอาคารนี้ในระบบ');
+
+    const label = typeof body.label === 'string' ? body.label.trim().slice(0, TOUR_LABEL_MAX_LENGTH) : '';
+    const saved = await saveTourImage(req.file);
+    let insertId;
+    try {
+        const [result] = await pdb.query(
+            'INSERT INTO tour_points (building_id, floor, image_url, label) VALUES (?, ?, ?, ?)',
+            [buildingId, floor, saved.url, label || null]);
+        insertId = result.insertId;
+    } catch (err) {
+        removeUploadedFiles([saved.url]);
+        throw err;
+    }
+
+    logActivity(req, {
+        action: 'upload', entity: 'tour_point', entityId: insertId,
+        detail: `อัปโหลดจุดเดินชม ${buildings[0].name} ชั้น ${floor}${label ? ` (${label})` : ''}`,
+    });
+    const [rows] = await pdb.query(`${TOUR_POINT_SELECT} WHERE tp.id = ?`, [insertId]);
+    res.json({ message: 'อัปโหลดภาพเดินชมสำเร็จ!', point: formatTourPoint(rows[0]) });
+}));
+
+// แก้ไขเฉพาะฟิลด์ที่ส่งมา: x, y (วาง/ย้ายบนแผนผัง), heading, label, room_id, floor
+app.put('/api/admin/tour/points/:id', requireAdmin, asyncRoute(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) throw new HttpError(400, 'รหัสจุดไม่ถูกต้อง');
+    const [existing] = await pdb.query('SELECT building_id FROM tour_points WHERE id = ?', [id]);
+    if (existing.length === 0) throw new HttpError(404, 'ไม่พบจุดเดินชมนี้');
+
+    const body = req.body || {};
+    const updates = {};
+    if ('x' in body || 'y' in body) {
+        const x = parsePercent(body.x ?? null, 'ตำแหน่ง x');
+        const y = parsePercent(body.y ?? null, 'ตำแหน่ง y');
+        if ((x === null) !== (y === null)) throw new HttpError(400, 'ต้องระบุตำแหน่ง x และ y คู่กัน');
+        updates.x = x;
+        updates.y = y;
+    }
+    if ('heading' in body) updates.heading = normalizeHeading(body.heading);
+    if ('label' in body) {
+        const label = typeof body.label === 'string' ? body.label.trim() : '';
+        if (label.length > TOUR_LABEL_MAX_LENGTH) throw new HttpError(400, `ชื่อจุดต้องไม่เกิน ${TOUR_LABEL_MAX_LENGTH} ตัวอักษร`);
+        updates.label = label || null;
+    }
+    if ('floor' in body) {
+        const floor = typeof body.floor === 'string' ? body.floor.trim() : '';
+        if (!floor || floor.length > FLOOR_MAX_LENGTH) throw new HttpError(400, 'กรุณาระบุชั้น');
+        updates.floor = floor;
+    }
+    if ('room_id' in body) {
+        if (body.room_id === null || body.room_id === '') {
+            updates.room_id = null;
+        } else {
+            const roomId = parsePositiveInt(body.room_id);
+            const [rooms] = roomId === null ? [[]] : await pdb.query(
+                'SELECT id FROM rooms WHERE id = ? AND building_id = ?', [roomId, existing[0].building_id]);
+            if (rooms.length === 0) throw new HttpError(400, 'ห้องที่เลือกต้องอยู่ในอาคารเดียวกัน');
+            updates.room_id = roomId;
+        }
+    }
+    if (Object.keys(updates).length === 0) throw new HttpError(400, 'ไม่มีข้อมูลที่จะแก้ไข');
+
+    await pdb.query('UPDATE tour_points SET ? WHERE id = ?', [updates, id]);
+    logActivity(req, { action: 'update', entity: 'tour_point', entityId: id, detail: `แก้ไขจุดเดินชม #${id}` });
+    const [rows] = await pdb.query(`${TOUR_POINT_SELECT} WHERE tp.id = ?`, [id]);
+    res.json({ message: 'บันทึกจุดเดินชมสำเร็จ!', point: formatTourPoint(rows[0]) });
+}));
+
+app.delete('/api/admin/tour/points/:id', requireAdmin, asyncRoute(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) throw new HttpError(400, 'รหัสจุดไม่ถูกต้อง');
+    const [rows] = await pdb.query('SELECT image_url FROM tour_points WHERE id = ?', [id]);
+    if (rows.length === 0) throw new HttpError(404, 'ไม่พบจุดเดินชมนี้');
+
+    await pdb.query('DELETE FROM tour_points WHERE id = ?', [id]); // เส้นเชื่อมถูกลบตาม (ON DELETE CASCADE)
+    removeUploadedFiles([rows[0].image_url]);
+    logActivity(req, { action: 'delete', entity: 'tour_point', entityId: id, detail: `ลบจุดเดินชม #${id}` });
+    res.json({ message: 'ลบจุดเดินชมสำเร็จ!' });
+}));
+
+// เส้นเชื่อมเดินได้ทั้งไปและกลับ เก็บแบบ point_a < point_b ข้ามชั้นได้ (เช่น บันได) แต่ต้องอยู่อาคารเดียวกัน
+async function parseTourLink(body) {
+    const a = parsePositiveInt(body?.point_a);
+    const b = parsePositiveInt(body?.point_b);
+    if (a === null || b === null || a === b) throw new HttpError(400, 'กรุณาเลือกจุดสองจุดที่ต่างกัน');
+    const [rows] = await pdb.query('SELECT id, building_id FROM tour_points WHERE id IN (?)', [[a, b]]);
+    if (rows.length !== 2) throw new HttpError(404, 'ไม่พบจุดเดินชม');
+    if (rows[0].building_id !== rows[1].building_id) throw new HttpError(400, 'เชื่อมได้เฉพาะจุดในอาคารเดียวกัน');
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
+app.post('/api/admin/tour/links', requireAdmin, asyncRoute(async (req, res) => {
+    const [a, b] = await parseTourLink(req.body);
+    await pdb.query('INSERT IGNORE INTO tour_links (point_a, point_b) VALUES (?, ?)', [a, b]);
+    logActivity(req, { action: 'create', entity: 'tour_link', detail: `เชื่อมจุดเดินชม #${a} ↔ #${b}` });
+    res.json({ message: 'เชื่อมจุดสำเร็จ!' });
+}));
+
+app.delete('/api/admin/tour/links', requireAdmin, asyncRoute(async (req, res) => {
+    const [a, b] = await parseTourLink(req.body);
+    const [result] = await pdb.query('DELETE FROM tour_links WHERE point_a = ? AND point_b = ?', [a, b]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบเส้นเชื่อมนี้');
+    logActivity(req, { action: 'delete', entity: 'tour_link', detail: `ตัดเส้นเชื่อม #${a} ↔ #${b}` });
+    res.json({ message: 'ตัดเส้นเชื่อมสำเร็จ!' });
+}));
+
+// เชื่อมอัตโนมัติในชั้นเดียว: ทุกจุดเชื่อมกับจุดที่ใกล้ที่สุด และจุดใกล้อื่น ๆ ที่อยู่คนละทิศ
+// (ระบบไม่รู้ว่ากำแพงอยู่ตรงไหน จึงอาจได้เส้นที่ทะลุผนัง ผู้ดูแลตัดออกเองได้) เพิ่มอย่างเดียว ไม่ลบเส้นเดิม
+const AUTOLINK_MAX_PER_POINT = 4;
+const AUTOLINK_MIN_ANGLE = 50; // องศา
+const AUTOLINK_DISTANCE_FACTOR = 2.2; // ไม่เชื่อมจุดที่ไกลกว่าจุดใกล้สุดเกินกี่เท่า
+
+function autoLinkPairs(points) {
+    const pairs = new Set();
+    for (const point of points) {
+        const others = points
+            .filter(other => other !== point)
+            .map(other => ({
+                other,
+                distance: Math.hypot(other.px - point.px, other.py - point.py),
+                angle: Math.atan2(other.px - point.px, point.py - other.py) * 180 / Math.PI,
+            }))
+            .sort((p, q) => p.distance - q.distance);
+        if (others.length === 0) continue;
+
+        const chosen = [];
+        for (const candidate of others) {
+            if (chosen.length >= AUTOLINK_MAX_PER_POINT) break;
+            if (candidate.distance > others[0].distance * AUTOLINK_DISTANCE_FACTOR) break;
+            const sameDirection = chosen.some(item => {
+                const diff = Math.abs((((candidate.angle - item.angle) % 360) + 540) % 360 - 180);
+                return diff < AUTOLINK_MIN_ANGLE;
+            });
+            if (!sameDirection) chosen.push(candidate);
+        }
+        for (const { other } of chosen) {
+            pairs.add(`${Math.min(point.id, other.id)}-${Math.max(point.id, other.id)}`);
+        }
+    }
+    return [...pairs].map(key => key.split('-').map(Number));
+}
+
+app.post('/api/admin/tour/autolink', requireAdmin, asyncRoute(async (req, res) => {
+    const buildingId = parsePositiveInt(req.body?.building_id);
+    const floor = typeof req.body?.floor === 'string' ? req.body.floor.trim() : '';
+    if (buildingId === null || !floor) throw new HttpError(400, 'กรุณาเลือกอาคารและชั้น');
+
+    const [plans] = await pdb.query(
+        'SELECT width, height FROM floor_plans WHERE building_id = ? AND floor = ?', [buildingId, floor]);
+    const width = plans[0]?.width || 1;
+    const height = plans[0]?.height || 1;
+    const [rows] = await pdb.query(
+        'SELECT id, x, y FROM tour_points WHERE building_id = ? AND floor = ? AND x IS NOT NULL AND y IS NOT NULL',
+        [buildingId, floor]);
+    // ระยะต้องคิดเป็นพิกเซลของแผนผัง (x, y เป็น % ของด้านกว้าง/สูงซึ่งยาวไม่เท่ากัน)
+    const points = rows.map(row => ({ id: row.id, px: Number(row.x) * width / 100, py: Number(row.y) * height / 100 }));
+
+    let added = 0;
+    for (const [a, b] of autoLinkPairs(points)) {
+        const [result] = await pdb.query('INSERT IGNORE INTO tour_links (point_a, point_b) VALUES (?, ?)', [a, b]);
+        added += result.affectedRows;
+    }
+    logActivity(req, { action: 'create', entity: 'tour_link', detail: `เชื่อมจุดเดินชมอัตโนมัติ ชั้น ${floor} (${added} เส้น)` });
+    res.json({ message: `เชื่อมอัตโนมัติแล้ว ${added} เส้น`, added });
+}));
+
+// ==========================================
 // 🌟 ส่งออก / นำเข้าห้องเรียนด้วยไฟล์ CSV 🌟
 // ==========================================
 
@@ -1418,6 +1731,33 @@ const DASHBOARD_TABLES = [
         setting_value TEXT NOT NULL,
         updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (setting_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
+    `CREATE TABLE IF NOT EXISTS tour_points (
+        id INT NOT NULL AUTO_INCREMENT,
+        building_id INT NOT NULL,
+        floor VARCHAR(50) NOT NULL,
+        image_url VARCHAR(500) NOT NULL,
+        x DECIMAL(6,3) DEFAULT NULL,
+        y DECIMAL(6,3) DEFAULT NULL,
+        heading DECIMAL(7,3) NOT NULL DEFAULT 0,
+        label VARCHAR(100) DEFAULT NULL,
+        room_id INT DEFAULT NULL,
+        created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_tour_points_building_floor (building_id, floor),
+        KEY fk_tour_points_room (room_id),
+        CONSTRAINT fk_tour_points_building FOREIGN KEY (building_id) REFERENCES buildings (id) ON DELETE CASCADE,
+        CONSTRAINT fk_tour_points_room FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
+    `CREATE TABLE IF NOT EXISTS tour_links (
+        id INT NOT NULL AUTO_INCREMENT,
+        point_a INT NOT NULL,
+        point_b INT NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_tour_links_pair (point_a, point_b),
+        KEY fk_tour_links_b (point_b),
+        CONSTRAINT fk_tour_links_a FOREIGN KEY (point_a) REFERENCES tour_points (id) ON DELETE CASCADE,
+        CONSTRAINT fk_tour_links_b FOREIGN KEY (point_b) REFERENCES tour_points (id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
 ];
 

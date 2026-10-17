@@ -11,3 +11,8 @@ kps_backend/public/panoramas/*
 # รูปปกอาคารที่อัปโหลดผ่านแดชบอร์ด
 kps_backend/public/covers/*
 !kps_backend/public/covers/.gitkeep
+# ภาพเดินชมอาคาร 360° ที่อัปโหลดผ่านแดชบอร์ด
+kps_backend/public/tour-images/*
+!kps_backend/public/tour-images/.gitkeep
+# แผนผังชั้นที่อัปโหลดผ่านแดชบอร์ด (ไฟล์ตั้งต้น lh3-floor-*.png ยังเก็บไว้ในโค้ดตามเดิม)
+kps_backend/public/floorplans/floorplan_*

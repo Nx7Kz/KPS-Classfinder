@@ -9,6 +9,7 @@ import 'room_detail_screen.dart';
 import 'room_list_screen.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
+import 'saved_screen.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
 
@@ -30,29 +31,34 @@ class _SearchScreenState extends State<SearchScreen> {
   Object? _searchError;
 
   List<Map<String, dynamic>> _recents = const [];
+  List<Map<String, dynamic>> _favorites = const [];
   late Future<List<Map<String, dynamic>>> _buildingsFuture;
 
   @override
   void initState() {
     super.initState();
     _buildingsFuture = Api.buildings();
-    RoomStore.revision.addListener(_loadRecents);
-    _loadRecents();
+    RoomStore.revision.addListener(_loadSaved);
+    _loadSaved();
   }
 
   @override
   void dispose() {
-    RoomStore.revision.removeListener(_loadRecents);
+    RoomStore.revision.removeListener(_loadSaved);
     _debounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _loadRecents() async {
+  Future<void> _loadSaved() async {
     final recents = await RoomStore.loadRecents();
+    final favorites = await RoomStore.loadFavorites();
     if (!mounted) return;
-    setState(() => _recents = recents);
+    setState(() {
+      _recents = recents;
+      _favorites = favorites;
+    });
   }
 
   void _onChanged(String value) {
@@ -152,6 +158,7 @@ class _SearchScreenState extends State<SearchScreen> {
           if (searching)
             ..._buildResults()
           else ...[
+            ..._buildFavorites(),
             ..._buildRecents(),
             ..._buildBuildingShortcuts(),
           ],
@@ -205,6 +212,33 @@ class _SearchScreenState extends State<SearchScreen> {
     ];
   }
 
+  /// ห้องโปรด (เดิมอยู่ในแท็บ "บันทึก") เป็นชิปแตะเปิดได้เร็ว ดูทั้งหมด/นำออกได้ที่ "ดูทั้งหมด"
+  List<Widget> _buildFavorites() {
+    if (_favorites.isEmpty) return const [];
+
+    return [
+      SectionTitle(
+        'ห้องโปรด',
+        trailing: TextButton(
+          onPressed: () => openSaved(context),
+          child: const Text('ดูทั้งหมด'),
+        ),
+      ),
+      _ChipStrip(
+        children: [
+          for (final room in _favorites)
+            ActionChip(
+              avatar: Icon(Icons.star_rounded, size: 18, color: AppColors.primary),
+              label: Text(room['room_code']?.toString() ?? '-'),
+              labelStyle: TextStyle(color: AppColors.ink, fontSize: 14, fontWeight: FontWeight.w600),
+              tooltip: '${room['building_name'] ?? ''} · ${floorLabel(floorOf(room))}',
+              onPressed: () => openRoom(context, room),
+            ),
+        ],
+      ),
+    ];
+  }
+
   List<Widget> _buildRecents() {
     if (_recents.isEmpty) return const [];
 
@@ -216,19 +250,10 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Text('ล้าง', style: TextStyle(color: AppColors.muted)),
         ),
       ),
-      // ชิปแนวนอนเลื่อนได้ กินพื้นที่น้อยกว่าการ์ด แตะซ้ำได้เร็ว (รายการเต็มอยู่ในแท็บ "บันทึก")
-      // Clip.none ให้ชิปเลื่อนล้นขอบ padding ไปถึงขอบจอได้ ดูต่อเนื่องเหมือนแถบเลื่อน
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        child: Row(
-          children: [
-            for (final room in _recents) ...[
-              _RecentChip(room: room, onOpen: () => openRoom(context, room)),
-              const SizedBox(width: 8),
-            ],
-          ],
-        ),
+      _ChipStrip(
+        children: [
+          for (final room in _recents) _RecentChip(room: room, onOpen: () => openRoom(context, room)),
+        ],
       ),
     ];
   }
@@ -271,6 +296,27 @@ class _SearchScreenState extends State<SearchScreen> {
         },
       ),
     ];
+  }
+}
+
+/// ชิปแนวนอนเลื่อนได้ กินพื้นที่น้อยกว่าการ์ด แตะซ้ำได้เร็ว (รายการเต็มอยู่ในหน้า "ที่บันทึกไว้")
+/// Clip.none ให้ชิปเลื่อนล้นขอบ padding ไปถึงขอบจอได้ ดูต่อเนื่องเหมือนแถบเลื่อน
+class _ChipStrip extends StatelessWidget {
+  final List<Widget> children;
+
+  const _ChipStrip({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          for (final child in children) ...[child, const SizedBox(width: 8)],
+        ],
+      ),
+    );
   }
 }
 

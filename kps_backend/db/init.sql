@@ -113,6 +113,37 @@ CREATE TABLE `panorama_hotspots` (
   CONSTRAINT `fk_hotspots_target` FOREIGN KEY (`target_panorama_id`) REFERENCES `panoramas` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+DROP TABLE IF EXISTS `tour_links`;
+DROP TABLE IF EXISTS `tour_points`;
+CREATE TABLE `tour_points` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `building_id` int NOT NULL,
+  `floor` varchar(50) NOT NULL,
+  `image_url` varchar(500) NOT NULL,
+  `x` decimal(6,3) DEFAULT NULL,
+  `y` decimal(6,3) DEFAULT NULL,
+  `heading` decimal(7,3) NOT NULL DEFAULT '0.000',
+  `label` varchar(100) DEFAULT NULL,
+  `room_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_tour_points_building_floor` (`building_id`,`floor`),
+  KEY `fk_tour_points_room` (`room_id`),
+  CONSTRAINT `fk_tour_points_building` FOREIGN KEY (`building_id`) REFERENCES `buildings` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tour_points_room` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `tour_links` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `point_a` int NOT NULL,
+  `point_b` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_tour_links_pair` (`point_a`,`point_b`),
+  KEY `fk_tour_links_b` (`point_b`),
+  CONSTRAINT `fk_tour_links_a` FOREIGN KEY (`point_a`) REFERENCES `tour_points` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tour_links_b` FOREIGN KEY (`point_b`) REFERENCES `tour_points` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 DROP TABLE IF EXISTS `activity_logs`;
 CREATE TABLE `activity_logs` (
   `id` bigint NOT NULL AUTO_INCREMENT,

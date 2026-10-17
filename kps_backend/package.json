@@ -11,6 +11,10 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@photo-sphere-viewer/core": "^5.15.1",
+    "@photo-sphere-viewer/map-plugin": "^5.15.1",
+    "@photo-sphere-viewer/markers-plugin": "^5.15.1",
+    "@photo-sphere-viewer/virtual-tour-plugin": "^5.15.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "csv-parse": "^7.0.2",
@@ -19,6 +23,8 @@
     "express-session": "^1.19.0",
     "image-size": "^2.0.4",
     "multer": "^2.4.0",
-    "mysql2": "^3.23.3"
+    "mysql2": "^3.23.3",
+    "sharp": "^0.34.5",
+    "three": "^0.185.1"
   }
 }

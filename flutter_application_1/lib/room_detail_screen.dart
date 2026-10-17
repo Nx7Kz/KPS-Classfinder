@@ -10,6 +10,7 @@ import 'panorama_screen.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
 import 'skeleton.dart';
+import 'tour_screen.dart';
 import 'widgets.dart';
 
 /// เปิดหน้ารายละเอียดห้อง (ใช้ร่วมกันทุกหน้า)
@@ -241,6 +242,17 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           const SectionTitle('ตำแหน่งในอาคาร'),
           _MiniMap(room: room, onOpen: _openMap),
           ..._buildPanoramaSection(),
+          if (room['tour_point_id'] != null && room['building_id'] != null) ...[
+            const SizedBox(height: 12),
+            _TourEntry(
+              onTap: () => openTour(
+                context,
+                buildingId: room['building_id'],
+                buildingName: buildingName,
+                pointId: room['tour_point_id'],
+              ),
+            ),
+          ],
           const SectionTitle('ข้อมูลห้อง'),
           Container(
             decoration: appCardDecoration(),
@@ -301,6 +313,53 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ทางเข้าหน้าเดินชม: เริ่มเดินจากจุดที่ผู้ดูแลผูกไว้กับห้องนี้ (เช่น ทางเดินหน้าห้อง)
+class _TourEntry extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _TourEntry({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Ink(
+            padding: const EdgeInsets.all(14),
+            decoration: appCardDecoration(),
+            child: Row(
+              children: [
+                const IconBadge(Icons.directions_walk_rounded),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'เดินชมจากหน้าห้องนี้',
+                        style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        'เดินดูทางเดินและห้องรอบ ๆ แบบ 360°',
+                        style: TextStyle(color: AppColors.muted, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              ],
+            ),
           ),
         ),
       ),

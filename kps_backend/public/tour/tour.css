@@ -1,0 +1,187 @@
+:root {
+  --kps-primary: #15803d;
+  --kps-ink: #10241a;
+  --kps-muted: #66776d;
+  --kps-surface: rgba(255, 255, 255, 0.94);
+  --kps-line: rgba(16, 36, 26, 0.12);
+  --kps-warning: #b45309;
+  --kps-safe-top: env(safe-area-inset-top, 0px);
+  --kps-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --kps-primary: #4ade80;
+    --kps-ink: #e6f0ea;
+    --kps-muted: #9aaba1;
+    --kps-surface: rgba(21, 32, 26, 0.92);
+    --kps-line: rgba(230, 240, 234, 0.14);
+    --kps-warning: #fbbf6a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --kps-primary: #4ade80;
+  --kps-ink: #e6f0ea;
+  --kps-muted: #9aaba1;
+  --kps-surface: rgba(21, 32, 26, 0.92);
+  --kps-line: rgba(230, 240, 234, 0.14);
+  --kps-warning: #fbbf6a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0d1511;
+  font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#viewer { position: fixed; inset: 0; }
+
+/* ---------- แถบด้านบน ---------- */
+.kps-bar {
+  position: fixed;
+  top: calc(12px + var(--kps-safe-top));
+  left: 12px;
+  right: 12px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+  max-width: 520px;
+  border-radius: 18px;
+  background: var(--kps-surface);
+  border: 1px solid var(--kps-line);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+}
+
+.kps-icon-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--kps-ink);
+  cursor: pointer;
+}
+.kps-icon-button:active { background: var(--kps-line); }
+
+.kps-title { min-width: 0; }
+.kps-title-main, .kps-title-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kps-title-main { color: var(--kps-ink); font-weight: 700; font-size: 15px; }
+.kps-title-sub { color: var(--kps-muted); font-size: 12.5px; margin-top: 1px; }
+
+/* ---------- ปุ่มเปลี่ยนชั้น ---------- */
+.kps-floors {
+  position: fixed;
+  right: 12px;
+  top: calc(80px + var(--kps-safe-top));
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--kps-surface);
+  border: 1px solid var(--kps-line);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+.kps-floors[hidden] { display: none; }
+.kps-floors button {
+  min-width: 64px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--kps-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kps-floors button.is-active { background: var(--kps-primary); color: #fff; }
+:root[data-theme="dark"] .kps-floors button.is-active { color: #052e16; }
+
+/* ---------- ป้ายห้องในภาพ ---------- */
+.kps-room-tag {
+  padding: 5px 11px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--kps-primary);
+  color: #fff;
+  font: 700 13px/1.2 'IBM Plex Sans Thai', system-ui, sans-serif;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kps-room-tag.is-maintenance { background: var(--kps-warning); }
+
+/* ---------- ข้อความแนะนำ / toast / สถานะ ---------- */
+.kps-hint, .kps-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + var(--kps-safe-bottom));
+  transform: translateX(-50%);
+  z-index: 200;
+  max-width: calc(100% - 32px);
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(16, 36, 26, 0.85);
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+.kps-hint { bottom: calc(180px + var(--kps-safe-bottom)); }
+.kps-hint[hidden], .kps-toast[hidden] { display: none; }
+
+.kps-state {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: #0d1511;
+  color: #e6f0ea;
+  font-size: 15px;
+  text-align: center;
+}
+.kps-state[hidden] { display: none; }
+.kps-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #4ade80;
+  border-radius: 50%;
+  animation: kps-spin 0.9s linear infinite;
+}
+.kps-spinner[hidden] { display: none; }
+@keyframes kps-spin { to { transform: rotate(360deg); } }
+
+/* ---------- ปรับแต่ง Photo Sphere Viewer ---------- */
+.psv-map { border-radius: 16px !important; margin: 0 0 calc(12px + var(--kps-safe-bottom)) 12px !important; }
+.psv-map__container { border: 2px solid #fff; }
+.psv-tooltip { font-family: inherit; }
+.psv-loader-container { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kps-spinner { animation-duration: 3s; }
+}

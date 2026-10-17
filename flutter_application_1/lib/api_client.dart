@@ -98,6 +98,19 @@ class Api {
     return _asList(_decode(await _get('api/rooms/$roomId/panoramas')));
   }
 
+  /// อาคารที่มีจุดเดินชม 360° แล้ว (แท็บ "เดินชม")
+  static Future<List<Map<String, dynamic>>> tourBuildings() async {
+    return _asList(_decode(await _get('api/tour/buildings')));
+  }
+
+  /// ข้อมูลห้องจากรหัสห้อง (ใช้ตอนแตะป้ายห้องในหน้าเดินชม) คืน null ถ้าไม่พบ
+  static Future<Map<String, dynamic>?> roomByCode(String code) async {
+    final response = await _get('api/search/${Uri.encodeComponent(code)}');
+    if (response.statusCode == 404) return null;
+    final decoded = _decode(response);
+    return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
+  }
+
   static String assetUrl(String path) => ApiConfig.endpoint(path).toString();
 
   /// ทดสอบว่าเซิร์ฟเวอร์ที่ระบุตอบกลับได้ ใช้ในหน้าตั้งค่า

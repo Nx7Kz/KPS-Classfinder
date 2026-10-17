@@ -13,6 +13,7 @@ services:
       - ./public/panoramas:/app/public/panoramas
       - ./public/floorplans:/app/public/floorplans
       - ./public/covers:/app/public/covers
+      - ./public/tour-images:/app/public/tour-images
     depends_on:
       - db
   db:

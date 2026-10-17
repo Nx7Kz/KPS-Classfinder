@@ -4,9 +4,9 @@ import 'app_theme.dart';
 import 'map_screen.dart';
 import 'motion.dart';
 import 'places_screen.dart';
-import 'saved_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import 'tour_screen.dart';
 
 class MainNav extends StatefulWidget {
   const MainNav({super.key});
@@ -29,8 +29,8 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
   final List<Widget> _screens = const [
     SearchScreen(),
     MapScreen(),
+    TourScreen(),
     PlacesScreen(),
-    SavedScreen(),
     SettingsScreen(),
   ];
 
@@ -80,14 +80,14 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
               label: 'แผนที่',
             ),
             NavigationDestination(
+              icon: Icon(Icons.threesixty_rounded),
+              selectedIcon: Icon(Icons.threesixty_rounded),
+              label: 'เดินชม',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.apartment_outlined),
               selectedIcon: Icon(Icons.apartment_rounded),
               label: 'อาคาร',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.bookmark_border_rounded),
-              selectedIcon: Icon(Icons.bookmark_rounded),
-              label: 'บันทึก',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),

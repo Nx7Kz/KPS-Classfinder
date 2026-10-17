@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,7 +15,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pump();
 
-    for (final label in ['ค้นหา', 'แผนที่', 'อาคาร', 'บันทึก', 'ตั้งค่า']) {
+    for (final label in ['ค้นหา', 'แผนที่', 'เดินชม', 'อาคาร', 'ตั้งค่า']) {
       expect(find.text(label), findsWidgets);
     }
 
@@ -30,12 +32,31 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(find.text('ที่อยู่เซิร์ฟเวอร์'), findsOneWidget);
-    await tester.tap(find.text('บันทึก').last);
+    await tester.tapAt(const Offset(8, 8)); // แตะนอกกล่องเพื่อปิด
+    await tester.pumpAndSettle();
+    expect(find.text('ที่อยู่เซิร์ฟเวอร์'), findsNothing);
+
+    await tester.tap(find.text('เดินชม').last);
+    await tester.pumpAndSettle();
+    expect(find.text('เดินชมอาคาร'), findsOneWidget);
+  });
+
+  testWidgets('search page shows favorite rooms and opens the saved list', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({
+      'favorite_rooms': jsonEncode([
+        {'id': 12, 'room_code': 'LH3-201', 'building_name': 'อาคารทดสอบ', 'floor': '2'},
+      ]),
+    });
+    await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('บันทึก').last);
+    expect(find.text('ห้องโปรด'), findsOneWidget);
+    expect(find.text('LH3-201'), findsOneWidget);
+
+    await tester.tap(find.text('ดูทั้งหมด'));
     await tester.pumpAndSettle();
-    expect(find.text('ยังไม่มีห้องที่บันทึกไว้'), findsOneWidget);
+    expect(find.text('ที่บันทึกไว้'), findsOneWidget);
+    expect(find.text('ห้องโปรด (1)'), findsOneWidget);
   });
 
   testWidgets('switches to dark mode from settings and back', (WidgetTester tester) async {

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>เดินชมอาคาร</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/vendor/psv/core/index.css">
+  <link rel="stylesheet" href="/vendor/psv/map-plugin/index.css">
+  <link rel="stylesheet" href="/vendor/psv/markers-plugin/index.css">
+  <link rel="stylesheet" href="/vendor/psv/virtual-tour-plugin/index.css">
+  <link rel="stylesheet" href="/tour/tour.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/three.module.js",
+        "@photo-sphere-viewer/core": "/vendor/psv/core/index.module.js",
+        "@photo-sphere-viewer/virtual-tour-plugin": "/vendor/psv/virtual-tour-plugin/index.module.js",
+        "@photo-sphere-viewer/map-plugin": "/vendor/psv/map-plugin/index.module.js",
+        "@photo-sphere-viewer/markers-plugin": "/vendor/psv/markers-plugin/index.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="viewer"></div>
+
+  <header class="kps-bar">
+    <button id="closeButton" class="kps-icon-button" type="button" aria-label="ปิด">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15.4 5.4 9 12l6.4 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="kps-title">
+      <div id="buildingName" class="kps-title-main">เดินชมอาคาร</div>
+      <div id="pointName" class="kps-title-sub"></div>
+    </div>
+  </header>
+
+  <nav id="floorSwitch" class="kps-floors" aria-label="เปลี่ยนชั้น"></nav>
+  <div id="hint" class="kps-hint" hidden>ลากเพื่อหมุนมอง · แตะลูกศรหรือพื้นเพื่อเดิน</div>
+  <div id="toast" class="kps-toast" hidden></div>
+
+  <div id="state" class="kps-state">
+    <div class="kps-spinner"></div>
+    <div id="stateText">กำลังโหลด…</div>
+  </div>
+
+  <script type="module" src="/tour/app.js"></script>
+</body>
+</html>

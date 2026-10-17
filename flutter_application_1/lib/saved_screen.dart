@@ -5,9 +5,23 @@ import 'room_detail_screen.dart';
 import 'room_store.dart';
 import 'widgets.dart';
 
-/// แท็บ "บันทึก": ห้องโปรดและห้องที่ดูล่าสุด
+/// เปิดหน้า "ที่บันทึกไว้" (ห้องโปรดและห้องที่ดูล่าสุดทั้งหมด) จากหน้าค้นหา
+Future<void> openSaved(BuildContext context) {
+  return Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('ที่บันทึกไว้')),
+        body: const SavedScreen(showHeader: false),
+      ),
+    ),
+  );
+}
+
+/// ห้องโปรดและห้องที่ดูล่าสุด
 class SavedScreen extends StatefulWidget {
-  const SavedScreen({super.key});
+  final bool showHeader;
+
+  const SavedScreen({super.key, this.showHeader = true});
 
   @override
   State<SavedScreen> createState() => _SavedScreenState();
@@ -48,9 +62,9 @@ class _SavedScreenState extends State<SavedScreen> {
     if (!_loaded) return const SizedBox.shrink();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      padding: EdgeInsets.fromLTRB(20, widget.showHeader ? 20 : 4, 20, 28),
       children: [
-        const PageHeader(title: 'บันทึก', subtitle: 'ห้องที่คุณบันทึกไว้และดูล่าสุด'),
+        if (widget.showHeader) const PageHeader(title: 'บันทึก', subtitle: 'ห้องที่คุณบันทึกไว้และดูล่าสุด'),
         if (_favorites.isEmpty && _recents.isEmpty)
           const SizedBox(
             height: 420,

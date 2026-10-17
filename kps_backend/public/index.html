@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KPS ClassFinder - Admin</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Photo Sphere Viewer สำหรับตั้งทิศภาพในหน้า Virtual Tour (โมดูลเดียวกับหน้าเดินชม /tour/) -->
+  <link rel="stylesheet" href="/vendor/psv/core/index.css">
+  <link rel="stylesheet" href="/vendor/psv/map-plugin/index.css">
+  <link rel="stylesheet" href="/vendor/psv/markers-plugin/index.css">
+  <link rel="stylesheet" href="/vendor/psv/virtual-tour-plugin/index.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/three.module.js",
+        "@photo-sphere-viewer/core": "/vendor/psv/core/index.module.js",
+        "@photo-sphere-viewer/virtual-tour-plugin": "/vendor/psv/virtual-tour-plugin/index.module.js",
+        "@photo-sphere-viewer/map-plugin": "/vendor/psv/map-plugin/index.module.js",
+        "@photo-sphere-viewer/markers-plugin": "/vendor/psv/markers-plugin/index.module.js"
+      }
+    }
+  </script>
   <style>
     :root { --brand: #00503a; }
     body { background: #f5f6fa; color: #1f2937; }
@@ -42,6 +58,26 @@
     .room-name { font-weight: 600; }
     .floor-badge { background: #e9efff; color: #2454c6; font-weight: 600; }
     .empty-state { padding: 3rem 1rem; color: #6b7280; }
+
+    /* หน้าเดินชม 360° */
+    .tour-plan { position: relative; user-select: none; background: #f8faf9; border-radius: 12px; overflow: hidden; }
+    .tour-plan img { display: block; width: 100%; height: auto; }
+    .tour-plan svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .tour-plan.is-placing { cursor: crosshair; outline: 3px dashed #15803d; outline-offset: -3px; }
+    .tour-dot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+      background: #15803d; border: 3px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.4); cursor: pointer; padding: 0; }
+    .tour-dot.is-selected { background: #f59e0b; transform: scale(1.25); }
+    .tour-dot.is-link-from { background: #2563eb; transform: scale(1.25); }
+    .tour-dot.has-stairs::after { content: '⇅'; position: absolute; left: 14px; top: -14px; font-size: 13px; color: #0f5c2b; font-weight: 700; }
+    .tour-thumb { width: 100%; height: 72px; object-fit: cover; border-radius: 8px; display: block; }
+    .tour-unplaced { cursor: pointer; border: 2px solid transparent; border-radius: 10px; padding: 4px; background: none; width: 100%; }
+    .tour-unplaced.is-selected { border-color: #f59e0b; background: #fffbeb; }
+    .tour-heading-view { position: relative; height: 420px; border-radius: 12px; overflow: hidden; background: #0d1511; }
+    .kps-room-tag { padding: 4px 10px; border: 2px solid #fff; border-radius: 999px; background: #15803d; color: #fff;
+      font-weight: 700; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.35); white-space: nowrap; }
+    .kps-room-tag.is-maintenance { background: #b45309; }
+    .tour-heading-view .crosshair { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; margin-left: -1px;
+      background: rgba(245, 158, 11, .9); z-index: 120; pointer-events: none; }
 
     @media (max-width: 767.98px) {
       .app-shell { flex-direction: column; }
@@ -83,6 +119,7 @@
         <a class="nav-link" data-page="buildings-rooms" onclick="showPage('buildings-rooms')">🏢 Buildings &amp; Rooms</a>
         <a class="nav-link" data-page="floor-plans" onclick="showPage('floor-plans')">🗺️ Floor Plans</a>
         <a class="nav-link" data-page="panoramas" onclick="showPage('panoramas')">🖼️ 360 Panorama Editor</a>
+        <a class="nav-link" data-page="tour" onclick="showPage('tour')">🚶 Virtual Tour</a>
         <a class="nav-link" data-page="logs" onclick="showPage('logs')">📜 System Logs</a>
         <a class="nav-link" data-page="settings" onclick="showPage('settings')">⚙️ Settings</a>
       </nav>
@@ -274,6 +311,63 @@
           </section>
         </section>
 
+        <!-- ============ PAGE: Virtual Tour ============ -->
+        <section id="page-tour" class="page-section d-none">
+          <section class="toolbar p-3 p-md-4 mb-3">
+            <div class="row g-3 align-items-end">
+              <div class="col-12 col-md-4">
+                <label for="tourBuildingSelect" class="form-label fw-semibold">อาคาร</label>
+                <select id="tourBuildingSelect" class="form-select" onchange="loadTourBuilding()"></select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label for="tourFloorSelect" class="form-label fw-semibold">ชั้น</label>
+                <select id="tourFloorSelect" class="form-select" onchange="changeTourFloor()"></select>
+              </div>
+              <div class="col-12 col-md-6 d-flex flex-wrap gap-2 justify-content-md-end">
+                <input id="tourFiles" type="file" class="d-none" accept="image/jpeg,image/png,image/webp" multiple onchange="uploadTourImages(this)">
+                <button class="btn btn-primary" type="button" id="tourUploadButton" onclick="document.getElementById('tourFiles').click()">+ อัปโหลดภาพ 360°</button>
+                <button class="btn btn-outline-primary" type="button" id="tourAutoLinkButton" onclick="autoLinkTour()">เชื่อมอัตโนมัติ</button>
+                <button class="btn btn-outline-secondary" type="button" id="tourPreviewButton" onclick="previewTour()">ดูตัวอย่าง ↗</button>
+              </div>
+            </div>
+          </section>
+          <p class="text-secondary small mb-3">
+            ขั้นตอน: ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย
+            → ③ กด "เชื่อมอัตโนมัติ" แล้วตัดเส้นที่ทะลุผนังในโหมด "เชื่อม / ตัดเส้น" → ④ เลือกแต่ละจุดแล้วกด "ตั้งทิศ"
+          </p>
+          <div class="row g-3">
+            <div class="col-12 col-xl-8">
+              <section class="card room-card">
+                <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center p-3">
+                  <div class="btn-group" role="group" aria-label="โหมดการคลิกบนแผนผัง">
+                    <input type="radio" class="btn-check" name="tourMode" id="tourModeSelect" checked onchange="setTourMode('select')">
+                    <label class="btn btn-sm btn-outline-secondary" for="tourModeSelect">เลือกจุด</label>
+                    <input type="radio" class="btn-check" name="tourMode" id="tourModeLink" onchange="setTourMode('link')">
+                    <label class="btn btn-sm btn-outline-secondary" for="tourModeLink">เชื่อม / ตัดเส้น</label>
+                  </div>
+                  <span id="tourHint" class="small text-secondary"></span>
+                </div>
+                <div class="card-body">
+                  <div id="tourPlan" class="tour-plan"></div>
+                </div>
+              </section>
+            </div>
+            <div class="col-12 col-xl-4">
+              <section class="card room-card mb-3">
+                <div class="card-header p-3 d-flex justify-content-between align-items-center">
+                  <h2 class="h6 mb-0">ยังไม่วางบนแผนผัง</h2>
+                  <span id="tourUnplacedCount" class="badge text-bg-light border">0</span>
+                </div>
+                <div class="card-body"><div id="tourUnplaced" class="row g-2"></div></div>
+              </section>
+              <section class="card room-card">
+                <div class="card-header p-3"><h2 class="h6 mb-0">จุดที่เลือก</h2></div>
+                <div class="card-body" id="tourDetail"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
         <!-- ============ PAGE: System Logs ============ -->
         <section id="page-logs" class="page-section d-none">
           <section class="toolbar p-3 p-md-4 mb-4">
@@ -288,6 +382,8 @@
                   <option value="floor_plan">แผนผังชั้น</option>
                   <option value="panorama">ภาพ 360°</option>
                   <option value="hotspot">จุดเชื่อม</option>
+                  <option value="tour_point">จุดเดินชม</option>
+                  <option value="tour_link">เส้นทางเดินชม</option>
                   <option value="admin">บัญชีผู้ดูแล</option>
                 </select>
               </div>
@@ -647,6 +743,34 @@
   </div>
 
   <!-- ============ Modal: CSV import ============ -->
+  <div class="modal fade" id="tourHeadingModal" tabindex="-1" aria-labelledby="tourHeadingModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title h5" id="tourHeadingModalTitle">ตั้งทิศของภาพ</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-secondary mb-2">
+            ลากภาพให้<strong>เส้นสีส้มกลางจอ</strong>ตรงกับทางที่เดินไปยังจุดที่เลือกด้านล่าง (ดูจากผนัง ประตู หรือทางเดินในภาพ) แล้วกด "ตั้งทิศ"
+            — ลูกศรและป้ายห้องทั้งหมดในภาพนี้จะหมุนตามให้เอง
+          </p>
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-md-6">
+              <label for="tourHeadingTarget" class="form-label fw-semibold small mb-1">หันไปทางจุด</label>
+              <select id="tourHeadingTarget" class="form-select"></select>
+            </div>
+            <div class="col-12 col-md-6 d-flex gap-2 justify-content-md-end">
+              <button type="button" class="btn btn-primary" id="tourHeadingSave" onclick="saveTourHeading()">ตั้งทิศ</button>
+            </div>
+          </div>
+          <div id="tourHeadingView" class="tour-heading-view"><div class="crosshair"></div></div>
+          <p class="small text-secondary mt-2 mb-0" id="tourHeadingInfo"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -688,6 +812,7 @@
       'buildings-rooms': 'Buildings & Rooms',
       'floor-plans': 'Floor Plans',
       'panoramas': '360 Panorama Editor',
+      'tour': 'Virtual Tour (เดินชมอาคาร 360°)',
       'logs': 'System Logs',
       'settings': 'Settings',
     };
@@ -704,6 +829,7 @@
       if (page === 'buildings-rooms') { loadBuildings(); }
       if (page === 'floor-plans') loadFloorPlansPage();
       if (page === 'panoramas') loadPanoramasPage();
+      if (page === 'tour') loadTourPage();
       if (page === 'logs') loadLogs(0);
     }
 
@@ -798,6 +924,7 @@
     const ENTITY_LABELS = {
       session: 'การเข้าสู่ระบบ', room: 'ห้องเรียน', building: 'อาคาร', floor_plan: 'แผนผังชั้น',
       panorama: 'ภาพ 360°', hotspot: 'จุดเชื่อม', admin: 'บัญชีผู้ดูแล',
+      tour_point: 'จุดเดินชม', tour_link: 'เส้นทางเดินชม',
     };
 
     function actionBadge(action) {
@@ -2185,8 +2312,10 @@
       panoUploadModal = new bootstrap.Modal(document.getElementById('panoUploadModal'));
       hotspotModal = new bootstrap.Modal(document.getElementById('hotspotModal'));
       importModal = new bootstrap.Modal(document.getElementById('importModal'));
+      initTourPage();
       checkSession();
     });
   </script>
+  <script src="/tour/admin.js"></script>
 </body>
 </html>
