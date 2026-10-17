@@ -242,7 +242,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           const SectionTitle('ตำแหน่งในอาคาร'),
           _MiniMap(room: room, onOpen: _openMap),
           ..._buildPanoramaSection(),
-          if (room['tour_point_id'] != null && room['building_id'] != null) ...[
+          if (kTourEnabled && room['tour_point_id'] != null && room['building_id'] != null) ...[
             const SizedBox(height: 12),
             _TourEntry(
               onTap: () => openTour(

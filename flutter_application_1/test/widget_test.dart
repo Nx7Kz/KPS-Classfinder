@@ -15,9 +15,11 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pump();
 
-    for (final label in ['ค้นหา', 'แผนที่', 'เดินชม', 'อาคาร', 'ตั้งค่า']) {
+    // แท็บ "เดินชม" ปิดไว้ก่อน (kTourEnabled = false ใน tour_screen.dart)
+    for (final label in ['ค้นหา', 'แผนที่', 'อาคาร', 'ตั้งค่า']) {
       expect(find.text(label), findsWidgets);
     }
+    expect(find.text('เดินชม'), findsNothing);
 
     await tester.tap(find.text('ตั้งค่า').last);
     await tester.pump();
@@ -35,10 +37,6 @@ void main() {
     await tester.tapAt(const Offset(8, 8)); // แตะนอกกล่องเพื่อปิด
     await tester.pumpAndSettle();
     expect(find.text('ที่อยู่เซิร์ฟเวอร์'), findsNothing);
-
-    await tester.tap(find.text('เดินชม').last);
-    await tester.pumpAndSettle();
-    expect(find.text('เดินชมอาคาร'), findsOneWidget);
   });
 
   testWidgets('search page shows favorite rooms and opens the saved list', (WidgetTester tester) async {

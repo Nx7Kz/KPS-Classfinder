@@ -12,6 +12,10 @@ import 'room_detail_screen.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
 
+/// ปิดใช้งานระบบเดินชมไว้ก่อน (ยังไม่พร้อมเปิดให้ผู้ใช้จริง) ซ่อนทุกทางเข้า (แท็บล่าง, การ์ดในหน้าห้อง)
+/// แต่โค้ด/ฐานข้อมูล/API ฝั่ง backend ยังอยู่ครบ กลับมาเปิดได้ทันทีด้วยการตั้งค่านี้เป็น true
+const bool kTourEnabled = false;
+
 /// เปิดหน้าเดินชมอาคารแบบ Street View (เริ่มที่จุดหน้าห้อง ถ้าระบุ pointId)
 Future<void> openTour(BuildContext context, {required Object buildingId, String? buildingName, Object? pointId}) {
   Haptics.tap();

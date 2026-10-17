@@ -26,12 +26,13 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
   );
 
   // IndexedStack เก็บสถานะของแต่ละแท็บไว้ (เช่น อาคาร/ชั้นที่เลือกในแผนที่) ไม่โหลดใหม่ทุกครั้งที่สลับ
-  final List<Widget> _screens = const [
-    SearchScreen(),
-    MapScreen(),
-    TourScreen(),
-    PlacesScreen(),
-    SettingsScreen(),
+  // แท็บ "เดินชม" ซ่อนไว้ตาม kTourEnabled (ดูเหตุผลใน tour_screen.dart)
+  final List<Widget> _screens = [
+    const SearchScreen(),
+    const MapScreen(),
+    if (kTourEnabled) const TourScreen(),
+    const PlacesScreen(),
+    const SettingsScreen(),
   ];
 
   @override
@@ -68,28 +69,29 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
         child: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onTab,
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.search_rounded),
               selectedIcon: Icon(Icons.search_rounded),
               label: 'ค้นหา',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.map_outlined),
               selectedIcon: Icon(Icons.map_rounded),
               label: 'แผนที่',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.threesixty_rounded),
-              selectedIcon: Icon(Icons.threesixty_rounded),
-              label: 'เดินชม',
-            ),
-            NavigationDestination(
+            if (kTourEnabled)
+              const NavigationDestination(
+                icon: Icon(Icons.threesixty_rounded),
+                selectedIcon: Icon(Icons.threesixty_rounded),
+                label: 'เดินชม',
+              ),
+            const NavigationDestination(
               icon: Icon(Icons.apartment_outlined),
               selectedIcon: Icon(Icons.apartment_rounded),
               label: 'อาคาร',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               selectedIcon: Icon(Icons.settings_rounded),
               label: 'ตั้งค่า',
