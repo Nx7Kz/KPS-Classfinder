@@ -162,9 +162,10 @@ export function createTourViewer(container, tour, options = {}) {
         startNodeId: String(startPoint.id),
         nodes: tour.points.map((point) => buildNode(tour, point)),
         map: { imageUrl: startPlan?.image },
-        showLinkTooltip: true,
-        getLinkTooltip: (content, link) => escapeHtml(link.data?.name || ''),
-        arrowStyle: { size: { width: 80, height: 80 } },
+        showLinkTooltip: false,
+        // ซ่อนวงแหวนลูกศรบนพื้น: เดินได้อยู่แล้วด้วยการแตะพื้นในทิศที่ต้องการ (ดู viewer.addEventListener('click', ...)
+        // ด้านล่าง) วงแหวนจึงซ้ำซ้อนกับการแตะพื้นแล้วรก ปิด pointer-events ไว้ด้วยกันไปบังการแตะพื้น
+        arrowStyle: { size: { width: 80, height: 80 }, style: { opacity: '0', pointerEvents: 'none' } },
         transitionOptions: { showLoader: false, effect: 'fade', speed: 700, rotation: true },
       }),
     ],
