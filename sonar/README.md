@@ -53,6 +53,10 @@ URL ที่อยู่ในเครื่องเดียวกันใ�
 - **ยังไม่มี coverage:** backend ยังไม่มีชุดทดสอบอัตโนมัติ (สคริปต์ `test` ใน `kps_backend/package.json`
   เป็นแค่ placeholder) จึงยังไม่มีผลทดสอบส่งเข้า SonarQube — ตรวจ Bug/Vulnerability/Code Smell ได้ตามปกติ
   ถ้าเพิ่มชุดทดสอบทีหลัง ต่อ coverage ได้ด้วย `sonar.javascript.lcov.reportPaths` ใน `sonar-project.properties`
+- **Quality Gate:** โปรเจกต์นี้ใช้เกต "KPS way (no test suite yet)" แทน "Sonar way" เริ่มต้น (`sonar_scan.py`
+  สร้างให้เองตอนรันครั้งแรก) — เงื่อนไขเหมือนกันทุกข้อ ยกเว้นตัด "coverage บนโค้ดใหม่ ≥80%" ออก เพราะยังทำไม่ได้จริง
+  ตามข้อข้างบน เมื่อมีชุดทดสอบจริงแล้วค่อยสลับโปรเจกต์กลับไปใช้ "Sonar way" ได้จากหน้าเว็บ
+  (Administration → Quality Gates → Projects)
 - ไฟล์ที่ผู้ใช้อัปโหลดผ่านแดชบอร์ด (ผังชั้น, รูปปก, ภาพ 360°) ไม่ถูกตรวจ (ข้ามไว้ใน `sonar.exclusions`)
 - ถ้าลบ volume ของ SonarQube (`docker compose -f sonar/docker-compose.yml down -v`) ให้ลบ `sonar/.env` ด้วย แล้วรัน `sonar_scan.py` ใหม่
 - ถ้าเปิดโปรเจกต์ `pos-stock-moo-kratha` ที่ใช้ SonarQube เหมือนกันพร้อมกัน จะชนพอร์ต 9000 — ปิดอีกฝั่งก่อน

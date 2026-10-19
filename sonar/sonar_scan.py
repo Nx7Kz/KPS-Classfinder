@@ -81,6 +81,30 @@ def wait_until_up(timeout=300):
     sys.exit('\n  SonarQube ไม่พร้อม — เปิดด้วย: docker compose -f sonar/docker-compose.yml up -d')
 
 
+GATE_NAME = 'KPS way (no test suite yet)'
+
+
+def ensure_quality_gate(admin):
+    """
+    สร้าง Quality Gate ของโปรเจกต์นี้เอง แทน "Sonar way" เริ่มต้น: เงื่อนไขเหมือนกันทุกอย่าง
+    (ห้ามมีปัญหาใหม่, โค้ดซ้ำใหม่ <3%, security hotspots ต้องตรวจทานครบ) ยกเว้น "coverage บนโค้ดใหม่ ≥80%"
+    ที่ตัดออก เพราะ backend ยังไม่มีชุดทดสอบอัตโนมัติเลย (ดูเหตุผลใน sonar/README.md) — ตัดเงื่อนไขที่ยังทำไม่ได้จริง
+    ออก ดีกว่าปล่อยให้ค้างสีแดงถาวรทั้งที่โค้ดไม่มีปัญหา เมื่อมีชุดทดสอบแล้วค่อยสลับโปรเจกต์นี้กลับไปใช้ "Sonar way" ได้
+
+    หมายเหตุ: api/qualitygates/create สร้างเงื่อนไขมาตรฐาน 4 ข้อ (CAYC) ให้อัตโนมัติอยู่แล้ว รวม coverage ด้วย
+    จึงแค่สร้างแล้วลบเฉพาะเงื่อนไข coverage ออก ไม่ต้องเพิ่มเงื่อนไขเองทีละอัน (ยิ่งเพิ่มเองจะชนกับของที่มีอยู่แล้ว)
+    """
+    gates = api('GET', '/api/qualitygates/list', admin).get('qualitygates', [])
+    if not any(g['name'] == GATE_NAME for g in gates):
+        api('POST', '/api/qualitygates/create', admin, {'name': GATE_NAME})
+        conditions = api('GET', '/api/qualitygates/show', admin, {'name': GATE_NAME})['conditions']
+        coverage = next((c for c in conditions if c['metric'] == 'new_coverage'), None)
+        if coverage:
+            api('POST', '/api/qualitygates/delete_condition', admin, {'id': coverage['id']})
+        print(f'  สร้าง Quality Gate "{GATE_NAME}" แล้ว (ไม่มีเงื่อนไข coverage)')
+    api('POST', '/api/qualitygates/select', admin, {'gateName': GATE_NAME, 'projectKey': PROJECT})
+
+
 def first_time_setup(env):
     """เปลี่ยนรหัส admin, สร้างโปรเจกต์ และ token (ทำครั้งเดียว)"""
     if 'SONAR_ADMIN_PASSWORD' not in env:
@@ -96,6 +120,7 @@ def first_time_setup(env):
     if not found:
         api('POST', '/api/projects/create', admin, {'project': PROJECT, 'name': 'KPS ClassFinder'})
         print(f'  สร้างโปรเจกต์ {PROJECT} แล้ว')
+    ensure_quality_gate(admin)
 
     if 'SONAR_TOKEN' not in env:
         t = api('POST', '/api/user_tokens/generate', admin,
