@@ -1,6 +1,6 @@
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
@@ -15,6 +15,7 @@ const sharp = require('sharp');
 const app = express();
 const port = 3000;
 
+app.disable('x-powered-by'); // ไม่ต้องบอกคนนอกว่าใช้ Express (ลดข้อมูลที่ช่วยคนโจมตีเดา exploit)
 app.set('trust proxy', 1);
 app.use(cors({ origin: true, credentials: true }));
 // นำเข้า CSV ต้องรับ body ใหญ่กว่าปกติ จึงประกาศ parser ของ route นี้ก่อน parser ตัวหลัก
@@ -66,6 +67,27 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_BYTES = 72; // bcrypt ใช้เพียง 72 ไบต์แรกของรหัสผ่าน
 
+// ไฟล์สาธารณะ (อัปโหลดจากแดชบอร์ด + ไลบรารีหน้าเดินชม) ไม่เกี่ยวกับการเข้าสู่ระบบ จึงให้ Express เสิร์ฟ
+// ก่อนลงทะเบียน session middleware เพื่อไม่ให้ทุกคำขอไฟล์สถิตย์ต้องผ่านการตรวจ/สร้าง session โดยไม่จำเป็น
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const FLOORPLAN_DIR = path.join(PUBLIC_DIR, 'floorplans');
+const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
+const COVER_DIR = path.join(PUBLIC_DIR, 'covers');
+const TOUR_IMAGE_DIR = path.join(PUBLIC_DIR, 'tour-images');
+fs.mkdirSync(FLOORPLAN_DIR, { recursive: true });
+fs.mkdirSync(PANORAMA_DIR, { recursive: true });
+fs.mkdirSync(COVER_DIR, { recursive: true });
+fs.mkdirSync(TOUR_IMAGE_DIR, { recursive: true });
+
+app.use(express.static(PUBLIC_DIR));
+
+// ไลบรารีของหน้าเดินชม (Photo Sphere Viewer + three.js) เสิร์ฟจาก node_modules ไม่ต้องพึ่ง CDN
+const NODE_MODULES_DIR = path.join(__dirname, 'node_modules');
+app.use('/vendor/three', express.static(path.join(NODE_MODULES_DIR, 'three', 'build')));
+for (const name of ['core', 'virtual-tour-plugin', 'map-plugin', 'markers-plugin']) {
+    app.use(`/vendor/psv/${name}`, express.static(path.join(NODE_MODULES_DIR, '@photo-sphere-viewer', name)));
+}
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'kps-classfinder-dev-secret',
     resave: false,
@@ -77,7 +99,7 @@ app.use(session({
 }));
 
 function requireAdmin(req, res, next) {
-    if (req.session && req.session.isAdmin) {
+    if (req.session?.isAdmin) {
         return next();
     }
     return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำรายการนี้' });
@@ -98,9 +120,14 @@ async function getAdminPasswordHash() {
 // ==========================================
 // 🌟 บันทึกกิจกรรม (System Logs) 🌟
 // ==========================================
+// " (label)" ต่อท้ายข้อความ log ถ้ามีป้ายชื่อ ไม่งั้นว่างเปล่า (แยกออกมาเพื่อไม่ต้องซ้อน template literal)
+function labelSuffix(label) {
+    return label ? ` (${label})` : '';
+}
+
 // fire-and-forget: ถ้าบันทึกไม่สำเร็จ จะไม่ทำให้คำสั่งหลักล้มเหลว และห้ามใส่รหัสผ่าน/ข้อมูลลับใน detail
 function logActivity(req, { action, entity, entityId = null, detail = null, username = null }) {
-    const actor = username || (req.session && req.session.isAdmin ? ADMIN_USERNAME : null);
+    const actor = username || (req.session?.isAdmin ? ADMIN_USERNAME : null);
     const sql = 'INSERT INTO activity_logs (action, entity, entity_id, detail, username, ip) VALUES (?, ?, ?, ?, ?, ?)';
     const params = [
         action, entity, entityId,
@@ -157,7 +184,7 @@ app.post('/api/login', loginLimiter, asyncRoute(async (req, res) => {
 }));
 
 app.post('/api/logout', (req, res) => {
-    if (req.session && req.session.isAdmin) {
+    if (req.session?.isAdmin) {
         logActivity(req, { action: 'logout', entity: 'session', detail: 'ออกจากระบบ' });
     }
     req.session.destroy(() => {
@@ -166,7 +193,7 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/session', (req, res) => {
-    const isAdmin = Boolean(req.session && req.session.isAdmin);
+    const isAdmin = Boolean(req.session?.isAdmin);
     res.json({ isAdmin, username: isAdmin ? ADMIN_USERNAME : null });
 });
 
@@ -204,27 +231,7 @@ app.post('/api/admin/change-password', requireAdmin, changePasswordLimiter, asyn
 // ==========================================
 // 🌟 ไฟล์ที่อัปโหลด (แผนผังชั้น / ภาพพาโนรามา) 🌟
 // ==========================================
-const PUBLIC_DIR = path.join(__dirname, 'public');
-const FLOORPLAN_DIR = path.join(PUBLIC_DIR, 'floorplans');
-const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
-const COVER_DIR = path.join(PUBLIC_DIR, 'covers');
-const TOUR_IMAGE_DIR = path.join(PUBLIC_DIR, 'tour-images');
-fs.mkdirSync(FLOORPLAN_DIR, { recursive: true });
-fs.mkdirSync(PANORAMA_DIR, { recursive: true });
-fs.mkdirSync(COVER_DIR, { recursive: true });
-fs.mkdirSync(TOUR_IMAGE_DIR, { recursive: true });
-
-// 🌟 สั่งให้ Express เปิดใช้งานไฟล์เว็บจากโฟลเดอร์ public 🌟
-app.use(express.static(PUBLIC_DIR));
-
-// ไลบรารีของหน้าเดินชม (Photo Sphere Viewer + three.js) เสิร์ฟจาก node_modules ไม่ต้องพึ่ง CDN
-const NODE_MODULES_DIR = path.join(__dirname, 'node_modules');
-app.use('/vendor/three', express.static(path.join(NODE_MODULES_DIR, 'three', 'build')));
-for (const name of ['core', 'virtual-tour-plugin', 'map-plugin', 'markers-plugin']) {
-    app.use(`/vendor/psv/${name}`, express.static(path.join(NODE_MODULES_DIR, '@photo-sphere-viewer', name)));
-}
-
-const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const IMAGE_EXT_BY_TYPE = { png: '.png', jpg: '.jpg', webp: '.webp' }; // ไม่รับ SVG เพื่อกัน XSS
 const IMAGE_TYPE_ERROR = 'ไฟล์ต้องเป็นรูป PNG, JPG หรือ WebP เท่านั้น';
 
@@ -241,7 +248,7 @@ function createImageUploader(maxBytes) {
         storage: multer.memoryStorage(),
         limits: { fileSize: maxBytes, files: 1 },
         fileFilter: (req, file, cb) => {
-            if (!IMAGE_MIME_TYPES.includes(file.mimetype)) return cb(new Error(IMAGE_TYPE_ERROR));
+            if (!IMAGE_MIME_TYPES.has(file.mimetype)) return cb(new Error(IMAGE_TYPE_ERROR));
             cb(null, true);
         },
     });
@@ -431,50 +438,51 @@ app.get('/api/floorplan', (req, res) => {
 const ROOM_CODE_MAX_LENGTH = 255;
 const FLOOR_MAX_LENGTH = 50;
 const ROOM_TYPE_MAX_LENGTH = 50;
-const ROOM_STATUSES = ['active', 'maintenance'];
+const ROOM_STATUSES = new Set(['active', 'maintenance']);
 
 // ตรวจสอบว่าข้อมูลห้องที่ส่งมาครบและถูกต้องหรือไม่ คืนข้อความ error ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
-function validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities }) {
-    if (typeof room_code !== 'string' || room_code.trim() === '') {
-        return 'กรุณากรอกรหัส/ชื่อห้อง';
-    }
-    if (room_code.trim().length > ROOM_CODE_MAX_LENGTH) {
-        return `รหัส/ชื่อห้องต้องไม่เกิน ${ROOM_CODE_MAX_LENGTH} ตัวอักษร`;
-    }
-    if (typeof building_name !== 'string' || building_name.trim() === '') {
-        return 'กรุณาระบุอาคาร';
-    }
-    if (typeof floor !== 'string' || floor.trim() === '') {
-        return 'กรุณาระบุชั้น';
-    }
-    if (floor.trim().length > FLOOR_MAX_LENGTH) {
-        return `ข้อมูลชั้นต้องไม่เกิน ${FLOOR_MAX_LENGTH} ตัวอักษร`;
-    }
-    for (const [label, value] of [['pin_x', pin_x], ['pin_y', pin_y]]) {
+// ตรวจทีละส่วนแยกจากกัน (ลดความซับซ้อนของ validateRoomInput ด้านล่าง ซึ่งแค่เรียงลำดับเรียกทั้งหมด)
+function validateRoomCode(roomCode) {
+    if (typeof roomCode !== 'string' || roomCode.trim() === '') return 'กรุณากรอกรหัส/ชื่อห้อง';
+    if (roomCode.trim().length > ROOM_CODE_MAX_LENGTH) return `รหัส/ชื่อห้องต้องไม่เกิน ${ROOM_CODE_MAX_LENGTH} ตัวอักษร`;
+    return null;
+}
+
+function validateFloorValue(floor) {
+    if (typeof floor !== 'string' || floor.trim() === '') return 'กรุณาระบุชั้น';
+    if (floor.trim().length > FLOOR_MAX_LENGTH) return `ข้อมูลชั้นต้องไม่เกิน ${FLOOR_MAX_LENGTH} ตัวอักษร`;
+    return null;
+}
+
+function validatePinCoordinates(pinX, pinY) {
+    for (const [label, value] of [['pin_x', pinX], ['pin_y', pinY]]) {
         if (value === null || value === undefined) continue;
         const num = Number(value);
-        if (!Number.isFinite(num) || num < 0 || num > 100) {
-            return `ค่าพิกัด ${label} ต้องเป็นตัวเลข 0-100`;
-        }
+        if (!Number.isFinite(num) || num < 0 || num > 100) return `ค่าพิกัด ${label} ต้องเป็นตัวเลข 0-100`;
     }
-    if (room_type !== null && room_type !== undefined && room_type !== '') {
-        if (typeof room_type !== 'string' || room_type.length > ROOM_TYPE_MAX_LENGTH) {
-            return `ประเภทห้องต้องไม่เกิน ${ROOM_TYPE_MAX_LENGTH} ตัวอักษร`;
-        }
+    return null;
+}
+
+function validateRoomTypeAndCapacity(roomType, capacity) {
+    if (roomType !== null && roomType !== undefined && roomType !== ''
+        && (typeof roomType !== 'string' || roomType.length > ROOM_TYPE_MAX_LENGTH)) {
+        return `ประเภทห้องต้องไม่เกิน ${ROOM_TYPE_MAX_LENGTH} ตัวอักษร`;
     }
     if (capacity !== null && capacity !== undefined && capacity !== '') {
         const num = Number(capacity);
-        if (!Number.isInteger(num) || num < 0) {
-            return 'ความจุห้องต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป';
-        }
-    }
-    if (status !== null && status !== undefined && status !== '' && !ROOM_STATUSES.includes(status)) {
-        return 'สถานะห้องไม่ถูกต้อง';
-    }
-    if (amenities !== null && amenities !== undefined && typeof amenities !== 'object') {
-        return 'ข้อมูลสิ่งอำนวยความสะดวกไม่ถูกต้อง';
+        if (!Number.isInteger(num) || num < 0) return 'ความจุห้องต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป';
     }
     return null;
+}
+
+function validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities }) {
+    if (typeof building_name !== 'string' || building_name.trim() === '') return 'กรุณาระบุอาคาร';
+    if (status !== null && status !== undefined && status !== '' && !ROOM_STATUSES.has(status)) return 'สถานะห้องไม่ถูกต้อง';
+    if (amenities !== null && amenities !== undefined && typeof amenities !== 'object') return 'ข้อมูลสิ่งอำนวยความสะดวกไม่ถูกต้อง';
+    return validateRoomCode(room_code)
+        || validateFloorValue(floor)
+        || validatePinCoordinates(pin_x, pin_y)
+        || validateRoomTypeAndCapacity(room_type, capacity);
 }
 
 // หา building_id จากชื่ออาคาร คืน null ถ้าไม่พบ
@@ -916,7 +924,7 @@ app.delete('/api/admin/floorplans/:id', requireAdmin, asyncRoute(async (req, res
 // 🌟 API ภาพพาโนรามา 360° และจุดเชื่อม (Panoramas & Hotspots) 🌟
 // ==========================================
 
-const ICON_TYPES = ['arrow', 'door', 'stairs', 'info'];
+const ICON_TYPES = new Set(['arrow', 'door', 'stairs', 'info']);
 const POSITION_LABEL_MAX_LENGTH = 100;
 
 // yaw = ตำแหน่งแนวนอนรอบภาพ (-180 ถึง 180 องศา), pitch = ตำแหน่งแนวตั้ง (-90 ถึง 90 องศา)
@@ -929,7 +937,7 @@ function validateHotspotInput({ yaw, pitch, icon_type, label }) {
     if (pitch === null || pitch === undefined || pitch === '' || !Number.isFinite(pitchNum) || pitchNum < -90 || pitchNum > 90) {
         return 'ค่า pitch ต้องเป็นตัวเลข -90 ถึง 90';
     }
-    if (icon_type !== undefined && icon_type !== null && icon_type !== '' && !ICON_TYPES.includes(icon_type)) {
+    if (icon_type !== undefined && icon_type !== null && icon_type !== '' && !ICON_TYPES.has(icon_type)) {
         return 'ประเภทไอคอนไม่ถูกต้อง';
     }
     if (label !== undefined && label !== null && String(label).length > POSITION_LABEL_MAX_LENGTH) {
@@ -1008,7 +1016,7 @@ app.post('/api/rooms/:roomId/panoramas', requireAdmin, handleUpload(panoramaUplo
 
     logActivity(req, {
         action: 'upload', entity: 'panorama', entityId: insertId,
-        detail: `อัปโหลดภาพ 360° ห้อง "${rooms[0].room_code}"${positionLabel ? ` (${positionLabel})` : ''}`,
+        detail: `อัปโหลดภาพ 360° ห้อง "${rooms[0].room_code}"${labelSuffix(positionLabel)}`,
     });
     res.json({ message: 'อัปโหลดภาพพาโนรามาสำเร็จ!', id: insertId, image_url: saved.url });
 }));
@@ -1067,7 +1075,7 @@ app.post('/api/panoramas/:panoramaId/hotspots', requireAdmin, asyncRoute(async (
 
     logActivity(req, {
         action: 'create', entity: 'hotspot', entityId: result.insertId,
-        detail: `เพิ่มจุดเชื่อมในภาพ 360° #${panoramaId}${label ? ` (${label})` : ''}`,
+        detail: `เพิ่มจุดเชื่อมในภาพ 360° #${panoramaId}${labelSuffix(label)}`,
     });
     res.json({ message: 'เพิ่มจุดเชื่อมสำเร็จ!', id: result.insertId });
 }));
@@ -1247,13 +1255,50 @@ app.post('/api/admin/tour/points', requireAdmin, handleUpload(tourImageUploader,
 
     logActivity(req, {
         action: 'upload', entity: 'tour_point', entityId: insertId,
-        detail: `อัปโหลดจุดเดินชม ${buildings[0].name} ชั้น ${floor}${label ? ` (${label})` : ''}`,
+        detail: `อัปโหลดจุดเดินชม ${buildings[0].name} ชั้น ${floor}${labelSuffix(label)}`,
     });
     const [rows] = await pdb.query(`${TOUR_POINT_SELECT} WHERE tp.id = ?`, [insertId]);
     res.json({ message: 'อัปโหลดภาพเดินชมสำเร็จ!', point: formatTourPoint(rows[0]) });
 }));
 
 // แก้ไขเฉพาะฟิลด์ที่ส่งมา: x, y (วาง/ย้ายบนแผนผัง), heading, label, room_id, floor
+// แก้ไขจุดเดินชมเฉพาะฟิลด์ที่ส่งมา — แยกแต่ละฟิลด์เป็นฟังก์ชันของตัวเอง (ลดความซับซ้อนของ route ด้านล่าง)
+function applyPointPositionUpdate(body, updates) {
+    if (!('x' in body || 'y' in body)) return;
+    const x = parsePercent(body.x ?? null, 'ตำแหน่ง x');
+    const y = parsePercent(body.y ?? null, 'ตำแหน่ง y');
+    if ((x === null) !== (y === null)) throw new HttpError(400, 'ต้องระบุตำแหน่ง x และ y คู่กัน');
+    updates.x = x;
+    updates.y = y;
+}
+
+function applyPointLabelUpdate(body, updates) {
+    if (!('label' in body)) return;
+    const label = typeof body.label === 'string' ? body.label.trim() : '';
+    if (label.length > TOUR_LABEL_MAX_LENGTH) throw new HttpError(400, `ชื่อจุดต้องไม่เกิน ${TOUR_LABEL_MAX_LENGTH} ตัวอักษร`);
+    updates.label = label || null;
+}
+
+function applyPointFloorUpdate(body, updates) {
+    if (!('floor' in body)) return;
+    const floor = typeof body.floor === 'string' ? body.floor.trim() : '';
+    if (!floor || floor.length > FLOOR_MAX_LENGTH) throw new HttpError(400, 'กรุณาระบุชั้น');
+    updates.floor = floor;
+}
+
+async function applyPointRoomIdUpdate(body, updates, buildingId) {
+    if (!('room_id' in body)) return;
+    if (body.room_id === null || body.room_id === '') {
+        updates.room_id = null;
+        return;
+    }
+    const roomId = parsePositiveInt(body.room_id);
+    const [rooms] = roomId === null ? [[]] : await pdb.query(
+        'SELECT id FROM rooms WHERE id = ? AND building_id = ?', [roomId, buildingId]);
+    if (rooms.length === 0) throw new HttpError(400, 'ห้องที่เลือกต้องอยู่ในอาคารเดียวกัน');
+    updates.room_id = roomId;
+}
+
 app.put('/api/admin/tour/points/:id', requireAdmin, asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสจุดไม่ถูกต้อง');
@@ -1262,35 +1307,11 @@ app.put('/api/admin/tour/points/:id', requireAdmin, asyncRoute(async (req, res) 
 
     const body = req.body || {};
     const updates = {};
-    if ('x' in body || 'y' in body) {
-        const x = parsePercent(body.x ?? null, 'ตำแหน่ง x');
-        const y = parsePercent(body.y ?? null, 'ตำแหน่ง y');
-        if ((x === null) !== (y === null)) throw new HttpError(400, 'ต้องระบุตำแหน่ง x และ y คู่กัน');
-        updates.x = x;
-        updates.y = y;
-    }
+    applyPointPositionUpdate(body, updates);
     if ('heading' in body) updates.heading = normalizeHeading(body.heading);
-    if ('label' in body) {
-        const label = typeof body.label === 'string' ? body.label.trim() : '';
-        if (label.length > TOUR_LABEL_MAX_LENGTH) throw new HttpError(400, `ชื่อจุดต้องไม่เกิน ${TOUR_LABEL_MAX_LENGTH} ตัวอักษร`);
-        updates.label = label || null;
-    }
-    if ('floor' in body) {
-        const floor = typeof body.floor === 'string' ? body.floor.trim() : '';
-        if (!floor || floor.length > FLOOR_MAX_LENGTH) throw new HttpError(400, 'กรุณาระบุชั้น');
-        updates.floor = floor;
-    }
-    if ('room_id' in body) {
-        if (body.room_id === null || body.room_id === '') {
-            updates.room_id = null;
-        } else {
-            const roomId = parsePositiveInt(body.room_id);
-            const [rooms] = roomId === null ? [[]] : await pdb.query(
-                'SELECT id FROM rooms WHERE id = ? AND building_id = ?', [roomId, existing[0].building_id]);
-            if (rooms.length === 0) throw new HttpError(400, 'ห้องที่เลือกต้องอยู่ในอาคารเดียวกัน');
-            updates.room_id = roomId;
-        }
-    }
+    applyPointLabelUpdate(body, updates);
+    applyPointFloorUpdate(body, updates);
+    await applyPointRoomIdUpdate(body, updates, existing[0].building_id);
     if (Object.keys(updates).length === 0) throw new HttpError(400, 'ไม่มีข้อมูลที่จะแก้ไข');
 
     await pdb.query('UPDATE tour_points SET ? WHERE id = ?', [updates, id]);
@@ -1343,30 +1364,40 @@ const AUTOLINK_MAX_PER_POINT = 4;
 const AUTOLINK_MIN_ANGLE = 50; // องศา
 const AUTOLINK_DISTANCE_FACTOR = 2.2; // ไม่เชื่อมจุดที่ไกลกว่าจุดใกล้สุดเกินกี่เท่า
 
+// จุดอื่นทั้งหมด เรียงจากใกล้ไปไกล พร้อมทิศ (องศา) จาก point ไปยังแต่ละจุด
+function nearbyPoints(point, points) {
+    return points
+        .filter(other => other !== point)
+        .map(other => ({
+            other,
+            distance: Math.hypot(other.px - point.px, other.py - point.py),
+            angle: Math.atan2(other.px - point.px, point.py - other.py) * 180 / Math.PI,
+        }))
+        .sort((p, q) => p.distance - q.distance);
+}
+
+// เลือกจุดใกล้สุดในแต่ละทิศ (ไม่เกิน AUTOLINK_MAX_PER_POINT จุด ไม่ไกลกว่าจุดใกล้สุดเกิน AUTOLINK_DISTANCE_FACTOR เท่า
+// และไม่เลือกจุดที่อยู่ทิศเดียวกันซ้ำ กันเส้นทับกันตอนจุดเรียงเป็นแถวตรง)
+function pickLinkCandidates(others) {
+    const chosen = [];
+    for (const candidate of others) {
+        if (chosen.length >= AUTOLINK_MAX_PER_POINT) break;
+        if (candidate.distance > others[0].distance * AUTOLINK_DISTANCE_FACTOR) break;
+        const sameDirection = chosen.some(item => {
+            const diff = Math.abs((((candidate.angle - item.angle) % 360) + 540) % 360 - 180);
+            return diff < AUTOLINK_MIN_ANGLE;
+        });
+        if (!sameDirection) chosen.push(candidate);
+    }
+    return chosen;
+}
+
 function autoLinkPairs(points) {
     const pairs = new Set();
     for (const point of points) {
-        const others = points
-            .filter(other => other !== point)
-            .map(other => ({
-                other,
-                distance: Math.hypot(other.px - point.px, other.py - point.py),
-                angle: Math.atan2(other.px - point.px, point.py - other.py) * 180 / Math.PI,
-            }))
-            .sort((p, q) => p.distance - q.distance);
+        const others = nearbyPoints(point, points);
         if (others.length === 0) continue;
-
-        const chosen = [];
-        for (const candidate of others) {
-            if (chosen.length >= AUTOLINK_MAX_PER_POINT) break;
-            if (candidate.distance > others[0].distance * AUTOLINK_DISTANCE_FACTOR) break;
-            const sameDirection = chosen.some(item => {
-                const diff = Math.abs((((candidate.angle - item.angle) % 360) + 540) % 360 - 180);
-                return diff < AUTOLINK_MIN_ANGLE;
-            });
-            if (!sameDirection) chosen.push(candidate);
-        }
-        for (const { other } of chosen) {
+        for (const { other } of pickLinkCandidates(others)) {
             pairs.add(`${Math.min(point.id, other.id)}-${Math.max(point.id, other.id)}`);
         }
     }
@@ -1410,7 +1441,7 @@ const WIFI_MAX_LENGTH = 100;
 function csvCell(value) {
     if (value === null || value === undefined) return '';
     const text = String(value);
-    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 app.get('/api/admin/rooms/export.csv', requireAdmin, asyncRoute(async (req, res) => {
@@ -1432,7 +1463,7 @@ app.get('/api/admin/rooms/export.csv', requireAdmin, asyncRoute(async (req, res)
         ].map(csvCell).join(','));
     }
 
-    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="rooms-${stamp}.csv"`);
     // BOM ทำให้ Excel อ่านภาษาไทยได้ถูกต้อง
@@ -1460,14 +1491,96 @@ function parseImportCsv(text) {
     return { headerCols, records };
 }
 
-// ตรวจและแปลงข้อมูลแต่ละแถวเป็นแผนงาน (สร้างใหม่/อัปเดต) โดยยังไม่แตะฐานข้อมูล
-async function planRoomImport(text) {
-    const { headerCols, records } = parseImportCsv(text);
-
-    const buildingColumn = headerCols.includes('building_code') ? 'building_code' : (headerCols.includes('building') ? 'building' : null);
+// หา column ที่บอกอาคาร (ยอมรับทั้ง building_code และ building) ต้องมี room_code กับ floor ด้วยเสมอ
+function validateImportHeader(headerCols) {
+    let buildingColumn = null;
+    if (headerCols.includes('building_code')) buildingColumn = 'building_code';
+    else if (headerCols.includes('building')) buildingColumn = 'building';
     if (buildingColumn === null || !headerCols.includes('room_code') || !headerCols.includes('floor')) {
         throw new HttpError(400, 'ไฟล์ CSV ต้องมีคอลัมน์ building_code, room_code และ floor');
     }
+    return buildingColumn;
+}
+
+// ค้นอาคารได้ทั้งจากรหัสหรือชื่อเต็ม (ไม่สนตัวพิมพ์เล็ก/ใหญ่)
+function buildBuildingIndex(buildings) {
+    const buildingByKey = new Map();
+    for (const building of buildings) {
+        buildingByKey.set(building.code.toLowerCase(), building);
+        if (!buildingByKey.has(building.name.toLowerCase())) buildingByKey.set(building.name.toLowerCase(), building);
+    }
+    return buildingByKey;
+}
+
+const blankToNull = (value) => (value === undefined || value === '' ? null : value);
+
+// สิ่งอำนวยความสะดวก: ที่นั่ง/ปลั๊ก/แอร์ต้องเป็นจำนวนเต็ม ≥ 0, wifi เป็นข้อความไม่เกินความยาวที่กำหนด
+function parseImportAmenities(record, has, errors) {
+    const amenities = {};
+    for (const column of AMENITY_INT_COLUMNS) {
+        const value = has(column) ? blankToNull(record[column]) : null;
+        if (value === null) continue;
+        const num = Number(value);
+        if (!Number.isInteger(num) || num < 0) errors.push(`${column} ต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป`);
+        else amenities[column] = num;
+    }
+    const wifi = has('wifi') ? blankToNull(record.wifi) : null;
+    if (wifi !== null) {
+        if (wifi.length > WIFI_MAX_LENGTH) errors.push(`wifi ต้องไม่เกิน ${WIFI_MAX_LENGTH} ตัวอักษร`);
+        else amenities.wifi = wifi;
+    }
+    return Object.keys(amenities).length > 0 ? amenities : null;
+}
+
+// อ่านเฉพาะคอลัมน์ที่มีในไฟล์ (คอลัมน์ที่ไม่ได้ส่งมาจะไม่ถูกแตะตอนอัปเดต)
+function parseImportFields(record, has, errors) {
+    const fields = {};
+    if (has('room_type')) fields.room_type = blankToNull(record.room_type);
+    if (has('capacity')) fields.capacity = blankToNull(record.capacity) === null ? null : Number(record.capacity);
+    if (has('status')) fields.status = blankToNull(record.status) || 'active';
+    if (has('pin_x')) fields.pin_x = blankToNull(record.pin_x) === null ? null : Number(record.pin_x);
+    if (has('pin_y')) fields.pin_y = blankToNull(record.pin_y) === null ? null : Number(record.pin_y);
+    if (AMENITY_COLUMNS.some((column) => has(column))) fields.amenities = parseImportAmenities(record, has, errors);
+    return fields;
+}
+
+// ตรวจและแปลงข้อมูล 1 แถวของ CSV เป็นแผนงาน (สร้างใหม่/อัปเดต) โดยยังไม่แตะฐานข้อมูล
+function buildImportItem(record, rowNumber, { buildingColumn, has, buildingByKey, existingByKey, seenKeys }) {
+    const errors = [];
+    const item = { row: rowNumber, room_code: record.room_code || '', building: record[buildingColumn] || '', errors, action: null };
+
+    const building = buildingByKey.get(String(record[buildingColumn] || '').toLowerCase());
+    if (!building) errors.push(`ไม่พบอาคาร "${record[buildingColumn] || ''}"`);
+
+    const fields = parseImportFields(record, has, errors);
+    const validationError = validateRoomInput({
+        room_code: record.room_code, building_name: building ? building.name : 'x', floor: record.floor,
+        pin_x: fields.pin_x, pin_y: fields.pin_y, room_type: fields.room_type,
+        capacity: fields.capacity, status: fields.status, amenities: fields.amenities,
+    });
+    if (validationError) errors.push(validationError);
+    if (!building || validationError) return item;
+
+    const key = `${building.id}|${record.room_code.trim().toLowerCase()}`;
+    if (seenKeys.has(key)) {
+        errors.push(`ซ้ำกับแถวที่ ${seenKeys.get(key)} ในไฟล์เดียวกัน`);
+    } else {
+        seenKeys.set(key, rowNumber);
+        item.existingId = existingByKey.get(key) || null;
+        item.action = item.existingId ? 'update' : 'create';
+    }
+    item.building = building.name;
+    item.building_id = building.id;
+    item.room_code = record.room_code.trim();
+    item.floor = record.floor.trim();
+    item.fields = fields;
+    return item;
+}
+
+// ตรวจและแปลงข้อมูลทั้งไฟล์เป็นแผนงาน (สร้างใหม่/อัปเดต) โดยยังไม่แตะฐานข้อมูล
+async function planRoomImport(text) {
+    const { headerCols, records } = parseImportCsv(text);
+    const buildingColumn = validateImportHeader(headerCols);
     if (records.length === 0) throw new HttpError(400, 'ไฟล์ CSV ไม่มีข้อมูลห้องเรียน');
     if (records.length > CSV_IMPORT_MAX_ROWS) {
         throw new HttpError(400, `นำเข้าได้ครั้งละไม่เกิน ${CSV_IMPORT_MAX_ROWS} แถว`);
@@ -1475,74 +1588,65 @@ async function planRoomImport(text) {
 
     const has = (column) => headerCols.includes(column);
     const [buildings] = await pdb.query('SELECT id, code, name FROM buildings');
-    const buildingByKey = new Map();
-    for (const building of buildings) {
-        buildingByKey.set(building.code.toLowerCase(), building);
-        if (!buildingByKey.has(building.name.toLowerCase())) buildingByKey.set(building.name.toLowerCase(), building);
-    }
+    const buildingByKey = buildBuildingIndex(buildings);
     const [existingRooms] = await pdb.query('SELECT id, building_id, room_code FROM rooms');
     const existingByKey = new Map(existingRooms.map(room => [`${room.building_id}|${room.room_code.toLowerCase()}`, room.id]));
-
     const seenKeys = new Map();
-    const items = records.map((record, index) => {
-        const rowNumber = index + 2; // แถวที่ 1 คือหัวตาราง
-        const errors = [];
-        const item = { row: rowNumber, room_code: record.room_code || '', building: record[buildingColumn] || '', errors, action: null };
 
-        const building = buildingByKey.get(String(record[buildingColumn] || '').toLowerCase());
-        if (!building) errors.push(`ไม่พบอาคาร "${record[buildingColumn] || ''}"`);
-
-        const blankToNull = (value) => (value === undefined || value === '' ? null : value);
-        const fields = {};
-        if (has('room_type')) fields.room_type = blankToNull(record.room_type);
-        if (has('capacity')) fields.capacity = blankToNull(record.capacity) === null ? null : Number(record.capacity);
-        if (has('status')) fields.status = blankToNull(record.status) || 'active';
-        if (has('pin_x')) fields.pin_x = blankToNull(record.pin_x) === null ? null : Number(record.pin_x);
-        if (has('pin_y')) fields.pin_y = blankToNull(record.pin_y) === null ? null : Number(record.pin_y);
-
-        if (AMENITY_COLUMNS.some(has)) {
-            const amenities = {};
-            for (const column of AMENITY_INT_COLUMNS) {
-                const value = has(column) ? blankToNull(record[column]) : null;
-                if (value === null) continue;
-                const num = Number(value);
-                if (!Number.isInteger(num) || num < 0) errors.push(`${column} ต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป`);
-                else amenities[column] = num;
-            }
-            const wifi = has('wifi') ? blankToNull(record.wifi) : null;
-            if (wifi !== null) {
-                if (wifi.length > WIFI_MAX_LENGTH) errors.push(`wifi ต้องไม่เกิน ${WIFI_MAX_LENGTH} ตัวอักษร`);
-                else amenities.wifi = wifi;
-            }
-            fields.amenities = Object.keys(amenities).length > 0 ? amenities : null;
-        }
-
-        const validationError = validateRoomInput({
-            room_code: record.room_code, building_name: building ? building.name : 'x', floor: record.floor,
-            pin_x: fields.pin_x, pin_y: fields.pin_y, room_type: fields.room_type,
-            capacity: fields.capacity, status: fields.status, amenities: fields.amenities,
-        });
-        if (validationError) errors.push(validationError);
-
-        if (building && !validationError) {
-            const key = `${building.id}|${record.room_code.trim().toLowerCase()}`;
-            if (seenKeys.has(key)) {
-                errors.push(`ซ้ำกับแถวที่ ${seenKeys.get(key)} ในไฟล์เดียวกัน`);
-            } else {
-                seenKeys.set(key, rowNumber);
-                item.existingId = existingByKey.get(key) || null;
-                item.action = item.existingId ? 'update' : 'create';
-            }
-            item.building = building.name;
-            item.building_id = building.id;
-            item.room_code = record.room_code.trim();
-            item.floor = record.floor.trim();
-            item.fields = fields;
-        }
-        return item;
-    });
-
+    const context = { buildingColumn, has, buildingByKey, existingByKey, seenKeys };
+    const items = records.map((record, index) => buildImportItem(record, index + 2, context)); // แถวที่ 1 คือหัวตาราง
     return { items };
+}
+
+async function insertImportRow(conn, item) {
+    const f = item.fields;
+    await conn.query(
+        `INSERT INTO rooms (room_code, building_id, floor, room_type, capacity, status, amenities, pin_x, pin_y)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [item.room_code, item.building_id, item.floor, f.room_type ?? null, f.capacity ?? null,
+            f.status || 'active', f.amenities ? JSON.stringify(f.amenities) : null, f.pin_x ?? null, f.pin_y ?? null]);
+}
+
+// แก้เฉพาะคอลัมน์ที่มีในไฟล์ CSV (คอลัมน์ที่ไม่ได้ส่งมาจะไม่ถูกแตะ)
+async function updateImportRow(conn, item) {
+    const f = item.fields;
+    const sets = ['floor = ?'];
+    const values = [item.floor];
+    if ('room_type' in f) { sets.push('room_type = ?'); values.push(f.room_type); }
+    if ('capacity' in f) { sets.push('capacity = ?'); values.push(f.capacity); }
+    if ('status' in f) { sets.push('status = ?'); values.push(f.status); }
+    if ('amenities' in f) { sets.push('amenities = ?'); values.push(f.amenities ? JSON.stringify(f.amenities) : null); }
+    if ('pin_x' in f) { sets.push('pin_x = ?'); values.push(f.pin_x); }
+    if ('pin_y' in f) { sets.push('pin_y = ?'); values.push(f.pin_y); }
+    await conn.query(`UPDATE rooms SET ${sets.join(', ')} WHERE id = ?`, [...values, item.existingId]);
+}
+
+// นำเข้าแบบทั้งหมดหรือไม่เลย (transaction) ถ้าแถวใดล้มเหลวจะย้อนกลับทั้งหมด
+async function commitImportRows(items) {
+    const conn = await pdb.getConnection();
+    try {
+        await conn.beginTransaction();
+        for (const item of items) {
+            await (item.action === 'create' ? insertImportRow(conn, item) : updateImportRow(conn, item));
+        }
+        await conn.commit();
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
+}
+
+function summarizeImport(items) {
+    const errorCount = items.filter(item => item.errors.length > 0).length;
+    const summary = {
+        total: items.length,
+        create: items.filter(item => item.errors.length === 0 && item.action === 'create').length,
+        update: items.filter(item => item.errors.length === 0 && item.action === 'update').length,
+        errors: errorCount,
+    };
+    return { errorCount, summary };
 }
 
 app.post('/api/admin/rooms/import', requireAdmin, asyncRoute(async (req, res) => {
@@ -1552,13 +1656,7 @@ app.post('/api/admin/rooms/import', requireAdmin, asyncRoute(async (req, res) =>
     }
 
     const { items } = await planRoomImport(csv);
-    const errorCount = items.filter(item => item.errors.length > 0).length;
-    const summary = {
-        total: items.length,
-        create: items.filter(item => item.errors.length === 0 && item.action === 'create').length,
-        update: items.filter(item => item.errors.length === 0 && item.action === 'update').length,
-        errors: errorCount,
-    };
+    const { errorCount, summary } = summarizeImport(items);
     const preview = items.map(item => ({
         row: item.row, room_code: item.room_code, building: item.building, action: item.action, errors: item.errors,
     }));
@@ -1573,37 +1671,7 @@ app.post('/api/admin/rooms/import', requireAdmin, asyncRoute(async (req, res) =>
         });
     }
 
-    // นำเข้าแบบทั้งหมดหรือไม่เลย (transaction) ถ้าแถวใดล้มเหลวจะย้อนกลับทั้งหมด
-    const conn = await pdb.getConnection();
-    try {
-        await conn.beginTransaction();
-        for (const item of items) {
-            const f = item.fields;
-            if (item.action === 'create') {
-                await conn.query(
-                    `INSERT INTO rooms (room_code, building_id, floor, room_type, capacity, status, amenities, pin_x, pin_y)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [item.room_code, item.building_id, item.floor, f.room_type ?? null, f.capacity ?? null,
-                        f.status || 'active', f.amenities ? JSON.stringify(f.amenities) : null, f.pin_x ?? null, f.pin_y ?? null]);
-            } else {
-                const sets = ['floor = ?'];
-                const values = [item.floor];
-                if ('room_type' in f) { sets.push('room_type = ?'); values.push(f.room_type); }
-                if ('capacity' in f) { sets.push('capacity = ?'); values.push(f.capacity); }
-                if ('status' in f) { sets.push('status = ?'); values.push(f.status); }
-                if ('amenities' in f) { sets.push('amenities = ?'); values.push(f.amenities ? JSON.stringify(f.amenities) : null); }
-                if ('pin_x' in f) { sets.push('pin_x = ?'); values.push(f.pin_x); }
-                if ('pin_y' in f) { sets.push('pin_y = ?'); values.push(f.pin_y); }
-                await conn.query(`UPDATE rooms SET ${sets.join(', ')} WHERE id = ?`, [...values, item.existingId]);
-            }
-        }
-        await conn.commit();
-    } catch (err) {
-        await conn.rollback();
-        throw err;
-    } finally {
-        conn.release();
-    }
+    await commitImportRows(items);
 
     logActivity(req, {
         action: 'import', entity: 'room',
@@ -1617,8 +1685,8 @@ app.post('/api/admin/rooms/import', requireAdmin, asyncRoute(async (req, res) =>
 // ==========================================
 
 app.get('/api/admin/logs', requireAdmin, asyncRoute(async (req, res) => {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
-    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
 
     const where = [];
     const params = [];
@@ -1661,14 +1729,14 @@ app.get('/api/admin/overview', requireAdmin, asyncRoute(async (req, res) => {
 
 // ข้อผิดพลาดที่ไม่ได้ดักไว้ (เช่น JSON เสียรูป, body ใหญ่เกิน) ให้ตอบเป็น JSON เสมอ
 app.use((err, req, res, next) => {
-    if (err && err.type === 'entity.too.large') {
+    if (err?.type === 'entity.too.large') {
         return res.status(413).json({ error: 'ข้อมูลที่ส่งมามีขนาดใหญ่เกินไป' });
     }
-    if (err && err.type === 'entity.parse.failed') {
+    if (err?.type === 'entity.parse.failed') {
         return res.status(400).json({ error: 'รูปแบบข้อมูล JSON ไม่ถูกต้อง' });
     }
     console.error(err);
-    res.status(err && err.status ? err.status : 500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });
+    res.status(err?.status ? err.status : 500).json({ error: 'เกิดข้อผิดพลาดภายในระบบ' });
 });
 
 // ==========================================

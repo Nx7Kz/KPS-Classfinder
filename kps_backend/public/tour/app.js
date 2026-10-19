@@ -11,6 +11,11 @@ document.body.classList.toggle('in-app', inApp);
 
 const $ = (id) => document.getElementById(id);
 
+// ชื่อรองของจุดที่ยืนอยู่: ป้ายชื่อที่ตั้งไว้ > หน้าห้องถ้าผูกกับห้อง > "ทางเดิน" (แยกออกมาเพื่อไม่ต้องซ้อน template literal)
+function pointSubtitle(point) {
+  return point.label || (point.room_code ? `หน้าห้อง ${point.room_code}` : 'ทางเดิน');
+}
+
 function postToApp(message) {
   if (window.KpsApp?.postMessage) {
     window.KpsApp.postMessage(JSON.stringify(message));
@@ -107,7 +112,7 @@ async function main() {
     mapSize: window.innerWidth < 600 ? '130px' : '180px',
     onNodeChange(point) {
       $('state').hidden = true;
-      $('pointName').textContent = `ชั้น ${point.floor} · ${point.label || (point.room_code ? `หน้าห้อง ${point.room_code}` : 'ทางเดิน')}`;
+      $('pointName').textContent = `ชั้น ${point.floor} · ${pointSubtitle(point)}`;
       renderFloors(tour, viewerApi, point.floor);
       postToApp({ type: 'point', id: point.id, floor: point.floor });
     },

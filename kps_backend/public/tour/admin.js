@@ -43,6 +43,11 @@ function tourPointName(point) {
   return point.label || (point.room_code ? `หน้าห้อง ${point.room_code}` : `จุด #${point.id}`);
 }
 
+// ป้ายชั้นต่อท้ายชื่อจุด ใช้เมื่อจุดนั้นอยู่คนละชั้นกับจุดที่กำลังดูอยู่ (แยกออกมาเพื่อไม่ต้องซ้อน template literal)
+function otherFloorBadge(current, other) {
+  return current.floor === other.floor ? '' : ` <span class="badge text-bg-warning">ชั้น ${escapeHtml(other.floor)}</span>`;
+}
+
 function tourNeighbors(id) {
   return tourState.links
     .filter(([a, b]) => a === id || b === id)
@@ -187,6 +192,20 @@ function renderTourUnplaced() {
     </div>`).join('');
 }
 
+// ส่วน "เชื่อมข้ามชั้น" ท้ายกล่องรายละเอียดจุด (ว่างเปล่าถ้าไม่มีจุดในชั้นอื่นให้เชื่อม)
+function stairsLinkHtml(point, otherFloorPoints) {
+  if (otherFloorPoints.length === 0) return '';
+  const options = otherFloorPoints
+    .map((other) => `<option value="${other.id}">ชั้น ${escapeHtml(other.floor)} · ${escapeHtml(tourPointName(other))}</option>`)
+    .join('');
+  return `
+      <label class="form-label small fw-semibold mb-1" for="tourStairsTarget">เชื่อมข้ามชั้น (บันได / ลิฟต์)</label>
+      <div class="input-group input-group-sm">
+        <select id="tourStairsTarget" class="form-select">${options}</select>
+        <button type="button" class="btn btn-outline-primary" onclick="linkTourStairs(${point.id})">เชื่อม</button>
+      </div>`;
+}
+
 function renderTourDetail() {
   const container = document.getElementById('tourDetail');
   const point = tourPoint(tourState.selectedId);
@@ -218,18 +237,11 @@ function renderTourDetail() {
     <ul class="list-group list-group-flush small mb-3">
       ${neighbors.map((other) => `
         <li class="list-group-item px-0 d-flex align-items-center gap-2">
-          <span class="text-truncate">${escapeHtml(tourPointName(other))}${other.floor !== point.floor ? ` <span class="badge text-bg-warning">ชั้น ${escapeHtml(other.floor)}</span>` : ''}</span>
+          <span class="text-truncate">${escapeHtml(tourPointName(other))}${otherFloorBadge(point, other)}</span>
           <button type="button" class="btn btn-sm btn-link text-danger ms-auto p-0" onclick="toggleTourLink(${point.id}, ${other.id})" aria-label="ตัดเส้น">ตัด</button>
         </li>`).join('') || '<li class="list-group-item px-0 text-secondary">ยังไม่ได้เชื่อม</li>'}
     </ul>
-    ${otherFloorPoints.length > 0 ? `
-      <label class="form-label small fw-semibold mb-1" for="tourStairsTarget">เชื่อมข้ามชั้น (บันได / ลิฟต์)</label>
-      <div class="input-group input-group-sm">
-        <select id="tourStairsTarget" class="form-select">
-          ${otherFloorPoints.map((other) => `<option value="${other.id}">ชั้น ${escapeHtml(other.floor)} · ${escapeHtml(tourPointName(other))}</option>`).join('')}
-        </select>
-        <button type="button" class="btn btn-outline-primary" onclick="linkTourStairs(${point.id})">เชื่อม</button>
-      </div>` : ''}`;
+    ${stairsLinkHtml(point, otherFloorPoints)}`;
 }
 
 function startPlacing(id) {
@@ -445,7 +457,7 @@ async function mountTourHeadingViewer(id) {
   container.querySelectorAll('.psv-container').forEach((element) => element.remove());
   try {
     const [{ createTourViewer, prepareTour }, data] = await Promise.all([
-      import('/tour/tour.js'),
+      import('./tour.js'),
       api(`/api/tour/${tourState.building.id}`),
     ]);
     const holder = document.createElement('div');
