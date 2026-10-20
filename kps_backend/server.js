@@ -261,6 +261,81 @@ app.post('/api/admin/change-password', requireStaff, changePasswordLimiter, asyn
 }));
 
 // ==========================================
+// 🌟 โปรไฟล์ผู้ดูแล (ชื่อ อีเมล เบอร์โทร สังกัด รูป) เก็บใน admin_settings ต่อบัญชี 🌟
+// ==========================================
+const PROFILE_FIELDS = {
+    full_name: { label: 'ชื่อ-นามสกุล', max: 100 },
+    email: { label: 'อีเมล', max: 120 },
+    phone: { label: 'เบอร์โทรศัพท์', max: 40 },
+    department: { label: 'สังกัด / หน่วยงาน', max: 150 },
+};
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AVATAR_SIZE = 256;
+
+async function readProfile(role) {
+    const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [`profile_${role}`]);
+    let stored = {};
+    if (rows.length) {
+        try { stored = JSON.parse(rows[0].setting_value) || {}; } catch (err) { stored = {}; }
+    }
+    const profile = { avatar: typeof stored.avatar === 'string' ? stored.avatar : null };
+    for (const key of Object.keys(PROFILE_FIELDS)) profile[key] = typeof stored[key] === 'string' ? stored[key] : '';
+    return profile;
+}
+
+async function writeProfile(role, profile) {
+    await pdb.query(
+        `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [`profile_${role}`, JSON.stringify(profile)]
+    );
+}
+
+app.get('/api/admin/profile', requireStaff, asyncRoute(async (req, res) => {
+    const role = req.session.role;
+    res.json({ ...(await readProfile(role)), role, username: ACCOUNTS[role].username });
+}));
+
+app.put('/api/admin/profile', requireStaff, asyncRoute(async (req, res) => {
+    const role = req.session.role;
+    const body = req.body || {};
+    const profile = await readProfile(role);
+    for (const [key, rule] of Object.entries(PROFILE_FIELDS)) {
+        const value = typeof body[key] === 'string' ? body[key].trim() : '';
+        if (value.length > rule.max) throw new HttpError(400, `${rule.label}ยาวเกินไป (ไม่เกิน ${rule.max} ตัวอักษร)`);
+        profile[key] = value;
+    }
+    if (profile.email && !EMAIL_PATTERN.test(profile.email)) throw new HttpError(400, 'รูปแบบอีเมลไม่ถูกต้อง');
+    await writeProfile(role, profile);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขข้อมูลส่วนตัว (${ROLE_LABELS[role]})` });
+    res.json({ message: 'บันทึกข้อมูลส่วนตัวสำเร็จ!', ...profile, role, username: ACCOUNTS[role].username });
+}));
+
+// รูปโปรไฟล์ย่อเป็นสี่เหลี่ยมจัตุรัสแล้วเก็บเป็น data URL ในฐานข้อมูล ไม่ต้องมีโฟลเดอร์ไฟล์เพิ่ม และไปกับ backup ฐานข้อมูลอัตโนมัติ
+const avatarUploader = createImageUploader(5 * 1024 * 1024);
+app.post('/api/admin/profile/avatar', requireStaff, handleUpload(avatarUploader, 'image', 5), asyncRoute(async (req, res) => {
+    if (!req.file) throw new HttpError(400, 'กรุณาเลือกไฟล์รูปภาพ');
+    try { imageSize(req.file.buffer); } catch (err) { throw new HttpError(400, 'ไฟล์รูปไม่ถูกต้องหรือเสียหาย'); }
+    const buffer = await sharp(req.file.buffer).rotate()
+        .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover' }).webp({ quality: 82 }).toBuffer();
+    const role = req.session.role;
+    const profile = await readProfile(role);
+    profile.avatar = `data:image/webp;base64,${buffer.toString('base64')}`;
+    await writeProfile(role, profile);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `เปลี่ยนรูปโปรไฟล์ (${ROLE_LABELS[role]})` });
+    res.json({ message: 'เปลี่ยนรูปโปรไฟล์สำเร็จ!', avatar: profile.avatar });
+}));
+
+app.delete('/api/admin/profile/avatar', requireStaff, asyncRoute(async (req, res) => {
+    const role = req.session.role;
+    const profile = await readProfile(role);
+    profile.avatar = null;
+    await writeProfile(role, profile);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `ลบรูปโปรไฟล์ (${ROLE_LABELS[role]})` });
+    res.json({ message: 'ลบรูปโปรไฟล์แล้ว', avatar: null });
+}));
+
+// ==========================================
 // 🌟 ไฟล์ที่อัปโหลด (แผนผังชั้น / ภาพพาโนรามา) 🌟
 // ==========================================
 const IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);

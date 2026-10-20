@@ -1160,7 +1160,11 @@
                   </span>
                 </div>
                 <div class="tw-flex tw-items-start tw-gap-5 tw-p-4 tw-rounded-xl tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-mb-6">
-                  <div id="settingsAvatar" class="tw-w-16 tw-h-16 tw-rounded-xl tw-bg-primary tw-text-on-primary tw-flex tw-items-center tw-justify-center tw-text-headline-md tw-font-bold tw-shrink-0">--</div>
+                  <div class="tw-relative tw-shrink-0">
+                    <div id="settingsAvatar" class="tw-w-16 tw-h-16 tw-rounded-xl tw-bg-primary tw-text-on-primary tw-flex tw-items-center tw-justify-center tw-text-headline-md tw-font-bold tw-overflow-hidden tw-ring-2 tw-ring-primary-container/30">--</div>
+                    <button type="button" onclick="document.getElementById('avatarFile').click()" title="เปลี่ยนรูปโปรไฟล์" class="tw-appearance-none tw-cursor-pointer tw-absolute -tw-bottom-1 -tw-right-1 tw-p-1 tw-bg-surface-container-lowest tw-rounded-full tw-border tw-border-outline-variant/30 tw-shadow-sm tw-text-on-surface-variant hover:tw-text-primary tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[0.875rem]">photo_camera</span></button>
+                    <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp" class="tw-hidden" onchange="uploadAvatar(this)">
+                  </div>
                   <div class="tw-flex-1">
                     <div class="tw-flex tw-items-center tw-gap-2">
                       <h4 id="settingsDisplayName" class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">-</h4>
@@ -1168,8 +1172,49 @@
                     </div>
                     <p class="tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant tw-mt-0.5 tw-mb-0">ชื่อผู้ใช้ปัจจุบัน: <strong id="settingsUsername" class="tw-text-on-surface tw-font-mono">-</strong></p>
                     <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-mt-1 tw-mb-0" id="settingsLastLogin">-</p>
+                    <div class="tw-flex tw-items-center tw-gap-2 tw-mt-2">
+                      <button type="button" onclick="document.getElementById('avatarFile').click()" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer tw-p-0 tw-text-label-sm tw-font-label-sm tw-text-primary tw-font-medium hover:tw-underline">เปลี่ยนรูปโปรไฟล์</button>
+                      <span class="tw-text-outline">•</span>
+                      <button type="button" id="avatarRemoveButton" onclick="removeAvatar()" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer tw-p-0 tw-text-label-sm tw-font-label-sm tw-text-error hover:tw-underline">ลบรูป</button>
+                    </div>
                   </div>
                 </div>
+
+                <form id="profileForm" onsubmit="saveProfile(event)" class="tw-space-y-4 tw-mb-6">
+                  <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                    <div>
+                      <label for="profileFullName" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">ชื่อ-นามสกุล (Full Name)</label>
+                      <input id="profileFullName" type="text" maxlength="100" autocomplete="name" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-px-3.5 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                    </div>
+                    <div>
+                      <label for="profileUsername" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">ชื่อผู้ใช้งานระบบ (Username)</label>
+                      <div class="tw-relative">
+                        <input id="profileUsername" type="text" disabled class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/30 tw-bg-surface-container-low tw-px-3.5 tw-py-2 tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-cursor-not-allowed">
+                        <span class="material-symbols-outlined tw-text-[1rem] tw-text-outline tw-absolute tw-right-3 tw-top-2.5">lock</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                    <div>
+                      <label for="profileEmail" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">อีเมล (Email)</label>
+                      <input id="profileEmail" type="email" maxlength="120" autocomplete="email" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-px-3.5 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                    </div>
+                    <div>
+                      <label for="profilePhone" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">เบอร์โทรศัพท์ติดต่อ (Phone)</label>
+                      <input id="profilePhone" type="text" maxlength="40" autocomplete="tel" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-px-3.5 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                    </div>
+                  </div>
+                  <div>
+                    <label for="profileDepartment" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">สังกัด / หน่วยงาน (Department)</label>
+                    <input id="profileDepartment" type="text" maxlength="150" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-px-3.5 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                  </div>
+                  <div class="tw-pt-3 tw-flex tw-justify-end">
+                    <button id="profileSaveButton" type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-all tw-shadow-sm active:tw-scale-[0.98]">
+                      <span class="material-symbols-outlined tw-text-[1.125rem]">save</span><span>บันทึกการแก้ไขข้อมูลส่วนตัว</span>
+                    </button>
+                  </div>
+                </form>
+
                 <div>
                   <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-3 tw-mt-0">สิทธิ์การใช้งานของบัญชีนี้</h4>
                   <ul id="settingsPermissions" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-2.5 tw-list-none tw-p-0 tw-m-0"></ul>
@@ -1860,6 +1905,7 @@
       document.getElementById('profileName').textContent = username ? username.charAt(0).toUpperCase() + username.slice(1) : '-';
       document.getElementById('profileRole').textContent = ROLE_LABELS[role] || role;
       loadHealth();
+      loadProfile();
     }
 
     // สถานะระบบบนแถบบน: เช็กจริงจาก /api/admin/health (ฐานข้อมูล + โฟลเดอร์เก็บรูป) และจุดแดงที่กระดิ่ง = มีล็อกอินไม่สำเร็จใน 24 ชม.
@@ -3867,8 +3913,7 @@
 
     async function loadSettingsPage() {
       const username = document.getElementById('settingsUsername').textContent || '';
-      document.getElementById('settingsAvatar').textContent = username.slice(0, 2).toUpperCase() || '--';
-      document.getElementById('settingsDisplayName').textContent = ROLE_LABELS[currentRole] || username;
+      loadProfile();
       document.getElementById('settingsPermissions').innerHTML = (ROLE_PERMISSIONS[currentRole] || []).map(text => `
         <li class="tw-flex tw-items-start tw-gap-2 tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-text-body-sm tw-text-on-surface-variant">
           <span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem] tw-shrink-0">check_circle</span><span>${escapeHtml(text)}</span>
@@ -3921,6 +3966,94 @@
         ? '<div class="tw-text-body-sm tw-text-error">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</div>'
         : item('database', 'ฐานข้อมูล MySQL', 'ตอบสนองต่อคำสั่งตรวจสอบ', health.database)
           + item('folder', 'โฟลเดอร์เก็บรูปภาพ', 'แผนผัง รูปปก และภาพ 360° (เขียนไฟล์ได้)', health.storage);
+    }
+
+    // ============ Settings: profile ============
+    let profileState = { full_name: '', email: '', phone: '', department: '', avatar: null };
+
+    // รูปโปรไฟล์ถ้ามีจะแสดงเป็นรูป ไม่มีก็แสดงตัวอักษรย่อ (ใช้ทั้งการ์ดโปรไฟล์และแถบบน)
+    function paintAvatar(element, fallbackText) {
+      if (profileState.avatar) {
+        element.innerHTML = `<img src="${profileState.avatar}" alt="" class="tw-w-full tw-h-full tw-object-cover">`;
+      } else {
+        element.textContent = fallbackText;
+      }
+    }
+
+    function renderProfile() {
+      const username = document.getElementById('settingsUsername').textContent || '';
+      const initials = (profileState.full_name || username).replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '--';
+      const displayName = profileState.full_name || ROLE_LABELS[currentRole] || username;
+      paintAvatar(document.getElementById('settingsAvatar'), initials);
+      paintAvatar(document.getElementById('profileAvatar'), initials);
+      document.getElementById('settingsDisplayName').textContent = displayName;
+      document.getElementById('profileName').textContent = displayName;
+      document.getElementById('profileUsername').value = username;
+      document.getElementById('profileFullName').value = profileState.full_name;
+      document.getElementById('profileEmail').value = profileState.email;
+      document.getElementById('profilePhone').value = profileState.phone;
+      document.getElementById('profileDepartment').value = profileState.department;
+      document.getElementById('avatarRemoveButton').classList.toggle('tw-hidden', !profileState.avatar);
+    }
+
+    async function loadProfile() {
+      try {
+        profileState = await api('/api/admin/profile');
+        renderProfile();
+      } catch (error) {
+        if (!(error instanceof SessionExpiredError)) console.error('โหลดโปรไฟล์ไม่สำเร็จ:', error);
+      }
+    }
+
+    async function saveProfile(event) {
+      event.preventDefault();
+      const button = document.getElementById('profileSaveButton');
+      const label = button.querySelector('span:last-child');
+      button.disabled = true;
+      label.textContent = 'กำลังบันทึก...';
+      try {
+        const data = await api('/api/admin/profile', jsonRequest('PUT', {
+          full_name: document.getElementById('profileFullName').value,
+          email: document.getElementById('profileEmail').value,
+          phone: document.getElementById('profilePhone').value,
+          department: document.getElementById('profileDepartment').value,
+        }));
+        profileState = data;
+        renderProfile();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+        label.textContent = 'บันทึกการแก้ไขข้อมูลส่วนตัว';
+      }
+    }
+
+    async function uploadAvatar(input) {
+      const file = input.files[0];
+      input.value = '';
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const data = await api('/api/admin/profile/avatar', { method: 'POST', body: formData });
+        profileState.avatar = data.avatar;
+        renderProfile();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    async function removeAvatar() {
+      try {
+        const data = await api('/api/admin/profile/avatar', { method: 'DELETE' });
+        profileState.avatar = null;
+        renderProfile();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      }
     }
 
     // ============ Settings: change password ============
