@@ -266,8 +266,8 @@
   </div>
 
   <!-- ============ หน้าเข้าสู่ระบบ (Tailwind ตามดีไซน์ code.html) ============ -->
-  <div id="loginSection" class="d-none tw-min-h-screen tw-flex tw-flex-col tw-justify-between tw-text-on-surface tw-antialiased" style="font-family:'Prompt','Plus Jakarta Sans',sans-serif;">
-    <header class="tw-w-full tw-px-6 tw-py-4 tw-flex tw-items-center tw-justify-between tw-border-b tw-border-outline-variant/30 tw-bg-surface-container-lowest/80 tw-backdrop-blur-md tw-sticky tw-top-0 tw-z-20">
+  <div id="loginSection" class="d-none tw-min-h-screen tw-flex tw-flex-col tw-justify-between tw-text-on-surface tw-antialiased" style="font-family:'Prompt','Plus Jakarta Sans',sans-serif; background: radial-gradient(900px 520px at 12% 8%, rgb(var(--m3-primary) / .14), transparent 62%), radial-gradient(820px 520px at 92% 92%, rgb(var(--m3-secondary) / .14), transparent 62%);">
+    <header class="tw-w-full tw-px-6 tw-py-4 tw-flex tw-items-center tw-justify-between tw-border-b tw-border-outline-variant/30 tw-bg-surface-container-lowest/80 tw-backdrop-blur-md tw-sticky tw-top-0 tw-z-20 tw-shadow-sm">
       <div class="tw-flex tw-items-center tw-gap-3">
         <div class="tw-w-9 tw-h-9 tw-rounded-lg tw-bg-primary tw-flex tw-items-center tw-justify-center tw-text-on-primary tw-shadow-sm"><span class="material-symbols-outlined tw-text-[1.25rem]">school</span></div>
         <div>
@@ -286,9 +286,14 @@
       </div>
     </header>
 
-    <main class="tw-flex-1 tw-flex tw-items-center tw-justify-center tw-px-4 tw-py-8 sm:tw-px-6 lg:tw-px-8">
-      <div class="tw-w-full tw-max-w-5xl tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/40 tw-shadow-sm tw-overflow-hidden tw-grid tw-grid-cols-1 lg:tw-grid-cols-12 tw-min-h-[620px]">
-        <section class="lg:tw-col-span-5 tw-bg-gradient-to-br tw-from-surface-container-low tw-via-surface tw-to-surface-container tw-p-8 lg:tw-p-10 tw-flex tw-flex-col tw-justify-between tw-border-b lg:tw-border-b-0 lg:tw-border-r tw-border-outline-variant/30 tw-relative">
+    <main class="tw-relative tw-overflow-hidden tw-flex-1 tw-flex tw-items-center tw-justify-center tw-px-4 tw-py-8 sm:tw-px-6 lg:tw-px-8">
+      <div class="tw-absolute -tw-left-32 tw-top-10 tw-w-96 tw-h-96 tw-rounded-full tw-bg-primary/15 tw-blur-3xl tw-pointer-events-none"></div>
+      <div class="tw-absolute -tw-right-24 tw-bottom-0 tw-w-96 tw-h-96 tw-rounded-full tw-bg-secondary/15 tw-blur-3xl tw-pointer-events-none"></div>
+      <div class="tw-relative tw-z-10 tw-w-full tw-max-w-5xl tw-bg-surface-container-lowest tw-rounded-2xl tw-border tw-border-outline-variant/40 tw-shadow-[0_2px_6px_rgba(15,23,42,0.06),0_24px_64px_-16px_rgba(0,101,44,0.35)] tw-overflow-hidden tw-grid tw-grid-cols-1 lg:tw-grid-cols-12 tw-min-h-[620px]">
+        <section class="lg:tw-col-span-5 tw-bg-gradient-to-br tw-from-surface-container-low tw-via-surface tw-to-surface-container tw-p-8 lg:tw-p-10 tw-flex tw-flex-col tw-justify-between tw-border-b lg:tw-border-b-0 lg:tw-border-r tw-border-outline-variant/30 tw-relative tw-overflow-hidden">
+          <div class="tw-absolute tw-inset-0 tw-opacity-[0.08] tw-pointer-events-none" style="background-image: radial-gradient(rgb(var(--m3-primary)) 1px, transparent 1px); background-size: 16px 16px;"></div>
+          <div class="tw-absolute -tw-top-24 -tw-right-24 tw-w-72 tw-h-72 tw-rounded-full tw-bg-primary/15 tw-blur-3xl tw-pointer-events-none"></div>
+          <div class="tw-absolute -tw-bottom-28 -tw-left-20 tw-w-72 tw-h-72 tw-rounded-full tw-bg-secondary/20 tw-blur-3xl tw-pointer-events-none"></div>
           <div class="tw-relative tw-z-10 tw-space-y-6">
             <div class="tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-1 tw-rounded-full tw-bg-surface-container-lowest tw-border tw-border-outline-variant/40">
               <span class="material-symbols-outlined tw-text-[1rem] tw-text-primary">admin_panel_settings</span>
@@ -300,11 +305,11 @@
             </div>
             <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-leading-relaxed tw-m-0">ศูนย์กลางการจัดการข้อมูลอาคารเรียน แผนผังชั้นสำหรับปักหมุดห้อง และภาพเสมือนจริง 360° ที่แสดงในแอปมือถือสำหรับนิสิตและบุคลากร</p>
             <div class="tw-grid tw-grid-cols-2 tw-gap-3 tw-pt-2">
-              <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30">
+              <div class="tw-p-3.5 tw-rounded-xl tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-shadow-[0_8px_20px_-10px_rgba(15,23,42,0.25)] hover:-tw-translate-y-0.5 tw-transition-transform">
                 <div class="tw-flex tw-items-center tw-gap-2 tw-text-primary tw-mb-1"><span class="material-symbols-outlined tw-text-[1.125rem]">apartment</span><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">อาคาร &amp; ห้อง</span></div>
                 <span id="loginStatBuildings" class="tw-text-body-sm tw-font-body-sm tw-text-outline">จัดการอาคารและห้องเรียน</span>
               </div>
-              <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30">
+              <div class="tw-p-3.5 tw-rounded-xl tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-shadow-[0_8px_20px_-10px_rgba(15,23,42,0.25)] hover:-tw-translate-y-0.5 tw-transition-transform">
                 <div class="tw-flex tw-items-center tw-gap-2 tw-text-primary tw-mb-1"><span class="material-symbols-outlined tw-text-[1.125rem]">photo_camera</span><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">360° Editor</span></div>
                 <span class="tw-text-body-sm tw-font-body-sm tw-text-outline">เชื่อมโยงจุดนำทางภาพ 360°</span>
               </div>
@@ -331,7 +336,7 @@
                 <label for="loginUsername" class="tw-block tw-text-label-md tw-font-label-md tw-font-medium tw-text-on-surface">ชื่อผู้ใช้ <span class="tw-text-error">*</span></label>
                 <div class="tw-relative tw-rounded-lg">
                   <div class="tw-absolute tw-inset-y-0 tw-left-0 tw-pl-3.5 tw-flex tw-items-center tw-pointer-events-none tw-text-outline"><span class="material-symbols-outlined tw-text-[1.25rem]">person</span></div>
-                  <input id="loginUsername" name="username" type="text" required autocomplete="username" placeholder="เช่น admin" class="tw-block tw-w-full tw-pl-10 tw-pr-3.5 tw-py-2.5 tw-text-body-md tw-font-body-md tw-text-on-surface tw-bg-surface-container-lowest tw-rounded-lg tw-border tw-border-outline-variant/60 focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 placeholder:tw-text-outline/70 tw-transition-all tw-outline-none">
+                  <input id="loginUsername" name="username" type="text" required autocomplete="username" placeholder="เช่น admin" class="tw-block tw-w-full tw-pl-10 tw-pr-3.5 tw-py-2.5 tw-text-body-md tw-font-body-md tw-text-on-surface tw-bg-surface-container-lowest tw-rounded-lg tw-border tw-border-outline-variant/60 tw-shadow-[inset_0_1px_2px_rgba(15,23,42,0.07)] focus:tw-border-primary focus:tw-ring-4 focus:tw-ring-primary/15 placeholder:tw-text-outline/70 tw-transition-all tw-outline-none">
                 </div>
               </div>
               <div class="tw-space-y-1.5">
@@ -341,7 +346,7 @@
                 </div>
                 <div class="tw-relative tw-rounded-lg">
                   <div class="tw-absolute tw-inset-y-0 tw-left-0 tw-pl-3.5 tw-flex tw-items-center tw-pointer-events-none tw-text-outline"><span class="material-symbols-outlined tw-text-[1.25rem]">lock</span></div>
-                  <input id="loginPassword" name="password" type="password" required autocomplete="current-password" placeholder="ระบุรหัสผ่าน" class="tw-block tw-w-full tw-pl-10 tw-pr-10 tw-py-2.5 tw-text-body-md tw-font-body-md tw-text-on-surface tw-bg-surface-container-lowest tw-rounded-lg tw-border tw-border-outline-variant/60 focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 placeholder:tw-text-outline/70 tw-transition-all tw-outline-none">
+                  <input id="loginPassword" name="password" type="password" required autocomplete="current-password" placeholder="ระบุรหัสผ่าน" class="tw-block tw-w-full tw-pl-10 tw-pr-10 tw-py-2.5 tw-text-body-md tw-font-body-md tw-text-on-surface tw-bg-surface-container-lowest tw-rounded-lg tw-border tw-border-outline-variant/60 tw-shadow-[inset_0_1px_2px_rgba(15,23,42,0.07)] focus:tw-border-primary focus:tw-ring-4 focus:tw-ring-primary/15 placeholder:tw-text-outline/70 tw-transition-all tw-outline-none">
                   <button type="button" aria-label="แสดงหรือซ่อนรหัสผ่าน" onclick="togglePasswordVisibility('loginPassword', this)" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer tw-absolute tw-inset-y-0 tw-right-0 tw-pr-3 tw-flex tw-items-center tw-text-outline hover:tw-text-on-surface tw-transition-colors">
                     <span class="material-symbols-outlined tw-text-[1.25rem]">visibility_off</span>
                   </button>
@@ -351,7 +356,7 @@
                 <span class="tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.9375rem]">timer</span>เซสชันหมดอายุใน 8 ชั่วโมง</span>
                 <span class="tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.9375rem]">block</span>ใส่ผิดเกิน 5 ครั้งใน 15 นาทีจะถูกระงับชั่วคราว</span>
               </div>
-              <button id="loginButton" type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2 tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-primary hover:tw-bg-primary-container tw-text-on-primary tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-shadow-sm hover:tw-shadow active:tw-scale-[0.99] tw-transition-all tw-duration-150 disabled:tw-opacity-60 disabled:tw-cursor-not-allowed">
+              <button id="loginButton" type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2 tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-gradient-to-b tw-from-primary-container tw-to-primary tw-text-on-primary tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-shadow-[0_10px_24px_-8px_rgba(0,101,44,0.65)] hover:tw-shadow-[0_16px_30px_-8px_rgba(0,101,44,0.75)] hover:-tw-translate-y-0.5 active:tw-translate-y-0 active:tw-scale-[0.99] tw-transition-all tw-duration-150 disabled:tw-opacity-60 disabled:tw-cursor-not-allowed">
                 <span id="loginButtonLabel">เข้าสู่ระบบ</span>
                 <span class="material-symbols-outlined tw-text-[1.125rem]">arrow_forward</span>
               </button>
