@@ -889,81 +889,163 @@
           </div>
         </section>
 
-        <!-- ============ PAGE: System Logs ============ -->
-        <section id="page-logs" class="page-section d-none">
-          <section class="toolbar p-3 p-md-4 mb-4">
-            <div class="row g-3 align-items-end">
-              <div class="col-6 col-md-3">
-                <label for="logEntity" class="form-label fw-semibold">ประเภทข้อมูล</label>
-                <select id="logEntity" class="form-select" onchange="loadLogs(0)">
-                  <option value="">ทั้งหมด</option>
-                  <option value="session">การเข้าสู่ระบบ</option>
-                  <option value="room">ห้องเรียน</option>
-                  <option value="building">อาคาร</option>
-                  <option value="floor_plan">แผนผังชั้น</option>
-                  <option value="panorama">ภาพ 360°</option>
-                  <option value="hotspot">จุดเชื่อม</option>
-                  <option value="tour_point">จุดเดินชม</option>
-                  <option value="tour_link">เส้นทางเดินชม</option>
-                  <option value="admin">บัญชีผู้ดูแล</option>
-                </select>
+        <!-- ============ PAGE: System Logs (Tailwind ตามดีไซน์ code.html) ============ -->
+        <section id="page-logs" class="page-section d-none tw-flex tw-flex-col tw-gap-6">
+          <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4 tw-pb-2">
+            <div>
+              <div class="tw-flex tw-items-baseline tw-gap-2 tw-flex-wrap">
+                <h2 class="tw-text-display-lg tw-font-display-lg tw-font-bold tw-text-on-surface tw-m-0">บันทึกกิจกรรมระบบ</h2>
+                <span class="tw-text-headline-md tw-font-headline-md tw-text-outline tw-font-normal">(System Audit Logs)</span>
               </div>
-              <div class="col-6 col-md-3">
-                <label for="logAction" class="form-label fw-semibold">การกระทำ</label>
-                <select id="logAction" class="form-select" onchange="loadLogs(0)">
-                  <option value="">ทั้งหมด</option>
-                  <option value="login">เข้าสู่ระบบ</option>
-                  <option value="login_failed">เข้าสู่ระบบไม่สำเร็จ</option>
-                  <option value="logout">ออกจากระบบ</option>
-                  <option value="create">เพิ่ม</option>
-                  <option value="update">แก้ไข</option>
-                  <option value="delete">ลบ</option>
-                  <option value="upload">อัปโหลด</option>
-                  <option value="import">นำเข้า CSV</option>
-                  <option value="export">ส่งออก CSV</option>
-                  <option value="change_password">เปลี่ยนรหัสผ่าน</option>
-                </select>
+              <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0">ติดตามตรวจสอบประวัติการเข้าสู่ระบบ ความปลอดภัย และการแก้ไขข้อมูลอาคาร ห้องเรียน แผนผังชั้น และภาพ 360°</p>
+            </div>
+          </div>
+
+          <section aria-label="Log summary" class="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4">
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-relative tw-overflow-hidden tw-group">
+              <div class="tw-flex tw-items-start tw-justify-between">
+                <div>
+                  <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline tw-block">การเข้าสู่ระบบวันนี้</span>
+                  <div class="tw-flex tw-items-baseline tw-gap-2 tw-mt-2"><span id="logKpiLogins" class="tw-text-display-lg tw-font-display-lg tw-font-bold tw-text-on-surface">-</span><span class="tw-text-body-md tw-text-outline">ครั้ง</span></div>
+                </div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-surface-container-high/60 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">login</span></div>
               </div>
-              <div class="col-12 col-md-4">
-                <label for="logSearch" class="form-label fw-semibold">ค้นหา</label>
-                <input id="logSearch" class="form-control" type="search" placeholder="ค้นในรายละเอียดหรือชื่อผู้ใช้" oninput="debounceLogSearch()">
+              <div class="tw-mt-4 tw-flex tw-items-center tw-gap-1.5 tw-text-label-sm tw-font-label-sm tw-text-primary tw-font-semibold"><span class="material-symbols-outlined tw-text-[1rem]">calendar_today</span><span id="logKpiLoginsNote">-</span></div>
+              <div class="tw-absolute tw-bottom-0 tw-inset-x-0 tw-h-0.5 tw-bg-primary/20"></div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-relative tw-overflow-hidden tw-group">
+              <div class="tw-flex tw-items-start tw-justify-between">
+                <div>
+                  <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline tw-block">กิจกรรมการแก้ไขข้อมูลวันนี้</span>
+                  <div class="tw-flex tw-items-baseline tw-gap-2 tw-mt-2"><span id="logKpiEdits" class="tw-text-display-lg tw-font-display-lg tw-font-bold tw-text-on-surface">-</span><span class="tw-text-body-md tw-text-outline">รายการ</span></div>
+                </div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-surface-container-high/60 tw-text-secondary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">edit_note</span></div>
               </div>
-              <div class="col-12 col-md-2 d-grid">
-                <button class="btn btn-outline-secondary" type="button" onclick="loadLogs(logOffset)">รีเฟรช</button>
+              <div class="tw-mt-4 tw-flex tw-items-center tw-gap-1.5 tw-text-label-sm tw-font-label-sm tw-text-on-surface-variant"><span class="material-symbols-outlined tw-text-[1rem] tw-text-secondary">check_circle</span><span id="logKpiEditsNote">-</span></div>
+              <div class="tw-absolute tw-bottom-0 tw-inset-x-0 tw-h-0.5 tw-bg-secondary/30"></div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-relative tw-overflow-hidden tw-group">
+              <div class="tw-flex tw-items-start tw-justify-between">
+                <div>
+                  <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline tw-block">ล็อกอินไม่สำเร็จ (24 ชม.)</span>
+                  <div class="tw-flex tw-items-baseline tw-gap-2 tw-mt-2"><span id="logKpiFailed" class="tw-text-display-lg tw-font-display-lg tw-font-bold tw-text-tertiary">-</span><span class="tw-text-body-md tw-text-outline">ครั้ง</span></div>
+                </div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-tertiary-fixed tw-text-tertiary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">gpp_maybe</span></div>
+              </div>
+              <div class="tw-mt-4 tw-flex tw-items-center tw-gap-1.5 tw-text-label-sm tw-font-label-sm tw-text-tertiary tw-font-medium"><span class="tw-inline-block tw-w-2 tw-h-2 tw-rounded-full tw-bg-tertiary"></span><span id="logKpiFailedNote">-</span></div>
+              <div class="tw-absolute tw-bottom-0 tw-inset-x-0 tw-h-0.5 tw-bg-tertiary/40"></div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-relative tw-overflow-hidden tw-group">
+              <div class="tw-flex tw-items-start tw-justify-between">
+                <div>
+                  <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline tw-block">บันทึกทั้งหมดในระบบ</span>
+                  <div class="tw-flex tw-items-baseline tw-gap-2 tw-mt-2"><span id="logKpiTotal" class="tw-text-display-lg tw-font-display-lg tw-font-bold tw-text-on-surface">-</span><span class="tw-text-body-md tw-text-outline">รายการ</span></div>
+                </div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-surface-container tw-text-on-surface-variant tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">storage</span></div>
+              </div>
+              <div class="tw-mt-4 tw-flex tw-items-center tw-gap-1.5 tw-text-label-sm tw-font-label-sm tw-text-outline"><span class="material-symbols-outlined tw-text-[1rem]">history</span><span id="logKpiTotalNote">-</span></div>
+              <div class="tw-absolute tw-bottom-0 tw-inset-x-0 tw-h-0.5 tw-bg-outline-variant"></div>
+            </div>
+          </section>
+
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-4 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+            <div class="tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-center tw-justify-between tw-gap-4">
+              <div class="tw-relative tw-flex-1">
+                <span class="tw-absolute tw-inset-y-0 tw-left-0 tw-pl-3.5 tw-flex tw-items-center tw-pointer-events-none tw-text-outline"><span class="material-symbols-outlined tw-text-[1.25rem]">search</span></span>
+                <input id="logSearch" type="search" oninput="debounceLogSearch()" placeholder="ค้นหาตามชื่อผู้ใช้, IP, หรือรายละเอียดกิจกรรม..." class="tw-w-full tw-pl-10 tw-pr-4 tw-py-2 tw-bg-surface tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-body-md tw-font-body-md tw-text-on-surface placeholder:tw-text-outline focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-transition-all">
+              </div>
+              <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-2.5">
+                <div class="tw-relative tw-min-w-[150px]">
+                  <select id="logEntity" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
+                    <option value="">ประเภทข้อมูล: ทั้งหมด</option>
+                    <option value="session">การเข้าสู่ระบบ</option>
+                    <option value="room">ห้องเรียน</option>
+                    <option value="building">อาคาร</option>
+                    <option value="floor_plan">แผนผังชั้น</option>
+                    <option value="panorama">ภาพ 360°</option>
+                    <option value="hotspot">จุดเชื่อม</option>
+                    <option value="tour_point">จุดเดินชม</option>
+                    <option value="tour_link">เส้นทางเดินชม</option>
+                    <option value="admin">บัญชีผู้ดูแล</option>
+                  </select>
+                  <span class="material-symbols-outlined tw-absolute tw-right-2 tw-top-2.5 tw-text-outline tw-pointer-events-none tw-text-[1.125rem]">expand_more</span>
+                </div>
+                <div class="tw-relative tw-min-w-[160px]">
+                  <select id="logAction" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
+                    <option value="">การกระทำ: ทั้งหมด</option>
+                    <option value="login">เข้าสู่ระบบ</option>
+                    <option value="login_failed">เข้าสู่ระบบไม่สำเร็จ</option>
+                    <option value="logout">ออกจากระบบ</option>
+                    <option value="create">เพิ่ม</option>
+                    <option value="update">แก้ไข</option>
+                    <option value="delete">ลบ</option>
+                    <option value="upload">อัปโหลด</option>
+                    <option value="import">นำเข้า CSV</option>
+                    <option value="export">ส่งออก CSV</option>
+                    <option value="change_password">เปลี่ยนรหัสผ่าน</option>
+                  </select>
+                  <span class="material-symbols-outlined tw-absolute tw-right-2 tw-top-2.5 tw-text-outline tw-pointer-events-none tw-text-[1.125rem]">expand_more</span>
+                </div>
+                <div class="tw-relative tw-min-w-[130px]">
+                  <select id="logRangeFilter" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
+                    <option value="">ทุกช่วงเวลา</option>
+                    <option value="today">วันนี้</option>
+                    <option value="7">7 วันล่าสุด</option>
+                    <option value="30">30 วันล่าสุด</option>
+                  </select>
+                  <span class="material-symbols-outlined tw-absolute tw-right-2 tw-top-2.5 tw-text-outline tw-pointer-events-none tw-text-[1.125rem]">calendar_today</span>
+                </div>
+                <div class="tw-h-8 tw-w-px tw-bg-outline-variant/40 tw-hidden xl:tw-block tw-mx-1"></div>
+                <div class="tw-flex tw-items-center tw-gap-2">
+                  <button type="button" onclick="loadLogs(logOffset)" title="รีเฟรชข้อมูลล่าสุด" class="tw-appearance-none tw-cursor-pointer tw-flex tw-items-center tw-gap-1.5 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-surface tw-border tw-border-outline-variant/50 tw-text-on-surface tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                    <span class="material-symbols-outlined tw-text-[1.25rem] tw-text-outline">refresh</span><span class="tw-hidden sm:tw-inline">รีเฟรชข้อมูล</span>
+                  </button>
+                  <button type="button" onclick="exportLogsCsv()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold hover:tw-bg-primary tw-transition-colors active:tw-scale-[0.98] tw-shadow-sm">
+                    <span class="material-symbols-outlined tw-text-[1.125rem]">file_download</span><span>ส่งออก Log (CSV)</span>
+                  </button>
+                </div>
               </div>
             </div>
           </section>
 
-          <section class="card room-card">
-            <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
-              <h1 class="h5 mb-0">บันทึกกิจกรรมของผู้ดูแลระบบ</h1>
-              <span id="logTotal" class="badge text-bg-light border">0 รายการ</span>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                  <thead class="table-head">
-                    <tr>
-                      <th scope="col">เวลา</th>
-                      <th scope="col">การกระทำ</th>
-                      <th scope="col">ข้อมูล</th>
-                      <th scope="col">รายละเอียด</th>
-                      <th scope="col">ผู้ใช้</th>
-                      <th scope="col">IP</th>
-                    </tr>
-                  </thead>
-                  <tbody id="logTableBody"></tbody>
-                </table>
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden">
+            <div class="tw-px-6 tw-py-4 tw-border-b tw-border-outline-variant/30 tw-flex tw-items-center tw-justify-between tw-bg-surface-container-low">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-text-on-surface tw-m-0" id="logTitle">รายการกิจกรรมล่าสุด</h3>
+                <span id="logTotal" class="tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline tw-font-medium">0 รายการ</span>
+              </div>
+              <div class="tw-hidden sm:tw-flex tw-items-center tw-gap-2 tw-text-label-sm tw-font-label-sm tw-text-outline">
+                <span class="tw-w-2 tw-h-2 tw-rounded-full tw-bg-primary-container"></span><span>เรียงตามเวลาล่าสุด</span>
               </div>
             </div>
-            <div class="card-footer d-flex justify-content-between align-items-center">
-              <span class="small text-secondary" id="logRange"></span>
-              <div class="btn-group">
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="logPrev" onclick="loadLogs(logOffset - LOG_PAGE_SIZE)">‹ ก่อนหน้า</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="logNext" onclick="loadLogs(logOffset + LOG_PAGE_SIZE)">ถัดไป ›</button>
-              </div>
+            <div class="tw-overflow-x-auto">
+              <table class="tw-w-full tw-min-w-[860px] tw-text-left tw-border-collapse" style="margin:0;">
+                <thead>
+                  <tr class="tw-bg-surface tw-border-b tw-border-outline-variant/30 tw-text-outline tw-text-label-md tw-font-label-md">
+                    <th class="tw-py-3.5 tw-px-6 tw-font-semibold tw-whitespace-nowrap" scope="col">วันที่และเวลา</th>
+                    <th class="tw-py-3.5 tw-px-4 tw-font-semibold tw-whitespace-nowrap" scope="col">ประเภท / กิจกรรม</th>
+                    <th class="tw-py-3.5 tw-px-4 tw-font-semibold tw-whitespace-nowrap" scope="col">โมดูล / ส่วนงาน</th>
+                    <th class="tw-py-3.5 tw-px-4 tw-font-semibold tw-min-w-[260px]" scope="col">รายละเอียด</th>
+                    <th class="tw-py-3.5 tw-px-4 tw-font-semibold tw-whitespace-nowrap" scope="col">ผู้ใช้งาน</th>
+                    <th class="tw-py-3.5 tw-px-6 tw-font-semibold tw-whitespace-nowrap" scope="col">ที่อยู่ IP</th>
+                  </tr>
+                </thead>
+                <tbody id="logTableBody" class="tw-divide-y tw-divide-outline-variant/20 tw-text-body-md tw-font-body-md"></tbody>
+              </table>
+            </div>
+            <div class="tw-p-4 sm:tw-px-6 tw-border-t tw-border-outline-variant/30 tw-flex tw-flex-col sm:tw-flex-row tw-items-center tw-justify-between tw-gap-4 tw-bg-surface-container-low">
+              <div id="logRangeText" class="tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant tw-text-center sm:tw-text-left">-</div>
+              <div id="logPager" class="tw-flex tw-items-center tw-gap-1"></div>
             </div>
           </section>
+
+          <div class="tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-p-4 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.03)] tw-flex tw-items-center tw-gap-3">
+            <div class="tw-w-9 tw-h-9 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.25rem]">lock_clock</span></div>
+            <div>
+              <div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">การจัดเก็บบันทึกกิจกรรม</div>
+              <div id="logPolicyText" class="tw-text-body-sm tw-font-body-sm tw-text-outline">บันทึกกิจกรรมเก็บไว้ในฐานข้อมูลโดยไม่ลบอัตโนมัติ และรวมอยู่ในไฟล์สำรองข้อมูลทุกครั้ง รหัสผ่านไม่ถูกบันทึกลงในล็อก</div>
+            </div>
+          </div>
         </section>
 
         <!-- ============ PAGE: Settings ============ -->
@@ -3379,7 +3461,7 @@
     }
 
     // ============ System logs ============
-    const LOG_PAGE_SIZE = 25;
+    const LOG_PAGE_SIZE = 15;
     let logOffset = 0;
     let logRequestId = 0;
     let logSearchTimer = null;
@@ -3389,13 +3471,113 @@
       logSearchTimer = setTimeout(() => loadLogs(0), 350);
     }
 
-    async function loadLogs(offset) {
-      logOffset = Math.max(0, Number(offset) || 0);
-      const params = new URLSearchParams({ limit: LOG_PAGE_SIZE, offset: logOffset });
-      for (const [key, elementId] of [['entity', 'logEntity'], ['action', 'logAction'], ['q', 'logSearch']]) {
+    function logFilterParams() {
+      const params = new URLSearchParams();
+      for (const [key, elementId] of [['entity', 'logEntity'], ['action', 'logAction'], ['q', 'logSearch'], ['range', 'logRangeFilter']]) {
         const value = document.getElementById(elementId).value.trim();
         if (value) params.set(key, value);
       }
+      return params;
+    }
+
+    // ดาวน์โหลด CSV ตามตัวกรองปัจจุบัน (เซิร์ฟเวอร์จำกัดสิทธิ์ editor ให้เห็นเฉพาะของตัวเอง)
+    function exportLogsCsv() {
+      const link = document.createElement('a');
+      link.href = `/api/admin/logs/export.csv?${logFilterParams()}`;
+      link.download = '';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      showStatus('กำลังส่งออกบันทึกกิจกรรมเป็น CSV');
+      setTimeout(() => { if (document.getElementById('page-logs') && !document.getElementById('page-logs').classList.contains('d-none')) loadLogSummary(); }, 1500);
+    }
+
+    async function loadLogSummary() {
+      try {
+        const s = await api('/api/admin/logs/summary');
+        document.getElementById('logKpiLogins').textContent = s.logins_today;
+        document.getElementById('logKpiLoginsNote').textContent = `เมื่อวาน ${s.logins_yesterday} ครั้ง`;
+        document.getElementById('logKpiEdits').textContent = s.edits_today;
+        document.getElementById('logKpiEditsNote').textContent = `7 วันล่าสุดรวม ${s.edits_7d} รายการ`;
+        document.getElementById('logKpiFailed').textContent = s.failed_24h;
+        document.getElementById('logKpiFailedNote').textContent = s.failed_24h > 0 ? 'ตรวจพบการล็อกอินไม่สำเร็จ ควรตรวจสอบ' : 'ไม่พบความผิดปกติ';
+        document.getElementById('logKpiTotal').textContent = s.total.toLocaleString('th-TH');
+        document.getElementById('logKpiTotalNote').textContent = s.oldest
+          ? `ตั้งแต่ ${new Date(s.oldest).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'ยังไม่มีบันทึก';
+      } catch (error) {
+        if (!(error instanceof SessionExpiredError)) console.error('โหลดสรุปบันทึกกิจกรรมไม่สำเร็จ', error);
+      }
+    }
+
+    function logPageNumbers(current, last) {
+      const pages = new Set([1, last, current - 1, current, current + 1]);
+      const sorted = [...pages].filter(page => page >= 1 && page <= last).sort((a, b) => a - b);
+      const items = [];
+      sorted.forEach((page, index) => {
+        if (index > 0 && page - sorted[index - 1] > 1) items.push('…');
+        items.push(page);
+      });
+      return items;
+    }
+
+    function renderLogPager(total) {
+      const last = Math.max(Math.ceil(total / LOG_PAGE_SIZE), 1);
+      const current = Math.floor(logOffset / LOG_PAGE_SIZE) + 1;
+      const pager = document.getElementById('logPager');
+      if (last <= 1) {
+        pager.innerHTML = '';
+        return;
+      }
+      const base = 'tw-appearance-none tw-cursor-pointer tw-rounded-md tw-text-label-md tw-font-label-md tw-transition-colors';
+      const nav = (label, icon, page, disabled, iconFirst) => `
+        <button type="button" ${disabled ? 'disabled' : `onclick="loadLogs(${(page - 1) * LOG_PAGE_SIZE})"`}
+          class="${base} tw-px-3 tw-py-1.5 tw-border tw-border-outline-variant/30 tw-bg-surface-container-lowest tw-flex tw-items-center tw-gap-1 ${disabled ? 'tw-text-outline tw-opacity-50 tw-cursor-not-allowed' : 'tw-text-on-surface hover:tw-bg-surface-container-high'}">
+          ${iconFirst ? `<span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span>` : ''}<span class="tw-hidden sm:tw-inline">${label}</span>${iconFirst ? '' : `<span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span>`}
+        </button>`;
+      const numbers = logPageNumbers(current, last).map(item => item === '…'
+        ? '<span class="tw-px-1 tw-text-outline tw-font-bold">…</span>'
+        : `<button type="button" onclick="loadLogs(${(item - 1) * LOG_PAGE_SIZE})" class="${base} tw-w-8 tw-h-8 tw-flex tw-items-center tw-justify-center ${item === current ? 'tw-border-0 tw-bg-primary-container tw-text-on-primary tw-font-semibold tw-shadow-sm' : 'tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-text-on-surface hover:tw-bg-surface-container-high'}">${item}</button>`);
+      pager.innerHTML = nav('ก่อนหน้า', 'chevron_left', current - 1, current === 1, true) + numbers.join('') + nav('ถัดไป', 'chevron_right', current + 1, current === last, false);
+    }
+
+    function renderLogRows(rows) {
+      const date = (value) => new Date(value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      const time = (value) => `${new Date(value).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} น.`;
+      return rows.map(row => {
+        const style = activityStyle(row.action);
+        const isFailed = row.action === 'login_failed';
+        const username = row.username || '-';
+        return `
+        <tr class="${isFailed ? 'tw-bg-tertiary-fixed/10 hover:tw-bg-tertiary-fixed/20' : 'hover:tw-bg-surface-container-low'} tw-transition-colors">
+          <td class="tw-py-3.5 tw-px-6 tw-whitespace-nowrap">
+            <div class="tw-font-medium tw-text-on-surface">${escapeHtml(date(row.created_at))}</div>
+            <div class="tw-text-body-sm tw-text-outline">${escapeHtml(time(row.created_at))}</div>
+          </td>
+          <td class="tw-py-3.5 tw-px-4 tw-whitespace-nowrap">
+            <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm ${style.pill} tw-font-semibold">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full ${style.dot}"></span>${escapeHtml(ACTION_LABELS[row.action] || row.action)}</span>
+          </td>
+          <td class="tw-py-3.5 tw-px-4 tw-whitespace-nowrap">
+            <span class="tw-px-2.5 tw-py-1 tw-rounded-md tw-text-label-sm tw-font-label-sm ${isFailed ? 'tw-bg-tertiary-fixed/40 tw-text-tertiary' : 'tw-bg-surface-container tw-text-on-surface-variant'} tw-font-medium">${escapeHtml(ENTITY_LABELS[row.entity] || row.entity)}</span>
+          </td>
+          <td class="tw-py-3.5 tw-px-4 ${isFailed ? 'tw-text-tertiary tw-font-semibold' : 'tw-text-on-surface tw-font-medium'}">${escapeHtml(row.detail || '-')}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-whitespace-nowrap">
+            <div class="tw-flex tw-items-center tw-gap-2">
+              <span class="tw-w-6 tw-h-6 tw-rounded-full ${style.avatar} tw-flex tw-items-center tw-justify-center tw-text-[0.625rem] tw-font-bold">${escapeHtml(username.slice(0, 2).toUpperCase())}</span>
+              <span class="tw-font-medium ${isFailed ? 'tw-text-tertiary' : 'tw-text-on-surface'}">${escapeHtml(username)}</span>
+            </div>
+          </td>
+          <td class="tw-py-3.5 tw-px-6 tw-whitespace-nowrap tw-font-mono tw-text-body-sm ${isFailed ? 'tw-text-tertiary tw-font-medium' : 'tw-text-on-surface-variant'}">${escapeHtml(row.ip || '-')}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadLogs(offset) {
+      logOffset = Math.max(0, Number(offset) || 0);
+      const params = logFilterParams();
+      params.set('limit', LOG_PAGE_SIZE);
+      params.set('offset', logOffset);
+      if (logOffset === 0) loadLogSummary();
 
       const requestId = ++logRequestId;
       document.getElementById('logTableBody').innerHTML = skeletonTableRows(6, 6);
@@ -3405,22 +3587,16 @@
 
         document.getElementById('logTableBody').innerHTML = data.rows.length === 0
           ? '<tr><td colspan="6" class="text-center empty-state"><i class="bi bi-clock-history"></i>ไม่พบบันทึกกิจกรรม</td></tr>'
-          : data.rows.map(row => `
-            <tr>
-              <td class="text-nowrap small">${escapeHtml(formatDateTime(row.created_at))}</td>
-              <td>${actionBadge(row.action)}</td>
-              <td class="small">${escapeHtml(ENTITY_LABELS[row.entity] || row.entity)}</td>
-              <td>${escapeHtml(row.detail || '-')}</td>
-              <td class="small">${escapeHtml(row.username || '-')}</td>
-              <td class="small text-secondary">${escapeHtml(row.ip || '-')}</td>
-            </tr>`).join('');
+          : renderLogRows(data.rows);
 
         const from = data.total === 0 ? 0 : data.offset + 1;
         const to = Math.min(data.offset + data.rows.length, data.total);
-        document.getElementById('logTotal').textContent = `${data.total} รายการ`;
-        document.getElementById('logRange').textContent = `แสดง ${from}–${to} จาก ${data.total}`;
-        document.getElementById('logPrev').disabled = data.offset <= 0;
-        document.getElementById('logNext').disabled = data.offset + LOG_PAGE_SIZE >= data.total;
+        document.getElementById('logTotal').textContent = `${data.total.toLocaleString('th-TH')} รายการ`;
+        document.getElementById('logRangeText').innerHTML = `แสดง <span class="tw-font-semibold tw-text-on-surface">${from}</span> ถึง <span class="tw-font-semibold tw-text-on-surface">${to}</span> จากทั้งหมด <span class="tw-font-semibold tw-text-on-surface">${data.total.toLocaleString('th-TH')}</span> รายการ`;
+        renderLogPager(data.total);
+        if (currentRole !== 'admin') {
+          document.getElementById('logPolicyText').textContent = 'บัญชีนี้เห็นเฉพาะบันทึกกิจกรรมของตัวเอง ส่วนบันทึกของบัญชีอื่นดูได้เฉพาะผู้ดูแลระบบ';
+        }
       } catch (error) {
         reportError(error);
       }

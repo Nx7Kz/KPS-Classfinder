@@ -1718,28 +1718,37 @@ app.post('/api/admin/rooms/import', requireAdmin, asyncRoute(async (req, res) =>
 // 🌟 System Logs และสรุปภาพรวม (Overview) 🌟
 // ==========================================
 
-app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
-    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
-    const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
+// เงื่อนไขกรอง log ที่ใช้ร่วมกันทั้งรายการ ส่งออก CSV และสรุป (editor เห็นเฉพาะกิจกรรมของตัวเอง ไม่เห็นของคนอื่น)
+const LOG_RANGES = { today: 'created_at >= CURDATE()', 7: 'created_at >= NOW() - INTERVAL 7 DAY', 30: 'created_at >= NOW() - INTERVAL 30 DAY' };
 
+function buildLogFilter(req, { withUserFilters = true } = {}) {
     const where = [];
     const params = [];
-    // editor เห็นเฉพาะกิจกรรมของตัวเอง ไม่เห็นของ admin หรือ editor คนอื่น
     if (req.session.role !== 'admin') {
         where.push('username = ?');
         params.push(ACCOUNTS[req.session.role].username);
     }
-    for (const column of ['entity', 'action']) {
-        if (typeof req.query[column] === 'string' && req.query[column] !== '') {
-            where.push(`${column} = ?`);
-            params.push(req.query[column]);
+    if (withUserFilters) {
+        for (const column of ['entity', 'action']) {
+            if (typeof req.query[column] === 'string' && req.query[column] !== '') {
+                where.push(`${column} = ?`);
+                params.push(req.query[column]);
+            }
         }
+        if (typeof req.query.q === 'string' && req.query.q.trim() !== '') {
+            where.push('(detail LIKE ? OR username LIKE ? OR ip LIKE ?)');
+            const like = `%${req.query.q.trim()}%`;
+            params.push(like, like, like);
+        }
+        if (Object.hasOwn(LOG_RANGES, req.query.range)) where.push(LOG_RANGES[req.query.range]);
     }
-    if (typeof req.query.q === 'string' && req.query.q.trim() !== '') {
-        where.push('(detail LIKE ? OR username LIKE ?)');
-        params.push(`%${req.query.q.trim()}%`, `%${req.query.q.trim()}%`);
-    }
-    const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+    return { where, params, whereSql: where.length > 0 ? `WHERE ${where.join(' AND ')}` : '' };
+}
+
+app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
+    const { params, whereSql } = buildLogFilter(req);
 
     const [[countRow]] = await pdb.query(`SELECT COUNT(*) AS total FROM activity_logs ${whereSql}`, params);
     const [rows] = await pdb.query(
@@ -1747,6 +1756,47 @@ app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
          FROM activity_logs ${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
         [...params, limit, offset]);
     res.json({ total: countRow.total, limit, offset, rows });
+}));
+
+// สรุปตัวเลขหน้า System Logs (นับเฉพาะ log ที่ผู้ใช้คนนี้มีสิทธิ์เห็น)
+app.get('/api/admin/logs/summary', requireStaff, asyncRoute(async (req, res) => {
+    const { where, params } = buildLogFilter(req, { withUserFilters: false });
+    const scope = where.length > 0 ? `${where.join(' AND ')} AND ` : '';
+    const [[row]] = await pdb.query(`
+        SELECT
+            SUM(action = 'login' AND created_at >= CURDATE()) AS logins_today,
+            SUM(action = 'login' AND created_at >= CURDATE() - INTERVAL 1 DAY AND created_at < CURDATE()) AS logins_yesterday,
+            SUM(action NOT IN ('login', 'login_failed', 'logout') AND created_at >= CURDATE()) AS edits_today,
+            SUM(action NOT IN ('login', 'login_failed', 'logout') AND created_at >= NOW() - INTERVAL 7 DAY) AS edits_7d,
+            SUM(action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY) AS failed_24h,
+            COUNT(*) AS total,
+            MIN(created_at) AS oldest
+        FROM activity_logs WHERE ${scope} 1 = 1`, params);
+    res.json({
+        logins_today: Number(row.logins_today) || 0, logins_yesterday: Number(row.logins_yesterday) || 0,
+        edits_today: Number(row.edits_today) || 0, edits_7d: Number(row.edits_7d) || 0,
+        failed_24h: Number(row.failed_24h) || 0, total: Number(row.total) || 0, oldest: row.oldest,
+    });
+}));
+
+const LOG_EXPORT_MAX = 5000;
+
+app.get('/api/admin/logs/export.csv', requireStaff, asyncRoute(async (req, res) => {
+    const { params, whereSql } = buildLogFilter(req);
+    const [rows] = await pdb.query(
+        `SELECT created_at, action, entity, detail, username, ip
+         FROM activity_logs ${whereSql} ORDER BY id DESC LIMIT ?`, [...params, LOG_EXPORT_MAX]);
+
+    const lines = ['created_at,action,entity,detail,username,ip'];
+    for (const item of rows) {
+        lines.push([item.created_at.toISOString(), item.action, item.entity, item.detail, item.username, item.ip].map(csvCell).join(','));
+    }
+    const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="activity-logs-${stamp}.csv"`);
+    res.send(`${String.fromCharCode(0xFEFF)}${lines.join('\r\n')}\r\n`); // BOM ให้ Excel อ่านภาษาไทยถูก
+
+    logActivity(req, { action: 'export', entity: 'admin', detail: `ส่งออกบันทึกกิจกรรมเป็น CSV ${rows.length} รายการ` });
 }));
 
 // เช็กสุขภาพระบบจริง: ฐานข้อมูลตอบสนอง + โฟลเดอร์เก็บรูปเขียนไฟล์ได้ (ใช้แสดงสถานะบนแถบบนของแดชบอร์ด)
