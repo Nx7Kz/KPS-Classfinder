@@ -17,6 +17,9 @@ kps_backend/public/tour-images/*
 # แผนผังชั้นที่อัปโหลดผ่านแดชบอร์ด (ไฟล์ตั้งต้น lh3-floor-*.png ยังเก็บไว้ในโค้ดตามเดิม)
 kps_backend/public/floorplans/floorplan_*
 
+# ไฟล์สำรองข้อมูล (มีข้อมูลผู้ใช้/ฐานข้อมูลจริง เก็บไว้ในเครื่องเท่านั้น)
+kps_backend/backup/backups/
+
 # ------------------------------------------------ SonarQube (โฟลเดอร์ sonar/)
 # รายงาน HTML ที่ใช้สร้าง PDF (PDF เก็บขึ้น git ได้ ไว้ส่งอาจารย์/ทีม)
 sonar/reports/*.html
