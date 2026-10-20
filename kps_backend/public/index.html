@@ -172,7 +172,12 @@
 
     .app-shell { display: flex; min-height: 100vh; }
     /* editor (ผู้ดูแลรูปภาพ) เห็นเฉพาะปุ่ม/เมนูที่ทำได้จริง ส่วนที่แก้ไข/ลบข้อมูลห้อง-อาคาร-จุดเชื่อมซ่อนไว้ */
-    body:not(.role-admin) .role-admin-only { display: none !important; }
+    /* ซ่อนส่วนที่บทบาทนี้ไม่มีสิทธิ์ใช้ (can-* ถูกตั้งที่ body ตามสิทธิ์จริงจากเซิร์ฟเวอร์ตอนเข้าสู่ระบบ) */
+    body:not(.can-buildings-w) .need-buildings-w,
+    body:not(.can-floorplans-w) .need-floorplans-w,
+    body:not(.can-panoramas-w) .need-panoramas-w,
+    body:not(.can-image-w) .need-image-w,
+    body:not(.can-settings) .need-settings { display: none !important; }
     .content-body { padding: 2rem; width: 100%; flex: 1; }
     #appSidebar button { font-family: inherit; }
 
@@ -388,7 +393,7 @@
           </div>
         </div>
         <nav aria-label="Main Navigation" class="sidebar-nav tw-flex tw-flex-col tw-gap-1.5">
-          <button type="button" data-page="overview" onclick="showPage('overview')" class="role-admin-only tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-colors tw-cursor-pointer">
+          <button type="button" data-page="overview" onclick="showPage('overview')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">bar_chart</span><span>Overview</span>
           </button>
           <button type="button" data-page="buildings-rooms" onclick="showPage('buildings-rooms')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
@@ -624,7 +629,7 @@
                 <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">อาคารทั้งหมด</h3>
                 <span id="buildingCountPill" class="tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-on-surface-variant tw-font-medium">-</span>
               </div>
-              <button type="button" onclick="openCreateBuildingModal()" class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm">
+              <button type="button" onclick="openCreateBuildingModal()" class="need-buildings-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm">
                 <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มอาคาร</span>
               </button>
             </div>
@@ -663,13 +668,13 @@
                 </div>
               </div>
               <div class="tw-flex tw-items-center tw-gap-2.5 tw-pt-2 xl:tw-pt-0 tw-self-end xl:tw-self-auto">
-                <button id="addRoomButton" type="button" onclick="openCreateModal()" disabled class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <button id="addRoomButton" type="button" onclick="openCreateModal()" disabled class="need-buildings-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มห้องเรียน</span>
                 </button>
-                <button id="exportCsvButton" type="button" onclick="exportRoomsCsv()" title="ส่งออกห้องเรียนของทุกอาคาร" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                <button id="exportCsvButton" type="button" onclick="exportRoomsCsv()" title="ส่งออกห้องเรียนของทุกอาคาร" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">download</span><span>ส่งออก CSV</span>
                 </button>
-                <button type="button" onclick="openImportCsvModal()" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                <button type="button" onclick="openImportCsvModal()" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">upload</span><span>นำเข้า CSV</span>
                 </button>
               </div>
@@ -683,7 +688,7 @@
               <span id="roomCount" class="tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium tw-border tw-border-indigo-100 dark:tw-border-indigo-400/20">0 ห้อง</span>
             </div>
 
-            <div id="bulkBar" class="role-admin-only d-none tw-justify-between tw-items-center tw-gap-2 tw-flex-wrap tw-px-6 tw-py-2.5 tw-bg-error-container/40 tw-border-b tw-border-outline-variant/20">
+            <div id="bulkBar" class="need-buildings-w d-none tw-justify-between tw-items-center tw-gap-2 tw-flex-wrap tw-px-6 tw-py-2.5 tw-bg-error-container/40 tw-border-b tw-border-outline-variant/20">
               <span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface" id="bulkCount"></span>
               <div class="tw-flex tw-gap-2">
                 <button type="button" onclick="clearRoomSelection()" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md hover:tw-bg-surface-container-high tw-transition-colors">ยกเลิกการเลือก</button>
@@ -695,7 +700,7 @@
               <table class="tw-w-full tw-min-w-[720px] tw-text-left tw-border-collapse" style="margin:0;">
                 <thead>
                   <tr class="tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-text-label-md tw-font-label-md tw-text-outline">
-                    <th scope="col" class="role-admin-only tw-py-3 tw-px-4 tw-w-10 tw-text-center"><input type="checkbox" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer"></th>
+                    <th scope="col" class="need-buildings-w tw-py-3 tw-px-4 tw-w-10 tw-text-center"><input type="checkbox" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer"></th>
                     <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold">ชื่อ / รหัสห้อง</th>
                     <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold tw-text-center tw-w-28">ชั้น</th>
                     <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold">ประเภท / ความจุ</th>
@@ -726,7 +731,7 @@
               </div>
             </div>
             <div class="tw-flex tw-items-center tw-gap-3 tw-w-full md:tw-w-auto tw-justify-end">
-              <button id="fpAddButton" type="button" onclick="openFloorPlanModal()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+              <button id="fpAddButton" type="button" onclick="openFloorPlanModal()" class="need-floorplans-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                 <span class="material-symbols-outlined tw-text-[1.25rem]">add</span><span>เพิ่มแผนผังชั้นใหม่</span>
               </button>
             </div>
@@ -796,7 +801,7 @@
             </div>
             <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-6 tw-border tw-border-outline-variant/30 tw-flex tw-flex-col tw-justify-between">
               <div id="fpMatchCard"></div>
-              <div class="role-admin-only tw-mt-4 tw-pt-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-justify-between tw-items-center tw-text-body-sm">
+              <div class="need-buildings-w tw-mt-4 tw-pt-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-justify-between tw-items-center tw-text-body-sm">
                 <span class="tw-text-outline">ต้องการปักหมุดห้อง?</span>
                 <a href="#" onclick="managePins(); return false;" class="tw-text-primary tw-font-semibold hover:tw-underline tw-flex tw-items-center tw-gap-1 tw-text-label-md tw-no-underline">
                   <span>ไปที่ Buildings &amp; Rooms</span><span class="material-symbols-outlined tw-text-[1rem]">chevron_right</span>
@@ -866,7 +871,7 @@
                 </div>
               </div>
               <div class="tw-flex tw-items-center tw-gap-2.5 tw-pt-2 lg:tw-pt-0">
-                <button id="panoUploadButton" type="button" onclick="openPanoUploadModal()" disabled class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary hover:tw-bg-primary tw-transition-colors tw-text-label-md tw-font-label-md tw-font-semibold tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <button id="panoUploadButton" type="button" onclick="openPanoUploadModal()" disabled class="need-panoramas-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary hover:tw-bg-primary tw-transition-colors tw-text-label-md tw-font-label-md tw-font-semibold tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">add_circle</span><span>+ เพิ่มภาพ 360°</span>
                 </button>
               </div>
@@ -898,7 +903,7 @@
                   <span id="panoLinkStatus" class="tw-px-2 tw-py-0.5 tw-rounded-full tw-bg-primary/10 tw-text-primary tw-text-label-sm tw-font-label-sm tw-font-semibold">-</span>
                 </div>
                 <div id="panoLinkMap" class="tw-my-4 tw-p-4 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-flex tw-flex-col tw-gap-3"></div>
-                <button id="panoEditorButton" type="button" onclick="openFirstHotspotEditor()" disabled class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold hover:tw-bg-primary tw-transition tw-flex tw-items-center tw-justify-center tw-gap-2 tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <button id="panoEditorButton" type="button" onclick="openFirstHotspotEditor()" disabled class="need-panoramas-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold hover:tw-bg-primary tw-transition tw-flex tw-items-center tw-justify-center tw-gap-2 tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">open_in_full</span>เปิดตัวแก้ไขจุดเชื่อม
                 </button>
               </div>
@@ -1147,6 +1152,13 @@
             <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0">จัดการบัญชีของคุณ ความปลอดภัย และตรวจสอบสถานะระบบ KPS ClassFinder</p>
           </div>
 
+          <div id="settingsTabs" class="need-settings tw-flex tw-items-center tw-gap-6 tw-border-b tw-border-outline-variant/30 tw-mb-6 tw-overflow-x-auto tw-text-label-md tw-font-label-md">
+            <button type="button" data-settings-tab="profile" onclick="showSettingsTab('profile')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-text-primary-container tw-font-semibold tw-border-primary-container">โปรไฟล์และบัญชี</button>
+            <button type="button" data-settings-tab="admins" onclick="showSettingsTab('admins')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">shield_person</span>ผู้ดูแลและสิทธิ์การใช้งาน (Admin &amp; Roles)</button>
+          </div>
+
+          <div id="settingsTabProfile">
+
           <div class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-12 tw-gap-8">
             <div class="lg:tw-col-span-7 tw-space-y-8">
               <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
@@ -1304,7 +1316,7 @@
             </div>
           </div>
 
-          <div class="role-admin-only tw-mt-8 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-p-6 tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
+          <div class="need-settings tw-mt-8 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-p-6 tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
             <div class="tw-flex tw-items-start tw-gap-3.5">
               <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-tertiary-fixed tw-text-tertiary tw-flex tw-items-center tw-justify-center tw-flex-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">database</span></div>
               <div>
@@ -1315,12 +1327,202 @@
             <code class="tw-px-3 tw-py-2 tw-rounded-lg tw-bg-surface-container tw-text-on-surface tw-text-body-sm tw-font-mono tw-whitespace-nowrap tw-self-start md:tw-self-center">kps_backend\backup\backup.ps1</code>
           </div>
 
+          </div><!-- /settingsTabProfile -->
+
+          <!-- ============ Settings tab: Admin & Roles (ตามดีไซน์ code.html) ============ -->
+          <div id="settingsTabAdmins" class="need-settings d-none">
+            <div class="tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-center tw-justify-between tw-gap-4 tw-mb-6">
+              <div>
+                <div class="tw-flex tw-items-center tw-gap-2.5 tw-flex-wrap">
+                  <h3 class="tw-text-headline-lg tw-font-headline-lg tw-text-on-surface tw-tracking-tight tw-m-0">จัดการผู้ดูแลและสิทธิ์การใช้งาน</h3>
+                  <span class="tw-px-2.5 tw-py-0.5 tw-text-label-sm tw-font-label-sm tw-bg-primary-fixed tw-text-on-primary-fixed-variant tw-rounded-full tw-font-semibold">RBAC Active</span>
+                </div>
+                <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0 tw-max-w-3xl">Admin &amp; Roles Management — เพิ่ม ระงับ และกำหนดบทบาทของผู้ดูแล ระบบตรวจสิทธิ์ที่ฝั่งเซิร์ฟเวอร์ทุกครั้ง การเปลี่ยนบทบาทหรือระงับบัญชีมีผลทันที</p>
+              </div>
+              <button type="button" onclick="openUserModal()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-all tw-shadow-sm active:tw-scale-[0.98] tw-shrink-0">
+                <span class="material-symbols-outlined tw-text-[1.125rem]">person_add</span><span>เพิ่มผู้ดูแลระบบใหม่</span>
+              </button>
+            </div>
+
+            <section class="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4 tw-mb-6">
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-start tw-justify-between">
+                <div><span class="tw-text-body-sm tw-text-on-surface-variant tw-font-medium">ผู้ดูแลระบบทั้งหมด</span>
+                  <div id="adminStatTotal" class="tw-text-headline-lg tw-font-headline-lg tw-font-bold tw-text-on-surface tw-mt-1">-</div>
+                  <div id="adminStatTotalSub" class="tw-text-label-sm tw-text-on-surface-variant tw-mt-2">&nbsp;</div></div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-primary-fixed/60 tw-text-primary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">group</span></div>
+              </div>
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-start tw-justify-between">
+                <div><span class="tw-text-body-sm tw-text-on-surface-variant tw-font-medium">บทบาทในระบบ (Roles)</span>
+                  <div id="adminStatRoles" class="tw-text-headline-lg tw-font-headline-lg tw-font-bold tw-text-on-surface tw-mt-1">-</div>
+                  <div id="adminStatRolesSub" class="tw-text-label-sm tw-text-on-surface-variant tw-mt-2">&nbsp;</div></div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-secondary-container/60 tw-text-secondary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">admin_panel_settings</span></div>
+              </div>
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-start tw-justify-between">
+                <div><span class="tw-text-body-sm tw-text-on-surface-variant tw-font-medium">เข้าสู่ระบบวันนี้</span>
+                  <div id="adminStatToday" class="tw-text-headline-lg tw-font-headline-lg tw-font-bold tw-text-on-surface tw-mt-1">-</div>
+                  <div id="adminStatTodaySub" class="tw-text-label-sm tw-text-on-surface-variant tw-mt-2">&nbsp;</div></div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-primary-fixed/60 tw-text-primary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">bolt</span></div>
+              </div>
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-start tw-justify-between">
+                <div><span class="tw-text-body-sm tw-text-on-surface-variant tw-font-medium">บัญชีที่ถูกระงับ</span>
+                  <div id="adminStatSuspended" class="tw-text-headline-lg tw-font-headline-lg tw-font-bold tw-text-on-surface tw-mt-1">-</div>
+                  <div class="tw-text-label-sm tw-text-on-surface-variant tw-mt-2">ล็อกอินไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง</div></div>
+                <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-error-container/60 tw-text-error tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">block</span></div>
+              </div>
+            </section>
+
+            <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden tw-mb-8">
+              <div class="tw-p-5 tw-border-b tw-border-outline-variant/30 tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
+                <div class="tw-flex tw-items-center tw-gap-3">
+                  <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary-fixed/60 tw-text-primary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">manage_accounts</span></div>
+                  <div>
+                    <h4 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">รายชื่อผู้ดูแลระบบ (Administrators)</h4>
+                    <p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">บุคลากรที่ได้รับสิทธิ์เข้าใช้แดชบอร์ด KPS ClassFinder</p>
+                  </div>
+                </div>
+                <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-2.5">
+                  <div class="tw-relative tw-min-w-[15rem]">
+                    <span class="material-symbols-outlined tw-absolute tw-left-3 tw-top-2.5 tw-text-[1.125rem] tw-text-outline">search</span>
+                    <input id="adminSearch" type="text" oninput="renderAdminUsers()" placeholder="ค้นหาชื่อ อีเมล หรือ username..." class="tw-w-full tw-pl-9 tw-pr-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container focus:tw-ring-2 focus:tw-ring-primary-container/20 tw-outline-none tw-transition-all">
+                  </div>
+                  <select id="adminRoleFilter" onchange="renderAdminUsers()" class="tw-px-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container tw-outline-none"><option value="">บทบาททั้งหมด</option></select>
+                  <select id="adminStatusFilter" onchange="renderAdminUsers()" class="tw-px-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container tw-outline-none">
+                    <option value="">สถานะทั้งหมด</option><option value="active">ใช้งานอยู่</option><option value="suspended">ถูกระงับ</option>
+                  </select>
+                </div>
+              </div>
+              <div class="tw-overflow-x-auto">
+                <table class="tw-w-full tw-text-left tw-border-collapse">
+                  <thead>
+                    <tr class="tw-bg-surface-container-low tw-border-b tw-border-outline-variant/30 tw-text-label-md tw-font-label-md tw-text-on-surface-variant">
+                      <th class="tw-py-3 tw-px-5">ข้อมูลผู้ดูแล</th><th class="tw-py-3 tw-px-4">หน่วยงาน</th><th class="tw-py-3 tw-px-4">บทบาท</th>
+                      <th class="tw-py-3 tw-px-4">สถานะ</th><th class="tw-py-3 tw-px-4">เข้าสู่ระบบล่าสุด</th><th class="tw-py-3 tw-px-5 tw-text-right">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminUserBody" class="tw-divide-y tw-divide-outline-variant/20 tw-text-body-md"><tr><td colspan="6" class="tw-py-8 tw-text-center tw-text-outline">กำลังโหลด...</td></tr></tbody>
+                </table>
+              </div>
+              <div id="adminUserFooter" class="tw-p-4 tw-bg-surface-container-low tw-border-t tw-border-outline-variant/30 tw-text-body-sm tw-text-on-surface-variant"></div>
+            </section>
+
+            <section class="tw-space-y-4 tw-mb-8">
+              <div class="tw-flex tw-flex-col sm:tw-flex-row sm:tw-items-center tw-justify-between tw-gap-2">
+                <div>
+                  <h4 class="tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-m-0 tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-primary-container">security_update_good</span><span>บทบาทและสิทธิ์การเข้าถึง (Roles &amp; Permissions)</span></h4>
+                  <p class="tw-text-body-sm tw-text-on-surface-variant tw-mt-1 tw-mb-0">สิทธิ์ของแต่ละบทบาทแยกรายโมดูล กำหนดไว้ในระบบ (แก้ผ่านหน้านี้ไม่ได้) ใช้เลือกบทบาทตอนเพิ่มหรือแก้ไขบัญชี</p>
+                </div>
+                <div id="roleMatrixFilter" class="tw-inline-flex tw-flex-wrap tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-p-1 tw-text-label-sm tw-gap-1"></div>
+              </div>
+              <div id="roleCards" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 xl:tw-grid-cols-4 tw-gap-4"></div>
+              <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden">
+                <div class="tw-p-4 tw-bg-surface-container-low tw-border-b tw-border-outline-variant/30 tw-flex tw-flex-wrap tw-items-center tw-justify-between tw-gap-2">
+                  <h5 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0 tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem] tw-text-primary-container">checklist</span>ตารางสิทธิ์จำแนกตามโมดูล</h5>
+                  <span class="tw-text-body-sm tw-text-on-surface-variant">R / W / D = อ่าน สร้าง/แก้ไข ลบ • Read Only = ดูอย่างเดียว</span>
+                </div>
+                <div class="tw-overflow-x-auto"><table id="roleMatrix" class="tw-w-full tw-text-left tw-border-collapse"></table></div>
+              </div>
+            </section>
+
+            <section class="tw-rounded-xl tw-border tw-border-primary-container/30 tw-bg-primary-fixed/30 tw-p-5 tw-flex tw-flex-col sm:tw-flex-row sm:tw-items-center tw-justify-between tw-gap-4">
+              <div class="tw-flex tw-items-start tw-gap-3.5">
+                <div class="tw-w-10 tw-h-10 tw-rounded-full tw-bg-primary-container tw-text-on-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">verified_user</span></div>
+                <div>
+                  <h4 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-primary-fixed-variant tw-m-0">การตรวจสอบย้อนหลัง</h4>
+                  <p class="tw-text-body-sm tw-text-on-primary-fixed-variant tw-mt-1 tw-mb-0 tw-max-w-4xl">การเพิ่ม แก้ไข ระงับ ลบบัญชี และรีเซ็ตรหัสผ่านทุกครั้งถูกบันทึกใน System Logs พร้อมชื่อผู้ทำรายการและ IP (ไม่บันทึกรหัสผ่าน) ระบบไม่ให้เปลี่ยนบทบาท ระงับ หรือลบบัญชีของตัวเอง เพื่อไม่ให้ระบบเหลือผู้ดูแลสูงสุดเป็นศูนย์</p>
+                </div>
+              </div>
+              <button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-cursor-pointer tw-shrink-0 tw-px-3.5 tw-py-2 tw-text-label-md tw-font-label-md tw-font-semibold tw-text-primary-container tw-bg-surface-container-lowest tw-border tw-border-primary-container/30 hover:tw-bg-primary-fixed/40 tw-rounded-lg tw-transition-colors tw-whitespace-nowrap">ดูบันทึก System Logs</button>
+            </section>
+          </div><!-- /settingsTabAdmins -->
+
           <footer class="tw-mt-10 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-text-center tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant">
             KPS ClassFinder Navigation System · มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตกำแพงแสน
           </footer>
         </section>
 
       </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: Admin user (เพิ่ม/แก้ไขผู้ดูแล) ============ -->
+  <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <form class="modal-content" id="userForm" onsubmit="saveUser(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="userModalTitle">เพิ่มผู้ดูแลระบบ</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input id="userId" type="hidden">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label for="userUsername" class="form-label">ชื่อผู้ใช้ (Username)</label>
+              <input id="userUsername" class="form-control" required maxlength="30" autocomplete="off" placeholder="เช่น somchai.k">
+              <div id="userUsernameHelp" class="form-text">3-30 ตัว ใช้ a-z 0-9 จุด ขีดกลาง ขีดล่าง (แก้ภายหลังไม่ได้)</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="userFullName" class="form-label">ชื่อ-นามสกุล</label>
+              <input id="userFullName" class="form-control" maxlength="100" autocomplete="off">
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="userEmail" class="form-label">อีเมล</label>
+              <input id="userEmail" type="email" class="form-control" maxlength="120" autocomplete="off">
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="userPhone" class="form-label">เบอร์โทรศัพท์</label>
+              <input id="userPhone" class="form-control" maxlength="40" autocomplete="off">
+            </div>
+            <div class="col-12">
+              <label for="userDepartment" class="form-label">สังกัด / หน่วยงาน</label>
+              <input id="userDepartment" class="form-control" maxlength="150" autocomplete="off">
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="userRole" class="form-label">บทบาท (Role)</label>
+              <select id="userRole" class="form-select" onchange="updateUserRoleHint()"></select>
+              <div id="userRoleHint" class="form-text"></div>
+            </div>
+            <div class="col-12 col-md-6" id="userStatusGroup">
+              <label for="userStatus" class="form-label">สถานะบัญชี</label>
+              <select id="userStatus" class="form-select">
+                <option value="active">ใช้งานอยู่</option>
+                <option value="suspended">ระงับชั่วคราว (ล็อกอินไม่ได้)</option>
+              </select>
+              <div id="userSelfHint" class="form-text d-none">ไม่สามารถเปลี่ยนบทบาทหรือระงับบัญชีของตัวเองได้</div>
+            </div>
+            <div class="col-12 col-md-6" id="userPasswordGroup">
+              <label for="userPassword" class="form-label">รหัสผ่านเริ่มต้น</label>
+              <input id="userPassword" type="password" class="form-control" minlength="8" autocomplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร">
+              <div class="form-text">แจ้งผู้ใช้ให้เปลี่ยนรหัสผ่านเองที่หน้า Settings หลังเข้าสู่ระบบ</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="userSaveButton" type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: Reset password ============ -->
+  <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="submitResetPassword(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="resetPasswordTitle">รีเซ็ตรหัสผ่าน</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <input id="resetUserId" type="hidden">
+          <p class="mb-3 text-secondary" id="resetPasswordText"></p>
+          <label for="resetNewPassword" class="form-label">รหัสผ่านใหม่</label>
+          <input id="resetNewPassword" type="password" class="form-control" required minlength="8" autocomplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="resetPasswordButton" type="submit" class="btn btn-primary">ตั้งรหัสผ่านใหม่</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1435,7 +1637,7 @@
         </div>
         <div class="modal-body">
           <input id="buildingId" type="hidden">
-          <div class="role-admin-only">
+          <div class="need-buildings-w">
             <div class="mb-3">
               <label for="buildingCode" class="form-label">รหัสอาคาร</label>
               <input id="buildingCode" class="form-control" required maxlength="20" placeholder="เช่น LH3">
@@ -1454,7 +1656,7 @@
             </div>
           </div>
           <!-- รูปปกอาคาร: อัปโหลด/ลบได้ทันที (ไม่ต้องกดบันทึก) แสดงบนการ์ดอาคารในแอป -->
-          <div id="buildingCoverSection" class="border-top pt-3 d-none">
+          <div id="buildingCoverSection" class="need-image-w border-top pt-3 d-none">
             <div class="form-label mb-1">รูปปกอาคาร <span class="text-secondary small">(แสดงบนการ์ดอาคารในแอป)</span></div>
             <div class="rounded border bg-light overflow-hidden mb-2" style="aspect-ratio: 16 / 7;">
               <img id="buildingCoverPreview" alt="รูปปกอาคาร" class="w-100 h-100 d-none" style="object-fit: cover;">
@@ -1470,11 +1672,11 @@
             </div>
             <div class="form-text">PNG, JPG หรือ WebP ไม่เกิน 10 MB แนะนำรูปแนวนอน (เช่น ภาพถ่ายด้านหน้าอาคาร)</div>
           </div>
-          <div id="buildingCoverHint" class="form-text">บันทึกอาคารก่อน แล้วกด "แก้ไข" เพื่อเพิ่มรูปปก</div>
+          <div id="buildingCoverHint" class="need-image-w form-text">บันทึกอาคารก่อน แล้วกด "แก้ไข" เพื่อเพิ่มรูปปก</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button id="saveBuildingButton" type="submit" class="btn btn-primary role-admin-only">บันทึก</button>
+          <button id="saveBuildingButton" type="submit" class="btn btn-primary need-buildings-w">บันทึก</button>
         </div>
       </form>
     </div>
@@ -1861,7 +2063,7 @@
       document.getElementById('loginSection').classList.add('d-none');
       document.getElementById('dashboardSection').classList.remove('d-none');
       document.getElementById('dashboardSection').classList.add('d-flex');
-      showPage(currentRole === 'admin' ? 'overview' : 'buildings-rooms');
+      showPage('overview');
     }
 
     // ตัวเลขหน้าเข้าสู่ระบบ: อ่านจาก API สาธารณะ (ไม่ต้องล็อกอิน) และบอกสถานะเซิร์ฟเวอร์จริงจากผลการเรียก
@@ -1890,20 +2092,29 @@
       if (message) showStatus(message, 'danger');
     }
 
-    const ROLE_LABELS = { admin: 'ผู้ดูแลระบบ', editor: 'ผู้ดูแลรูปภาพ' };
     let currentRole = null;
+    let currentRoleLabel = '';
+    let currentPerms = {};
 
-    // editor จัดการได้แค่รูปภาพ — ซ่อนปุ่มเพิ่ม/แก้ไข/ลบข้อมูลห้อง-อาคาร และหน้า Overview ที่ editor เข้าไม่ได้
-    function applyRole(role) {
-      currentRole = role;
-      document.body.classList.toggle('role-admin', role === 'admin');
+    // ซ่อนปุ่ม/เมนูที่บทบาทนี้ไม่มีสิทธิ์ (เป็นแค่ความสะดวกของหน้าจอ — เซิร์ฟเวอร์ตรวจสิทธิ์จริงทุก API)
+    function applyRole(session) {
+      currentRole = session.role;
+      currentRoleLabel = session.role_label || '';
+      currentPerms = session.permissions || {};
+      const writes = key => currentPerms[key] === 'write';
+      document.body.classList.toggle('can-buildings-w', writes('buildings'));
+      document.body.classList.toggle('can-floorplans-w', writes('floorplans'));
+      document.body.classList.toggle('can-panoramas-w', writes('panoramas'));
+      document.body.classList.toggle('can-image-w', writes('buildings') || writes('floorplans') || writes('panoramas'));
+      document.body.classList.toggle('can-settings', writes('settings'));
+      document.getElementById('settingsUsername').textContent = session.username || '';
       const badge = document.getElementById('settingsRoleBadge');
-      if (badge) badge.textContent = ROLE_LABELS[role] || role;
+      if (badge) badge.textContent = currentRoleLabel;
 
-      const username = document.getElementById('settingsUsername').textContent || '';
+      const username = session.username || '';
       document.getElementById('profileAvatar').textContent = username.slice(0, 2).toUpperCase() || '??';
-      document.getElementById('profileName').textContent = username ? username.charAt(0).toUpperCase() + username.slice(1) : '-';
-      document.getElementById('profileRole').textContent = ROLE_LABELS[role] || role;
+      document.getElementById('profileName').textContent = session.full_name || username;
+      document.getElementById('profileRole').textContent = currentRoleLabel;
       loadHealth();
       loadProfile();
     }
@@ -1931,8 +2142,7 @@
         const response = await fetch('/api/session');
         const data = await response.json();
         if (data.role) {
-          document.getElementById('settingsUsername').textContent = data.username || '';
-          applyRole(data.role);
+          applyRole(data);
           showDashboard();
         } else {
           showLogin();
@@ -1962,8 +2172,7 @@
         if (!response.ok) throw new Error(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
 
         document.getElementById('loginForm').reset();
-        document.getElementById('settingsUsername').textContent = username;
-        applyRole(data.role);
+        applyRole(data);
         showDashboard();
       } catch (error) {
         showStatus(error.message, 'danger');
@@ -2152,7 +2361,7 @@
 
     async function loadOverview() {
       document.getElementById('overviewGreeting').textContent =
-        `สวัสดี, ${ROLE_LABELS[currentRole] || ''} (${document.getElementById('settingsUsername').textContent}) 👋`;
+        `สวัสดี, ${currentRoleLabel} (${document.getElementById('settingsUsername').textContent}) 👋`;
       try {
         const [stats, buildingList, health] = await Promise.all([
           api('/api/admin/overview'), api('/api/buildings'), api('/api/admin/health'),
@@ -2214,8 +2423,8 @@
           <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.room_count)} ห้อง</td>
           <td class="tw-py-4 tw-px-6 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-2">
-              <button type="button" onclick="openEditBuildingModal(${Number(building.id)})" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
-              <button type="button" onclick="deleteBuilding(${Number(building.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+              <button type="button" onclick="openEditBuildingModal(${Number(building.id)})" class="need-image-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
+              <button type="button" onclick="deleteBuilding(${Number(building.id)})" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
             </div>
           </td>
         </tr>`).join('');
@@ -2499,7 +2708,7 @@
         const isSelected = selectedRoomIds.has(Number(room.id));
         return `
         <tr class="hover:tw-bg-surface-container-low tw-transition-colors ${isSelected ? 'tw-bg-primary/5' : ''}">
-          <td class="role-admin-only tw-py-3.5 tw-px-4 tw-text-center"><input type="checkbox" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
+          <td class="need-buildings-w tw-py-3.5 tw-px-4 tw-text-center"><input type="checkbox" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
           <td class="tw-py-3.5 tw-px-4 tw-font-semibold tw-text-on-surface">${escapeHtml(room.room_code || '-')}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center"><span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
           <td class="tw-py-3.5 tw-px-4 tw-text-on-surface-variant">${typeCapacity}</td>
@@ -2507,8 +2716,8 @@
           <td class="tw-py-3.5 tw-px-4 tw-text-center">${pinBadge}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-1.5">
-              <button type="button" onclick="openEditModal(${Number(room.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
-              <button type="button" onclick="deleteRoom(${Number(room.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+              <button type="button" onclick="openEditModal(${Number(room.id)})" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
+              <button type="button" onclick="deleteRoom(${Number(room.id)})" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
             </div>
           </td>
         </tr>`;
@@ -3070,14 +3279,14 @@
           <div class="tw-p-4 tw-pt-0">
             <div class="tw-flex tw-items-center tw-justify-between tw-gap-2 tw-border-t tw-border-outline-variant/20 tw-pt-3">
               <div class="tw-flex tw-items-center tw-gap-1.5">
-                <button type="button" onclick="openFloorPlanModal(${Number(plan.id)})" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">เปลี่ยนรูป</button>
+                <button type="button" onclick="openFloorPlanModal(${Number(plan.id)})" class="need-floorplans-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">เปลี่ยนรูป</button>
                 <a href="${escapeHtml(plan.image_url)}" target="_blank" rel="noopener" class="tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors tw-no-underline">ดูรูปเต็ม</a>
               </div>
               <div class="tw-flex tw-items-center tw-gap-2">
-                <button type="button" onclick="deleteFloorPlan(${Number(plan.id)})" title="ลบแผนผังชั้น ${escapeHtml(plan.floor)}" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors active:tw-scale-95 tw-flex tw-items-center">
+                <button type="button" onclick="deleteFloorPlan(${Number(plan.id)})" title="ลบแผนผังชั้น ${escapeHtml(plan.floor)}" class="need-floorplans-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors active:tw-scale-95 tw-flex tw-items-center">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">delete</span>
                 </button>
-                <button type="button" onclick="managePins()" class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1 tw-px-3 tw-py-1.5 tw-rounded-md tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity active:tw-scale-95">
+                <button type="button" onclick="managePins()" class="need-buildings-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1 tw-px-3 tw-py-1.5 tw-rounded-md tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity active:tw-scale-95">
                   <span class="material-symbols-outlined tw-text-[1rem]">pin_drop</span><span>จัดการหมุด</span>
                 </button>
               </div>
@@ -3087,7 +3296,7 @@
       });
 
       const addCard = `
-        <article onclick="openFloorPlanModal()" class="tw-border-2 tw-border-dashed tw-border-outline-variant/60 hover:tw-border-primary tw-rounded-xl tw-bg-surface-container-low/30 hover:tw-bg-surface-container-low/60 tw-transition-all tw-p-6 tw-flex tw-flex-col tw-items-center tw-justify-center tw-text-center tw-group tw-cursor-pointer tw-min-h-[380px]">
+        <article onclick="openFloorPlanModal()" class="need-floorplans-w tw-border-2 tw-border-dashed tw-border-outline-variant/60 hover:tw-border-primary tw-rounded-xl tw-bg-surface-container-low/30 hover:tw-bg-surface-container-low/60 tw-transition-all tw-p-6 tw-flex tw-flex-col tw-items-center tw-justify-center tw-text-center tw-group tw-cursor-pointer tw-min-h-[380px]">
           <div class="tw-w-16 tw-h-16 tw-rounded-full tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-mb-4 group-hover:tw-scale-110 tw-transition-transform">
             <span class="material-symbols-outlined tw-text-3xl">cloud_upload</span>
           </div>
@@ -3377,7 +3586,7 @@
       renderPanoLinkMap();
 
       const uploadCard = `
-        <div onclick="openPanoUploadModal()" class="tw-border-2 tw-border-dashed tw-border-outline-variant/70 hover:tw-border-primary-container tw-bg-surface-container-low/40 hover:tw-bg-primary-container/5 tw-rounded-xl tw-flex tw-flex-col tw-items-center tw-justify-center tw-p-8 tw-text-center tw-transition-all tw-cursor-pointer tw-group tw-min-h-[300px]">
+        <div onclick="openPanoUploadModal()" class="need-panoramas-w tw-border-2 tw-border-dashed tw-border-outline-variant/70 hover:tw-border-primary-container tw-bg-surface-container-low/40 hover:tw-bg-primary-container/5 tw-rounded-xl tw-flex tw-flex-col tw-items-center tw-justify-center tw-p-8 tw-text-center tw-transition-all tw-cursor-pointer tw-group tw-min-h-[300px]">
           <div class="tw-w-16 tw-h-16 tw-rounded-full tw-bg-surface-container tw-flex tw-items-center tw-justify-center tw-text-primary group-hover:tw-scale-110 tw-transition-all tw-shadow-sm">
             <span class="material-symbols-outlined tw-text-[2rem]">add_a_photo</span>
           </div>
@@ -3423,11 +3632,11 @@
             </div>
             <div class="tw-flex tw-items-center tw-justify-between tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-mt-1">
               <div class="tw-flex tw-items-center tw-gap-1.5">
-                <button type="button" onclick="openHotspotEditor(${Number(pano.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-primary-container tw-text-primary-container hover:tw-bg-primary-container/10 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1.5 active:tw-scale-95">
+                <button type="button" onclick="openHotspotEditor(${Number(pano.id)})" class="need-panoramas-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-primary-container tw-text-primary-container hover:tw-bg-primary-container/10 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1.5 active:tw-scale-95">
                   <span class="material-symbols-outlined tw-text-[1rem]">point_scan</span>จัดการจุดเชื่อม</button>
-                <button type="button" onclick="openPanoUploadModal(${Number(pano.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant tw-text-on-surface-variant hover:tw-bg-surface-container tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">แก้ไข</button>
+                <button type="button" onclick="openPanoUploadModal(${Number(pano.id)})" class="need-panoramas-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant tw-text-on-surface-variant hover:tw-bg-surface-container tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">แก้ไข</button>
               </div>
-              <button type="button" onclick="deletePanorama(${Number(pano.id)})" title="ลบภาพนี้" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">ลบ</button>
+              <button type="button" onclick="deletePanorama(${Number(pano.id)})" title="ลบภาพนี้" class="need-panoramas-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">ลบ</button>
             </div>
           </div>
         </div>`;
@@ -3858,7 +4067,7 @@
         document.getElementById('logTotal').textContent = `${data.total.toLocaleString('th-TH')} รายการ`;
         document.getElementById('logRangeText').innerHTML = `แสดง <span class="tw-font-semibold tw-text-on-surface">${from}</span> ถึง <span class="tw-font-semibold tw-text-on-surface">${to}</span> จากทั้งหมด <span class="tw-font-semibold tw-text-on-surface">${data.total.toLocaleString('th-TH')}</span> รายการ`;
         renderLogPager(data.total);
-        if (currentRole !== 'admin') {
+        if (currentPerms.logs !== 'all') {
           document.getElementById('logPolicyText').textContent = 'บัญชีนี้เห็นเฉพาะบันทึกกิจกรรมของตัวเอง ส่วนบันทึกของบัญชีอื่นดูได้เฉพาะผู้ดูแลระบบ';
         }
       } catch (error) {
@@ -3867,16 +4076,20 @@
     }
 
     // ============ Settings ============
-    const ROLE_PERMISSIONS = {
-      admin: [
-        'จัดการอาคาร ห้องเรียน และแผนผังชั้น', 'จัดการภาพ 360° และจุดเชื่อม',
-        'นำเข้า/ส่งออกข้อมูลห้องด้วย CSV', 'ดูบันทึกกิจกรรมของทุกบัญชี',
-      ],
-      editor: [
-        'อัปโหลด เปลี่ยน และลบรูปแผนผัง/รูปปก/ภาพ 360°', 'ดูข้อมูลห้อง อาคาร และแผนผัง (อ่านอย่างเดียว)',
-        'ดูบันทึกกิจกรรมของบัญชีตัวเอง', 'เปลี่ยนรหัสผ่านของตัวเอง',
-      ],
-    };
+    // ข้อความสิทธิ์ของบัญชีที่ล็อกอินอยู่ สร้างจากสิทธิ์จริงที่เซิร์ฟเวอร์ส่งมา
+    function permissionSummary(perms) {
+      const texts = {
+        overview: { read: 'ดูภาพรวมและสถิติของระบบ', write: 'ดูภาพรวมและสถิติของระบบ' },
+        buildings: { read: 'ดูข้อมูลอาคารและห้องเรียน (อ่านอย่างเดียว)', write: 'จัดการอาคาร ห้องเรียน การปักหมุด และนำเข้า/ส่งออก CSV' },
+        floorplans: { read: 'ดูแผนผังชั้น (อ่านอย่างเดียว)', write: 'อัปโหลด เปลี่ยน และลบรูปแผนผังชั้น' },
+        panoramas: { read: 'ดูภาพ 360° และจุดเชื่อม (อ่านอย่างเดียว)', write: 'จัดการภาพ 360° จุดเชื่อม และเส้นทางเดินชม' },
+        logs: { own: 'ดูบันทึกกิจกรรมของบัญชีตัวเอง', all: 'ดูและส่งออกบันทึกกิจกรรมของทุกบัญชี' },
+        settings: { write: 'จัดการบัญชีผู้ดูแลและสิทธิ์การใช้งาน' },
+      };
+      const items = Object.entries(texts).map(([key, byLevel]) => byLevel[perms[key]]).filter(Boolean);
+      items.push('แก้ไขโปรไฟล์และเปลี่ยนรหัสผ่านของตัวเอง');
+      return [...new Set(items)];
+    }
 
     function togglePasswordVisibility(inputId, button) {
       const input = document.getElementById(inputId);
@@ -3912,9 +4125,10 @@
     }
 
     async function loadSettingsPage() {
+      showSettingsTab('profile');
       const username = document.getElementById('settingsUsername').textContent || '';
       loadProfile();
-      document.getElementById('settingsPermissions').innerHTML = (ROLE_PERMISSIONS[currentRole] || []).map(text => `
+      document.getElementById('settingsPermissions').innerHTML = permissionSummary(currentPerms).map(text => `
         <li class="tw-flex tw-items-start tw-gap-2 tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-text-body-sm tw-text-on-surface-variant">
           <span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem] tw-shrink-0">check_circle</span><span>${escapeHtml(text)}</span>
         </li>`).join('');
@@ -3983,7 +4197,7 @@
     function renderProfile() {
       const username = document.getElementById('settingsUsername').textContent || '';
       const initials = (profileState.full_name || username).replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '--';
-      const displayName = profileState.full_name || ROLE_LABELS[currentRole] || username;
+      const displayName = profileState.full_name || currentRoleLabel || username;
       paintAvatar(document.getElementById('settingsAvatar'), initials);
       paintAvatar(document.getElementById('profileAvatar'), initials);
       document.getElementById('settingsDisplayName').textContent = displayName;
@@ -4056,6 +4270,310 @@
       }
     }
 
+    // ============ Settings: tabs + Admin & Roles ============
+    const SETTINGS_TAB_ACTIVE = ['tw-text-primary-container', 'tw-font-semibold', 'tw-border-primary-container'];
+    const SETTINGS_TAB_IDLE = ['tw-text-outline', 'tw-border-transparent'];
+    const SETTINGS_TABS = { profile: 'settingsTabProfile', admins: 'settingsTabAdmins' };
+
+    function showSettingsTab(name) {
+      if (name === 'admins' && !document.body.classList.contains('can-settings')) name = 'profile';
+      for (const [key, elementId] of Object.entries(SETTINGS_TABS)) {
+        document.getElementById(elementId).classList.toggle('d-none', key !== name);
+      }
+      document.querySelectorAll('[data-settings-tab]').forEach(button => {
+        const active = button.dataset.settingsTab === name;
+        button.classList.remove(...(active ? SETTINGS_TAB_IDLE : SETTINGS_TAB_ACTIVE));
+        button.classList.add(...(active ? SETTINGS_TAB_ACTIVE : SETTINGS_TAB_IDLE));
+      });
+      if (name === 'admins') loadAdminsTab();
+    }
+
+    // สไตล์ป้ายบทบาท/สีรูปย่อ ต่อบทบาท (ใช้โทนสีของธีม ไม่ฮาร์ดโค้ดสีเฉพาะ)
+    const ROLE_STYLES = {
+      admin: { badge: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant', avatar: 'tw-bg-primary-container tw-text-on-primary', icon: 'military_tech' },
+      building_manager: { badge: 'tw-bg-secondary-container tw-text-on-secondary-container', avatar: 'tw-bg-secondary tw-text-on-secondary', icon: 'domain' },
+      panorama_editor: { badge: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant', avatar: 'tw-bg-tertiary-container tw-text-on-tertiary-container', icon: '360' },
+      auditor: { badge: 'tw-bg-surface-container-high tw-text-on-surface-variant', avatar: 'tw-bg-outline tw-text-on-primary', icon: 'visibility' },
+    };
+    const FALLBACK_ROLE_STYLE = ROLE_STYLES.auditor;
+
+    let adminUsers = [];
+    let rolesInfo = { modules: [], roles: [] };
+    let matrixRoleFilter = '';
+    let userModal = null;
+    let resetPasswordModal = null;
+
+    function userInitials(user) {
+      return (user.full_name || user.username).replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '??';
+    }
+
+    function userAvatarHtml(user, sizeClass = 'tw-w-10 tw-h-10') {
+      const style = ROLE_STYLES[user.role] || FALLBACK_ROLE_STYLE;
+      return user.avatar
+        ? `<img src="${user.avatar}" alt="" class="${sizeClass} tw-rounded-full tw-object-cover tw-shrink-0">`
+        : `<div class="${sizeClass} tw-rounded-full ${style.avatar} tw-flex tw-items-center tw-justify-center tw-font-bold tw-text-body-sm tw-shrink-0">${escapeHtml(userInitials(user))}</div>`;
+    }
+
+    function roleBadgeHtml(role, label) {
+      const style = ROLE_STYLES[role] || FALLBACK_ROLE_STYLE;
+      return `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-font-semibold ${style.badge}">${escapeHtml(label)}</span>`;
+    }
+
+    async function loadAdminsTab() {
+      try {
+        const [users, roles] = await Promise.all([api('/api/admin/users'), api('/api/admin/roles')]);
+        adminUsers = users.users;
+        rolesInfo = roles;
+        renderAdminFilters();
+        renderAdminStats();
+        renderAdminUsers();
+        renderRoleCards();
+        renderRoleMatrix();
+      } catch (error) {
+        reportError(error);
+        document.getElementById('adminUserBody').innerHTML = '<tr><td colspan="6" class="tw-py-8 tw-text-center tw-text-error">โหลดข้อมูลไม่สำเร็จ</td></tr>';
+      }
+    }
+
+    function renderAdminFilters() {
+      const select = document.getElementById('adminRoleFilter');
+      const current = select.value;
+      select.innerHTML = '<option value="">บทบาททั้งหมด</option>' + rolesInfo.roles
+        .map(role => `<option value="${escapeHtml(role.key)}">${escapeHtml(role.label)}</option>`).join('');
+      select.value = current;
+    }
+
+    function renderAdminStats() {
+      const active = adminUsers.filter(user => user.status === 'active').length;
+      const suspended = adminUsers.length - active;
+      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+      const weekStart = Date.now() - 7 * 24 * 3600 * 1000;
+      const loginTimes = adminUsers.map(user => (user.last_login_at ? new Date(user.last_login_at).getTime() : 0));
+      document.getElementById('adminStatTotal').textContent = `${adminUsers.length} บัญชี`;
+      document.getElementById('adminStatTotalSub').textContent = `ใช้งานอยู่ ${active} • ถูกระงับ ${suspended}`;
+      document.getElementById('adminStatRoles').textContent = `${rolesInfo.roles.length} บทบาท`;
+      document.getElementById('adminStatRolesSub').textContent = rolesInfo.roles.map(role => role.label.split(' ')[0]).join(', ');
+      document.getElementById('adminStatToday').textContent = `${loginTimes.filter(time => time >= dayStart.getTime()).length} บัญชี`;
+      document.getElementById('adminStatTodaySub').textContent = `ภายใน 7 วัน ${loginTimes.filter(time => time >= weekStart).length} บัญชี`;
+      document.getElementById('adminStatSuspended').textContent = `${suspended} บัญชี`;
+    }
+
+    function renderAdminUsers() {
+      const keyword = document.getElementById('adminSearch').value.trim().toLowerCase();
+      const roleFilter = document.getElementById('adminRoleFilter').value;
+      const statusFilter = document.getElementById('adminStatusFilter').value;
+      const rows = adminUsers.filter(user =>
+        (!roleFilter || user.role === roleFilter) && (!statusFilter || user.status === statusFilter)
+        && (!keyword || [user.username, user.full_name, user.email, user.department].some(value => (value || '').toLowerCase().includes(keyword))));
+
+      document.getElementById('adminUserBody').innerHTML = rows.length === 0
+        ? '<tr><td colspan="6" class="tw-py-8 tw-text-center tw-text-outline">ไม่พบบัญชีที่ตรงกับเงื่อนไข</td></tr>'
+        : rows.map(user => {
+          const suspended = user.status !== 'active';
+          const statusHtml = suspended
+            ? '<span class="tw-inline-flex tw-items-center tw-gap-1 tw-text-label-sm tw-font-label-sm tw-font-semibold tw-text-on-error-container tw-bg-error-container tw-px-2.5 tw-py-1 tw-rounded-full"><span class="material-symbols-outlined tw-text-[0.9375rem]">block</span>ถูกระงับ</span>'
+            : '<span class="tw-inline-flex tw-items-center tw-gap-1 tw-text-label-sm tw-font-label-sm tw-font-semibold tw-text-primary tw-bg-primary-fixed/60 tw-px-2.5 tw-py-1 tw-rounded-full"><span class="material-symbols-outlined tw-text-[0.9375rem]">check_circle</span>ใช้งานอยู่</span>';
+          const lastLogin = user.last_login_at
+            ? `<div class="tw-text-on-surface tw-text-body-sm">${escapeHtml(formatDateTime(user.last_login_at))}</div><div class="tw-text-body-sm tw-text-outline tw-mt-0.5">IP: ${escapeHtml(user.last_login_ip || '-')}</div>`
+            : '<span class="tw-text-body-sm tw-text-outline">ยังไม่เคยเข้าสู่ระบบ</span>';
+          const contact = [user.email].filter(Boolean).map(escapeHtml).join('');
+          return `
+          <tr class="hover:tw-bg-surface-container-low/60 tw-transition-colors ${suspended ? 'tw-opacity-70' : ''}">
+            <td class="tw-py-3.5 tw-px-5">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                ${userAvatarHtml(user)}
+                <div class="tw-min-w-0">
+                  <div class="tw-font-semibold tw-text-on-surface tw-flex tw-items-center tw-gap-1.5">
+                    <span>${escapeHtml(user.full_name || user.username)}</span>
+                    ${user.is_self ? '<span class="tw-text-label-sm tw-font-label-sm tw-px-1.5 tw-rounded tw-bg-surface-container-high tw-text-on-surface-variant tw-font-normal">คุณ</span>' : ''}
+                  </div>
+                  <div class="tw-text-body-sm tw-text-on-surface-variant tw-mt-0.5"><span class="tw-text-primary tw-font-medium">@${escapeHtml(user.username)}</span>${contact ? ` • ${contact}` : ''}</div>
+                </div>
+              </div>
+            </td>
+            <td class="tw-py-3.5 tw-px-4 tw-text-on-surface">${user.department ? escapeHtml(user.department) : '<span class="tw-text-outline">-</span>'}</td>
+            <td class="tw-py-3.5 tw-px-4">${roleBadgeHtml(user.role, roleLabelByKey(user.role))}</td>
+            <td class="tw-py-3.5 tw-px-4">${statusHtml}</td>
+            <td class="tw-py-3.5 tw-px-4">${lastLogin}</td>
+            <td class="tw-py-3.5 tw-px-5 tw-text-right">
+              <div class="tw-inline-flex tw-items-center tw-gap-1">
+                <button type="button" onclick="openUserModal(${Number(user.id)})" title="แก้ไขบัญชีและสิทธิ์" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-primary-container hover:tw-bg-primary-fixed/50 tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">edit</span></button>
+                <button type="button" onclick="openResetPasswordModal(${Number(user.id)})" title="รีเซ็ตรหัสผ่าน" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">lock_reset</span></button>
+                ${user.is_self
+                  ? '<button type="button" disabled title="ไม่สามารถลบบัญชีของตัวเองได้" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-1.5 tw-rounded-md tw-text-outline-variant tw-cursor-not-allowed tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span></button>'
+                  : `<button type="button" onclick="deleteUser(${Number(user.id)})" title="ลบบัญชี" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">person_remove</span></button>`}
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+      document.getElementById('adminUserFooter').innerHTML =
+        `แสดง <span class="tw-font-semibold tw-text-on-surface">${rows.length}</span> จากทั้งหมด ${adminUsers.length} บัญชี`;
+    }
+
+    function roleLabelByKey(key) {
+      return rolesInfo.roles.find(role => role.key === key)?.label || key;
+    }
+
+    const PERMISSION_LEVEL_STYLES = {
+      write: { text: 'R / W / D', cls: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' },
+      read: { text: 'Read Only', cls: 'tw-bg-surface-container-high tw-text-on-surface-variant' },
+      own: { text: 'เฉพาะของตนเอง', cls: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant' },
+      all: { text: 'ดูทั้งหมด + Export', cls: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' },
+    };
+
+    function permissionCellHtml(level) {
+      const style = PERMISSION_LEVEL_STYLES[level];
+      return style
+        ? `<span class="tw-inline-flex tw-items-center tw-px-2 tw-py-0.5 tw-rounded tw-text-label-sm tw-font-semibold ${style.cls}">${style.text}</span>`
+        : '<span class="tw-text-outline-variant">—</span>';
+    }
+
+    function renderRoleCards() {
+      document.getElementById('roleCards').innerHTML = rolesInfo.roles.map(role => {
+        const style = ROLE_STYLES[role.key] || FALLBACK_ROLE_STYLE;
+        const levels = Object.values(role.perms);
+        const accessible = levels.filter(level => level !== 'none').length;
+        const writable = levels.filter(level => level === 'write').length;
+        return `
+        <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border ${role.key === 'admin' ? 'tw-border-2 tw-border-primary-container/40' : 'tw-border-outline-variant/30'} tw-shadow-sm">
+          <div class="tw-flex tw-items-center tw-gap-3 tw-mb-3">
+            <div class="tw-w-10 tw-h-10 tw-rounded-lg ${style.badge} tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">${style.icon}</span></div>
+            <div><h5 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">${escapeHtml(role.label)}</h5>
+              <span class="tw-text-label-sm tw-text-on-surface-variant">${escapeHtml(role.label_th)} (${Number(role.user_count)} บัญชี)</span></div>
+          </div>
+          <p class="tw-text-body-sm tw-text-on-surface-variant tw-mb-4 tw-mt-0">${escapeHtml(role.description)}</p>
+          <div class="tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-label-sm tw-font-semibold tw-text-on-surface">${accessible} / ${levels.length} โมดูล • แก้ไขได้ ${writable} โมดูล</div>
+        </div>`;
+      }).join('');
+
+      const filter = document.getElementById('roleMatrixFilter');
+      const options = [['', `ทั้งหมด (${rolesInfo.roles.length})`], ...rolesInfo.roles.map(role => [role.key, role.label.split(' ')[0]])];
+      filter.innerHTML = options.map(([key, label]) => `
+        <button type="button" onclick="setMatrixRoleFilter('${key}')" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${key === matrixRoleFilter ? 'tw-bg-primary-container tw-text-on-primary tw-font-semibold' : 'tw-bg-transparent tw-text-on-surface-variant hover:tw-text-on-surface'}">${escapeHtml(label)}</button>`).join('');
+    }
+
+    function setMatrixRoleFilter(key) {
+      matrixRoleFilter = key;
+      renderRoleCards();
+      renderRoleMatrix();
+    }
+
+    function renderRoleMatrix() {
+      const roles = rolesInfo.roles.filter(role => !matrixRoleFilter || role.key === matrixRoleFilter);
+      document.getElementById('roleMatrix').innerHTML = `
+        <thead><tr class="tw-border-b tw-border-outline-variant/30 tw-text-label-md tw-font-label-md tw-text-on-surface-variant">
+          <th class="tw-py-3 tw-px-4">โมดูลระบบ</th>${roles.map(role => `<th class="tw-py-3 tw-px-4 tw-text-center">${escapeHtml(role.label)}</th>`).join('')}
+        </tr></thead>
+        <tbody class="tw-divide-y tw-divide-outline-variant/20">${rolesInfo.modules.map(module => `
+          <tr class="hover:tw-bg-surface-container-low/60 tw-transition-colors">
+            <td class="tw-py-3 tw-px-4"><div class="tw-font-medium tw-text-on-surface">${escapeHtml(module.label)}</div><div class="tw-text-body-sm tw-text-outline">${escapeHtml(module.description)}</div></td>
+            ${roles.map(role => `<td class="tw-py-3 tw-px-4 tw-text-center">${permissionCellHtml(role.perms[module.key])}</td>`).join('')}
+          </tr>`).join('')}</tbody>`;
+    }
+
+    function updateUserRoleHint() {
+      const role = rolesInfo.roles.find(item => item.key === document.getElementById('userRole').value);
+      document.getElementById('userRoleHint').textContent = role ? role.description : '';
+    }
+
+    function openUserModal(id) {
+      const user = id ? adminUsers.find(item => item.id === id) : null;
+      if (id && !user) return;
+      const creating = !user;
+      document.getElementById('userModalTitle').textContent = creating ? 'เพิ่มผู้ดูแลระบบ' : `แก้ไขบัญชี @${user.username}`;
+      document.getElementById('userId').value = user ? user.id : '';
+      const username = document.getElementById('userUsername');
+      username.value = user ? user.username : '';
+      username.disabled = !creating;
+      document.getElementById('userUsernameHelp').classList.toggle('d-none', !creating);
+      document.getElementById('userFullName').value = user ? user.full_name : '';
+      document.getElementById('userEmail').value = user ? user.email : '';
+      document.getElementById('userPhone').value = user ? user.phone : '';
+      document.getElementById('userDepartment').value = user ? user.department : '';
+      const roleSelect = document.getElementById('userRole');
+      roleSelect.innerHTML = rolesInfo.roles.map(role => `<option value="${escapeHtml(role.key)}">${escapeHtml(role.label)} — ${escapeHtml(role.label_th)}</option>`).join('');
+      roleSelect.value = user ? user.role : 'building_manager';
+      updateUserRoleHint();
+      document.getElementById('userStatus').value = user ? user.status : 'active';
+      const isSelf = Boolean(user && user.is_self);
+      roleSelect.disabled = isSelf;
+      document.getElementById('userStatus').disabled = isSelf;
+      document.getElementById('userSelfHint').classList.toggle('d-none', !isSelf);
+      document.getElementById('userStatusGroup').classList.toggle('d-none', creating);
+      const passwordGroup = document.getElementById('userPasswordGroup');
+      passwordGroup.classList.toggle('d-none', !creating);
+      document.getElementById('userPassword').required = creating;
+      document.getElementById('userPassword').value = '';
+      userModal.show();
+    }
+
+    async function saveUser(event) {
+      event.preventDefault();
+      const id = document.getElementById('userId').value;
+      const body = {
+        full_name: document.getElementById('userFullName').value,
+        email: document.getElementById('userEmail').value,
+        phone: document.getElementById('userPhone').value,
+        department: document.getElementById('userDepartment').value,
+        role: document.getElementById('userRole').value,
+        status: document.getElementById('userStatus').value,
+      };
+      if (!id) {
+        body.username = document.getElementById('userUsername').value;
+        body.password = document.getElementById('userPassword').value;
+      }
+      const button = document.getElementById('userSaveButton');
+      setBusy(button, true, 'กำลังบันทึก...', 'บันทึก');
+      try {
+        const data = await api(id ? `/api/admin/users/${id}` : '/api/admin/users', jsonRequest(id ? 'PUT' : 'POST', body));
+        userModal.hide();
+        showStatus(data.message);
+        await loadAdminsTab();
+        if (data.user && data.user.is_self) loadProfile();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'บันทึก');
+      }
+    }
+
+    function openResetPasswordModal(id) {
+      const user = adminUsers.find(item => item.id === id);
+      if (!user) return;
+      document.getElementById('resetUserId').value = user.id;
+      document.getElementById('resetPasswordText').textContent = `ตั้งรหัสผ่านใหม่ให้ ${user.full_name || user.username} (@${user.username}) ผู้ใช้ต้องใช้รหัสใหม่นี้ในการเข้าสู่ระบบครั้งถัดไป`;
+      document.getElementById('resetNewPassword').value = '';
+      resetPasswordModal.show();
+    }
+
+    async function submitResetPassword(event) {
+      event.preventDefault();
+      const button = document.getElementById('resetPasswordButton');
+      setBusy(button, true, 'กำลังบันทึก...', 'ตั้งรหัสผ่านใหม่');
+      try {
+        const data = await api(`/api/admin/users/${document.getElementById('resetUserId').value}/reset-password`,
+          jsonRequest('POST', { new_password: document.getElementById('resetNewPassword').value }));
+        resetPasswordModal.hide();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'ตั้งรหัสผ่านใหม่');
+      }
+    }
+
+    async function deleteUser(id) {
+      const user = adminUsers.find(item => item.id === id);
+      if (!user || !confirm(`ต้องการลบบัญชี "${user.username}" ใช่หรือไม่?\n\nบัญชีนี้จะเข้าสู่ระบบไม่ได้อีก (ประวัติใน System Logs ยังอยู่) หากต้องการแค่หยุดใช้ชั่วคราวให้เลือก "ระงับ" แทน`)) return;
+      try {
+        const data = await api(`/api/admin/users/${id}`, { method: 'DELETE' });
+        showStatus(data.message);
+        await loadAdminsTab();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
     // ============ Settings: change password ============
     async function changePassword(event) {
       event.preventDefault();
@@ -4106,6 +4624,8 @@
       panoUploadModal = new bootstrap.Modal(document.getElementById('panoUploadModal'));
       hotspotModal = new bootstrap.Modal(document.getElementById('hotspotModal'));
       importModal = new bootstrap.Modal(document.getElementById('importModal'));
+      userModal = new bootstrap.Modal(document.getElementById('userModal'));
+      resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
       initTourPage();
       checkSession();
     });

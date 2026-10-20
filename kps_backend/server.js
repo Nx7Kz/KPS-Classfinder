@@ -59,29 +59,97 @@ function asyncRoute(handler) {
 }
 
 // ==========================================
-// 🌟 ระบบเข้าสู่ระบบสำหรับ Admin Dashboard 🌟
+// 🌟 บัญชีผู้ดูแลและสิทธิ์การใช้งาน (RBAC) 🌟
 // ==========================================
+// ค่า ADMIN_* / EDITOR_* จาก environment ใช้เป็นบัญชีตั้งต้นแค่ครั้งแรกที่ตาราง admin_users ยังว่าง
+// หลังจากนั้นบัญชีทั้งหมดจัดการจากหน้า Settings > ผู้ดูแลและสิทธิ์การใช้งาน
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH
     || bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin1234', 10);
 const EDITOR_USERNAME = process.env.EDITOR_USERNAME || 'editor';
 const EDITOR_PASSWORD_HASH = process.env.EDITOR_PASSWORD_HASH
     || bcrypt.hashSync(process.env.EDITOR_PASSWORD || 'editor1234', 10);
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('timing-equalizer', 10); // เทียบรหัสกับค่านี้เมื่อไม่พบ username เพื่อไม่ให้จับเวลาแล้วเดาชื่อผู้ใช้ได้
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_BYTES = 72; // bcrypt ใช้เพียง 72 ไบต์แรกของรหัสผ่าน
 
-// 🌟 บัญชีผู้ดูแล 2 ระดับ: admin (ทำได้ทุกอย่าง) และ editor (ดูแลรูปภาพอย่างเดียว ลบ/แก้ข้อมูลห้อง-อาคารไม่ได้) 🌟
-const ROLE_LABELS = { admin: 'ผู้ดูแลระบบ', editor: 'ผู้ดูแลรูปภาพ' };
-const ACCOUNTS = {
-    admin: { username: ADMIN_USERNAME, defaultHash: ADMIN_PASSWORD_HASH, settingKey: 'admin_password_hash' },
-    editor: { username: EDITOR_USERNAME, defaultHash: EDITOR_PASSWORD_HASH, settingKey: 'editor_password_hash' },
-};
+// โมดูลของแดชบอร์ด: ระดับสิทธิ์ที่ใช้ได้คือ none / read / write (logs ใช้ none / own = เฉพาะของตัวเอง / all = ทั้งหมด)
+const PERMISSION_MODULES = [
+    { key: 'overview', label: 'ภาพรวมและสถิติ (Overview)', description: 'สรุปจำนวนอาคาร ห้อง และสถานะระบบ' },
+    { key: 'buildings', label: 'อาคารและห้องเรียน (Buildings & Rooms)', description: 'เพิ่ม แก้ไข ลบข้อมูลอาคาร ห้อง ปักหมุด และนำเข้า/ส่งออก CSV' },
+    { key: 'floorplans', label: 'แผนผังชั้น (Floor Plans)', description: 'อัปโหลด เปลี่ยน และลบรูปแผนผังชั้น' },
+    { key: 'panoramas', label: 'ภาพ 360° และจุดเชื่อม (Panorama Editor)', description: 'อัปโหลดภาพ 360° แก้ Hotspot และเส้นทางเดินชม' },
+    { key: 'logs', label: 'บันทึกระบบ (System Logs)', description: 'ประวัติการเข้าสู่ระบบและการแก้ไขข้อมูล' },
+    { key: 'settings', label: 'การตั้งค่าและผู้ดูแล (Settings & Roles)', description: 'จัดการบัญชีผู้ดูแลและสิทธิ์การใช้งาน' },
+];
 
-function findRoleByUsername(username) {
-    for (const [role, account] of Object.entries(ACCOUNTS)) {
-        if (account.username === username) return role;
-    }
-    return null;
+const ROLE_DEFS = {
+    admin: {
+        label: 'Super Admin', label_th: 'ผู้ดูแลระบบสูงสุด',
+        description: 'ทำได้ทุกอย่างในระบบ รวมถึงเพิ่ม ระงับ และกำหนดสิทธิ์บัญชีผู้ดูแลคนอื่น',
+        perms: { overview: 'write', buildings: 'write', floorplans: 'write', panoramas: 'write', logs: 'all', settings: 'write' },
+    },
+    building_manager: {
+        label: 'Building Manager', label_th: 'ผู้จัดการอาคารและห้อง',
+        description: 'จัดการข้อมูลอาคาร ห้องเรียน การปักหมุด รูปปก และแผนผังชั้น ดูภาพ 360° ได้อย่างเดียว',
+        perms: { overview: 'read', buildings: 'write', floorplans: 'write', panoramas: 'read', logs: 'own', settings: 'none' },
+    },
+    panorama_editor: {
+        label: 'Panorama Editor', label_th: 'ผู้ดูแลภาพ 360° และรูปภาพ',
+        description: 'อัปโหลดภาพ 360° แผนผังชั้น และแก้จุดเชื่อมต่อ (Hotspots) ดูข้อมูลอาคาร/ห้องได้อย่างเดียว',
+        perms: { overview: 'read', buildings: 'read', floorplans: 'write', panoramas: 'write', logs: 'own', settings: 'none' },
+    },
+    auditor: {
+        label: 'Auditor / Viewer', label_th: 'เจ้าหน้าที่ตรวจสอบ',
+        description: 'ดูได้ทุกหน้ารวมถึงบันทึกระบบของทุกคน แต่แก้ไขหรือลบข้อมูลไม่ได้',
+        perms: { overview: 'read', buildings: 'read', floorplans: 'read', panoramas: 'read', logs: 'all', settings: 'none' },
+    },
+};
+const USER_STATUSES = ['active', 'suspended'];
+const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
+
+const PERMISSION_RANK = { none: 0, own: 1, read: 1, all: 2, write: 2 };
+function hasPermission(role, moduleKey, need = 'read') {
+    const level = ROLE_DEFS[role]?.perms[moduleKey] || 'none';
+    return PERMISSION_RANK[level] >= (need === 'write' ? 2 : 1);
+}
+
+// ผู้ใช้ปัจจุบันของ session ดึงจากฐานข้อมูลทุกคำขอ เพื่อให้การระงับบัญชี ลบบัญชี หรือเปลี่ยนบทบาทมีผลทันที
+async function loadSessionUser(req) {
+    const id = req.session?.userId;
+    if (!id) return null;
+    const [rows] = await pdb.query('SELECT id, username, role, status, full_name FROM admin_users WHERE id = ?', [id]);
+    const user = rows[0];
+    return user && user.status === 'active' && ROLE_DEFS[user.role] ? user : null;
+}
+
+function guard(isAllowed) {
+    return async (req, res, next) => {
+        const user = await loadSessionUser(req);
+        if (!user) {
+            if (req.session?.userId) req.session.destroy(() => {});
+            return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำรายการนี้' });
+        }
+        if (!isAllowed(user.role)) {
+            return res.status(403).json({ error: 'บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้' });
+        }
+        req.user = user;
+        next();
+    };
+}
+// requireAuth: เข้าสู่ระบบแล้วก็พอ  |  requirePerm: ต้องมีสิทธิ์ในโมดูลนั้น  |  requireAnyWrite: เขียนได้อย่างน้อยหนึ่งในโมดูลที่ระบุ
+const requireAuth = guard(() => true);
+const requirePerm = (moduleKey, need = 'read') => guard(role => hasPermission(role, moduleKey, need));
+const requireAnyWrite = (...moduleKeys) => guard(role => moduleKeys.some(key => hasPermission(role, key, 'write')));
+
+function sessionPayload(user) {
+    return {
+        role: user.role,
+        role_label: ROLE_DEFS[user.role].label_th,
+        username: user.username,
+        full_name: user.full_name || '',
+        permissions: ROLE_DEFS[user.role].perms,
+    };
 }
 
 // ไฟล์สาธารณะ (อัปโหลดจากแดชบอร์ด + ไลบรารีหน้าเดินชม) ไม่เกี่ยวกับการเข้าสู่ระบบ จึงให้ Express เสิร์ฟ
@@ -115,35 +183,6 @@ app.use(session({
     },
 }));
 
-// requireStaff: เข้าสู่ระบบแล้วก็พอ (admin หรือ editor) — ใช้กับ route ที่ editor ทำได้ (จัดการรูปภาพ, logs, เปลี่ยนรหัสผ่านตัวเอง)
-// requireAdmin: ต้องเป็น admin เท่านั้น — ใช้กับ route ที่แก้/ลบข้อมูลห้อง-อาคาร-จุดเชื่อมที่ไม่ใช่ตัวไฟล์รูป
-function requireRole(...roles) {
-    return (req, res, next) => {
-        if (!req.session?.role) {
-            return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำรายการนี้' });
-        }
-        if (!roles.includes(req.session.role)) {
-            return res.status(403).json({ error: 'บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้' });
-        }
-        next();
-    };
-}
-const requireAdmin = requireRole('admin');
-const requireStaff = requireRole('admin', 'editor');
-
-// รหัสผ่านที่เปลี่ยนผ่านหน้า Settings เก็บในฐานข้อมูล ถ้ายังไม่เคยเปลี่ยนให้ใช้ค่าจาก environment
-async function getPasswordHash(role) {
-    const account = ACCOUNTS[role];
-    try {
-        const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [account.settingKey]);
-        return rows.length > 0 ? rows[0].setting_value : account.defaultHash;
-    } catch (err) {
-        // ฐานข้อมูลเก่าที่ยังไม่มีตาราง (ensureDashboardSchema กำลังสร้างอยู่) ยังต้องล็อกอินได้ด้วยรหัสจาก environment
-        if (err.code === 'ER_NO_SUCH_TABLE') return account.defaultHash;
-        throw err;
-    }
-}
-
 // ==========================================
 // 🌟 บันทึกกิจกรรม (System Logs) 🌟
 // ==========================================
@@ -154,7 +193,7 @@ function labelSuffix(label) {
 
 // fire-and-forget: ถ้าบันทึกไม่สำเร็จ จะไม่ทำให้คำสั่งหลักล้มเหลว และห้ามใส่รหัสผ่าน/ข้อมูลลับใน detail
 function logActivity(req, { action, entity, entityId = null, detail = null, username = null }) {
-    const actor = username || (req.session?.role ? ACCOUNTS[req.session.role].username : null);
+    const actor = username || req.user?.username || null;
     const sql = 'INSERT INTO activity_logs (action, entity, entity_id, detail, username, ip) VALUES (?, ?, ?, ?, ?, ?)';
     const params = [
         action, entity, entityId,
@@ -189,9 +228,9 @@ const changePasswordLimiter = rateLimit({
 app.post('/api/login', loginLimiter, asyncRoute(async (req, res) => {
     const { username, password } = req.body || {};
 
-    const rejectLogin = () => {
+    const rejectLogin = (detail = 'ล็อกอินไม่สำเร็จ') => {
         logActivity(req, {
-            action: 'login_failed', entity: 'session', detail: 'ล็อกอินไม่สำเร็จ',
+            action: 'login_failed', entity: 'session', detail,
             username: typeof username === 'string' ? username : null,
         });
         return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
@@ -200,68 +239,78 @@ app.post('/api/login', loginLimiter, asyncRoute(async (req, res) => {
     if (typeof username !== 'string' || typeof password !== 'string') {
         return rejectLogin();
     }
-    const role = findRoleByUsername(username);
-    if (role === null) {
+    const [rows] = await pdb.query(
+        'SELECT id, username, password_hash, role, status, full_name FROM admin_users WHERE username = ?',
+        [username.trim().toLowerCase()]);
+    const user = rows[0];
+    const passwordOk = bcrypt.compareSync(password, user ? user.password_hash : DUMMY_PASSWORD_HASH);
+    if (!user || !passwordOk || !ROLE_DEFS[user.role]) {
         return rejectLogin();
     }
-    const passwordHash = await getPasswordHash(role);
-    if (!bcrypt.compareSync(password, passwordHash)) {
-        return rejectLogin();
+    if (user.status !== 'active') {
+        return rejectLogin('บัญชีนี้ถูกระงับ');
     }
 
-    req.session.role = role;
-    logActivity(req, { action: 'login', entity: 'session', detail: `เข้าสู่ระบบสำเร็จ (${ROLE_LABELS[role]})`, username });
-    res.json({ message: 'เข้าสู่ระบบสำเร็จ', role });
+    await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve())));
+    req.session.userId = user.id;
+    const ip = String(req.ip || '').replace(/^::ffff:/, '').slice(0, 64);
+    await pdb.query('UPDATE admin_users SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?', [ip, user.id]);
+    logActivity(req, {
+        action: 'login', entity: 'session', username: user.username,
+        detail: `เข้าสู่ระบบสำเร็จ (${ROLE_DEFS[user.role].label_th})`,
+    });
+    res.json({ message: 'เข้าสู่ระบบสำเร็จ', ...sessionPayload(user) });
 }));
 
-app.post('/api/logout', (req, res) => {
-    if (req.session?.role) {
-        logActivity(req, { action: 'logout', entity: 'session', detail: 'ออกจากระบบ' });
+app.post('/api/logout', asyncRoute(async (req, res) => {
+    const user = await loadSessionUser(req);
+    if (user) {
+        logActivity(req, { action: 'logout', entity: 'session', detail: 'ออกจากระบบ', username: user.username });
     }
     req.session.destroy(() => {
         res.json({ message: 'ออกจากระบบแล้ว' });
     });
-});
+}));
 
-app.get('/api/session', (req, res) => {
-    const role = req.session?.role || null;
-    res.json({ isAdmin: role === 'admin', role, username: role ? ACCOUNTS[role].username : null });
-});
+app.get('/api/session', asyncRoute(async (req, res) => {
+    const user = await loadSessionUser(req);
+    if (!user) return res.json({ isAdmin: false, role: null, username: null });
+    res.json({ isAdmin: user.role === 'admin', ...sessionPayload(user) });
+}));
 
-app.post('/api/admin/change-password', requireStaff, changePasswordLimiter, asyncRoute(async (req, res) => {
-    const { current_password: currentPassword, new_password: newPassword } = req.body || {};
-    const role = req.session.role;
-
-    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || currentPassword === '') {
-        throw new HttpError(400, 'กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่');
-    }
-    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+// ตรวจรหัสผ่านใหม่ (ใช้ทั้งตอนเปลี่ยนรหัสของตัวเอง สร้างบัญชี และรีเซ็ตรหัส)
+function assertValidNewPassword(newPassword) {
+    if (typeof newPassword !== 'string' || newPassword.length < PASSWORD_MIN_LENGTH) {
         throw new HttpError(400, `รหัสผ่านใหม่ต้องยาวอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`);
     }
     if (Buffer.byteLength(newPassword, 'utf8') > PASSWORD_MAX_BYTES) {
         throw new HttpError(400, `รหัสผ่านใหม่ยาวเกินไป (ไม่เกิน ${PASSWORD_MAX_BYTES} ไบต์)`);
     }
+}
+
+app.post('/api/admin/change-password', requireAuth, changePasswordLimiter, asyncRoute(async (req, res) => {
+    const { current_password: currentPassword, new_password: newPassword } = req.body || {};
+
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || currentPassword === '') {
+        throw new HttpError(400, 'กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่');
+    }
+    assertValidNewPassword(newPassword);
     if (newPassword === currentPassword) {
         throw new HttpError(400, 'รหัสผ่านใหม่ต้องไม่เหมือนรหัสผ่านปัจจุบัน');
     }
 
-    const currentHash = await getPasswordHash(role);
-    if (!bcrypt.compareSync(currentPassword, currentHash)) {
+    const [[row]] = await pdb.query('SELECT password_hash FROM admin_users WHERE id = ?', [req.user.id]);
+    if (!bcrypt.compareSync(currentPassword, row.password_hash)) {
         throw new HttpError(400, 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
     }
 
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await pdb.query(
-        `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-        [ACCOUNTS[role].settingKey, newHash]
-    );
-    logActivity(req, { action: 'change_password', entity: 'admin', detail: `เปลี่ยนรหัสผ่าน (${ROLE_LABELS[role]})` });
+    await pdb.query('UPDATE admin_users SET password_hash = ? WHERE id = ?', [await bcrypt.hash(newPassword, 10), req.user.id]);
+    logActivity(req, { action: 'change_password', entity: 'admin', detail: `เปลี่ยนรหัสผ่านของ ${req.user.username}` });
     res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ!' });
 }));
 
 // ==========================================
-// 🌟 โปรไฟล์ผู้ดูแล (ชื่อ อีเมล เบอร์โทร สังกัด รูป) เก็บใน admin_settings ต่อบัญชี 🌟
+// 🌟 โปรไฟล์ผู้ดูแล (ชื่อ อีเมล เบอร์โทร สังกัด รูป) 🌟
 // ==========================================
 const PROFILE_FIELDS = {
     full_name: { label: 'ชื่อ-นามสกุล', max: 100 },
@@ -272,67 +321,152 @@ const PROFILE_FIELDS = {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const AVATAR_SIZE = 256;
 
-async function readProfile(role) {
-    const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [`profile_${role}`]);
-    let stored = {};
-    if (rows.length) {
-        try { stored = JSON.parse(rows[0].setting_value) || {}; } catch (err) { stored = {}; }
+function readProfileFields(body) {
+    const fields = {};
+    for (const [key, rule] of Object.entries(PROFILE_FIELDS)) {
+        const value = typeof body?.[key] === 'string' ? body[key].trim() : '';
+        if (value.length > rule.max) throw new HttpError(400, `${rule.label}ยาวเกินไป (ไม่เกิน ${rule.max} ตัวอักษร)`);
+        fields[key] = value;
     }
-    const profile = { avatar: typeof stored.avatar === 'string' ? stored.avatar : null };
-    for (const key of Object.keys(PROFILE_FIELDS)) profile[key] = typeof stored[key] === 'string' ? stored[key] : '';
-    return profile;
+    if (fields.email && !EMAIL_PATTERN.test(fields.email)) throw new HttpError(400, 'รูปแบบอีเมลไม่ถูกต้อง');
+    return fields;
 }
 
-async function writeProfile(role, profile) {
-    await pdb.query(
-        `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-        [`profile_${role}`, JSON.stringify(profile)]
-    );
+const USER_COLUMNS = 'id, username, role, status, full_name, email, phone, department, avatar, last_login_at, last_login_ip, created_at';
+
+function publicUser(row) {
+    return { ...row, role_label: ROLE_DEFS[row.role]?.label_th || row.role };
 }
 
-app.get('/api/admin/profile', requireStaff, asyncRoute(async (req, res) => {
-    const role = req.session.role;
-    res.json({ ...(await readProfile(role)), role, username: ACCOUNTS[role].username });
+async function readUser(id) {
+    const [rows] = await pdb.query(`SELECT ${USER_COLUMNS} FROM admin_users WHERE id = ?`, [id]);
+    return rows[0] ? publicUser(rows[0]) : null;
+}
+
+app.get('/api/admin/profile', requireAuth, asyncRoute(async (req, res) => {
+    res.json(await readUser(req.user.id));
 }));
 
-app.put('/api/admin/profile', requireStaff, asyncRoute(async (req, res) => {
-    const role = req.session.role;
-    const body = req.body || {};
-    const profile = await readProfile(role);
-    for (const [key, rule] of Object.entries(PROFILE_FIELDS)) {
-        const value = typeof body[key] === 'string' ? body[key].trim() : '';
-        if (value.length > rule.max) throw new HttpError(400, `${rule.label}ยาวเกินไป (ไม่เกิน ${rule.max} ตัวอักษร)`);
-        profile[key] = value;
-    }
-    if (profile.email && !EMAIL_PATTERN.test(profile.email)) throw new HttpError(400, 'รูปแบบอีเมลไม่ถูกต้อง');
-    await writeProfile(role, profile);
-    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขข้อมูลส่วนตัว (${ROLE_LABELS[role]})` });
-    res.json({ message: 'บันทึกข้อมูลส่วนตัวสำเร็จ!', ...profile, role, username: ACCOUNTS[role].username });
+app.put('/api/admin/profile', requireAuth, asyncRoute(async (req, res) => {
+    const fields = readProfileFields(req.body);
+    await pdb.query(
+        'UPDATE admin_users SET full_name = ?, email = ?, phone = ?, department = ? WHERE id = ?',
+        [fields.full_name, fields.email, fields.phone, fields.department, req.user.id]);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขข้อมูลส่วนตัวของ ${req.user.username}` });
+    res.json({ message: 'บันทึกข้อมูลส่วนตัวสำเร็จ!', ...(await readUser(req.user.id)) });
 }));
 
 // รูปโปรไฟล์ย่อเป็นสี่เหลี่ยมจัตุรัสแล้วเก็บเป็น data URL ในฐานข้อมูล ไม่ต้องมีโฟลเดอร์ไฟล์เพิ่ม และไปกับ backup ฐานข้อมูลอัตโนมัติ
 const avatarUploader = createImageUploader(5 * 1024 * 1024);
-app.post('/api/admin/profile/avatar', requireStaff, handleUpload(avatarUploader, 'image', 5), asyncRoute(async (req, res) => {
+app.post('/api/admin/profile/avatar', requireAuth, handleUpload(avatarUploader, 'image', 5), asyncRoute(async (req, res) => {
     if (!req.file) throw new HttpError(400, 'กรุณาเลือกไฟล์รูปภาพ');
     try { imageSize(req.file.buffer); } catch (err) { throw new HttpError(400, 'ไฟล์รูปไม่ถูกต้องหรือเสียหาย'); }
     const buffer = await sharp(req.file.buffer).rotate()
         .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover' }).webp({ quality: 82 }).toBuffer();
-    const role = req.session.role;
-    const profile = await readProfile(role);
-    profile.avatar = `data:image/webp;base64,${buffer.toString('base64')}`;
-    await writeProfile(role, profile);
-    logActivity(req, { action: 'update', entity: 'admin', detail: `เปลี่ยนรูปโปรไฟล์ (${ROLE_LABELS[role]})` });
-    res.json({ message: 'เปลี่ยนรูปโปรไฟล์สำเร็จ!', avatar: profile.avatar });
+    const avatar = `data:image/webp;base64,${buffer.toString('base64')}`;
+    await pdb.query('UPDATE admin_users SET avatar = ? WHERE id = ?', [avatar, req.user.id]);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `เปลี่ยนรูปโปรไฟล์ของ ${req.user.username}` });
+    res.json({ message: 'เปลี่ยนรูปโปรไฟล์สำเร็จ!', avatar });
 }));
 
-app.delete('/api/admin/profile/avatar', requireStaff, asyncRoute(async (req, res) => {
-    const role = req.session.role;
-    const profile = await readProfile(role);
-    profile.avatar = null;
-    await writeProfile(role, profile);
-    logActivity(req, { action: 'update', entity: 'admin', detail: `ลบรูปโปรไฟล์ (${ROLE_LABELS[role]})` });
+app.delete('/api/admin/profile/avatar', requireAuth, asyncRoute(async (req, res) => {
+    await pdb.query('UPDATE admin_users SET avatar = NULL WHERE id = ?', [req.user.id]);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `ลบรูปโปรไฟล์ของ ${req.user.username}` });
     res.json({ message: 'ลบรูปโปรไฟล์แล้ว', avatar: null });
+}));
+
+// ==========================================
+// 🌟 จัดการบัญชีผู้ดูแลและบทบาท (เฉพาะผู้มีสิทธิ์ settings) 🌟
+// ==========================================
+const requireUserAdmin = requirePerm('settings', 'write');
+
+app.get('/api/admin/roles', requireUserAdmin, asyncRoute(async (req, res) => {
+    const [counts] = await pdb.query('SELECT role, COUNT(*) AS total FROM admin_users GROUP BY role');
+    const countByRole = Object.fromEntries(counts.map(row => [row.role, row.total]));
+    res.json({
+        modules: PERMISSION_MODULES,
+        roles: Object.entries(ROLE_DEFS).map(([key, def]) => ({ key, ...def, user_count: countByRole[key] || 0 })),
+    });
+}));
+
+app.get('/api/admin/users', requireUserAdmin, asyncRoute(async (req, res) => {
+    const [rows] = await pdb.query(`SELECT ${USER_COLUMNS} FROM admin_users ORDER BY id`);
+    res.json({ users: rows.map(row => ({ ...publicUser(row), is_self: row.id === req.user.id })) });
+}));
+
+function assertValidRole(role) {
+    if (!Object.hasOwn(ROLE_DEFS, role)) throw new HttpError(400, 'บทบาทไม่ถูกต้อง');
+}
+
+app.post('/api/admin/users', requireUserAdmin, asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    const username = typeof body.username === 'string' ? body.username.trim().toLowerCase() : '';
+    if (!USERNAME_PATTERN.test(username)) {
+        throw new HttpError(400, 'ชื่อผู้ใช้ต้องยาว 3-30 ตัว ใช้ได้เฉพาะ a-z 0-9 จุด ขีดกลาง และขีดล่าง');
+    }
+    assertValidRole(body.role);
+    assertValidNewPassword(body.password);
+    const fields = readProfileFields(body);
+
+    let insertId;
+    try {
+        const [result] = await pdb.query(
+            `INSERT INTO admin_users (username, password_hash, role, full_name, email, phone, department)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [username, await bcrypt.hash(body.password, 10), body.role, fields.full_name, fields.email, fields.phone, fields.department]);
+        insertId = result.insertId;
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') throw new HttpError(409, 'ชื่อผู้ใช้นี้ถูกใช้แล้ว');
+        throw err;
+    }
+    logActivity(req, { action: 'create', entity: 'admin', entityId: insertId, detail: `เพิ่มบัญชีผู้ดูแล ${username} (${ROLE_DEFS[body.role].label_th})` });
+    res.status(201).json({ message: 'เพิ่มผู้ดูแลระบบสำเร็จ!', user: await readUser(insertId) });
+}));
+
+app.put('/api/admin/users/:id', requireUserAdmin, asyncRoute(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const target = await readUser(id);
+    if (!target) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้นี้');
+
+    const body = req.body || {};
+    assertValidRole(body.role);
+    if (!USER_STATUSES.includes(body.status)) throw new HttpError(400, 'สถานะบัญชีไม่ถูกต้อง');
+    if (id === req.user.id && (body.role !== target.role || body.status !== target.status)) {
+        throw new HttpError(400, 'ไม่สามารถเปลี่ยนบทบาทหรือระงับบัญชีของตัวเองได้');
+    }
+    const fields = readProfileFields(body);
+
+    await pdb.query(
+        `UPDATE admin_users SET role = ?, status = ?, full_name = ?, email = ?, phone = ?, department = ? WHERE id = ?`,
+        [body.role, body.status, fields.full_name, fields.email, fields.phone, fields.department, id]);
+    const changes = [];
+    if (body.role !== target.role) changes.push(`บทบาท ${ROLE_DEFS[target.role]?.label_th || target.role} → ${ROLE_DEFS[body.role].label_th}`);
+    if (body.status !== target.status) changes.push(body.status === 'active' ? 'เปิดใช้งานบัญชี' : 'ระงับบัญชี');
+    logActivity(req, {
+        action: 'update', entity: 'admin', entityId: id,
+        detail: `แก้ไขบัญชี ${target.username}${changes.length > 0 ? `: ${changes.join(', ')}` : ''}`,
+    });
+    res.json({ message: 'บันทึกการแก้ไขบัญชีสำเร็จ!', user: await readUser(id) });
+}));
+
+app.post('/api/admin/users/:id/reset-password', requireUserAdmin, asyncRoute(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const target = await readUser(id);
+    if (!target) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้นี้');
+    assertValidNewPassword(req.body?.new_password);
+    await pdb.query('UPDATE admin_users SET password_hash = ? WHERE id = ?', [await bcrypt.hash(req.body.new_password, 10), id]);
+    logActivity(req, { action: 'change_password', entity: 'admin', entityId: id, detail: `รีเซ็ตรหัสผ่านของ ${target.username}` });
+    res.json({ message: `รีเซ็ตรหัสผ่านของ ${target.username} แล้ว` });
+}));
+
+app.delete('/api/admin/users/:id', requireUserAdmin, asyncRoute(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const target = await readUser(id);
+    if (!target) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้นี้');
+    if (id === req.user.id) throw new HttpError(400, 'ไม่สามารถลบบัญชีของตัวเองได้');
+    await pdb.query('DELETE FROM admin_users WHERE id = ?', [id]);
+    logActivity(req, { action: 'delete', entity: 'admin', entityId: id, detail: `ลบบัญชีผู้ดูแล ${target.username}` });
+    res.json({ message: `ลบบัญชี ${target.username} แล้ว` });
 }));
 
 // ==========================================
@@ -618,7 +752,7 @@ function findDuplicateRoom(roomCode, buildingId, floor, excludeId, callback) {
 }
 
 // 1. API เพิ่มห้องเรียนใหม่ (Create - รองรับ floor + ฟิลด์ใหม่)
-app.post('/api/rooms', requireAdmin, (req, res) => {
+app.post('/api/rooms', requirePerm('buildings', 'write'), (req, res) => {
     const { room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities } = req.body || {};
 
     const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities });
@@ -664,7 +798,7 @@ app.post('/api/rooms', requireAdmin, (req, res) => {
 });
 
 // 2. API แก้ไขข้อมูล/อัปเดตพิกัดแผนที่ (Update - รองรับ floor + ฟิลด์ใหม่)
-app.put('/api/rooms/:id', requireAdmin, (req, res) => {
+app.put('/api/rooms/:id', requirePerm('buildings', 'write'), (req, res) => {
     const roomId = req.params.id;
     const { room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities } = req.body || {};
 
@@ -712,7 +846,7 @@ app.put('/api/rooms/:id', requireAdmin, (req, res) => {
 });
 
 // 3. API ลบห้องเรียน (Delete) — ลบไฟล์ภาพพาโนรามาของห้องนี้ออกจากดิสก์ด้วย
-app.delete('/api/rooms/:id', requireAdmin, asyncRoute(async (req, res) => {
+app.delete('/api/rooms/:id', requirePerm('buildings', 'write'), asyncRoute(async (req, res) => {
     const roomId = req.params.id;
     const [rooms] = await pdb.query('SELECT room_code FROM rooms WHERE id = ?', [roomId]);
     const [panoramas] = await pdb.query('SELECT image_url FROM panoramas WHERE room_id = ?', [roomId]);
@@ -730,7 +864,7 @@ app.delete('/api/rooms/:id', requireAdmin, asyncRoute(async (req, res) => {
 // 3.1 API ลบห้องเรียนหลายห้องพร้อมกัน (Bulk Delete) รับ { ids: [1, 2, 3] }
 const BULK_DELETE_MAX = 500;
 
-app.post('/api/rooms/bulk-delete', requireAdmin, asyncRoute(async (req, res) => {
+app.post('/api/rooms/bulk-delete', requirePerm('buildings', 'write'), asyncRoute(async (req, res) => {
     const { ids } = req.body || {};
 
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -803,7 +937,7 @@ app.get('/api/buildings', (req, res) => {
     });
 });
 
-app.post('/api/buildings', requireAdmin, (req, res) => {
+app.post('/api/buildings', requirePerm('buildings', 'write'), (req, res) => {
     const { code, name, description, location } = req.body || {};
     const validationError = validateBuildingInput({ code, name });
     if (validationError) {
@@ -826,7 +960,7 @@ app.post('/api/buildings', requireAdmin, (req, res) => {
     });
 });
 
-app.put('/api/buildings/:id', requireAdmin, (req, res) => {
+app.put('/api/buildings/:id', requirePerm('buildings', 'write'), (req, res) => {
     const buildingId = req.params.id;
     const { code, name, description, location } = req.body || {};
     const validationError = validateBuildingInput({ code, name });
@@ -850,7 +984,7 @@ app.put('/api/buildings/:id', requireAdmin, (req, res) => {
     });
 });
 
-app.delete('/api/buildings/:id', requireAdmin, asyncRoute(async (req, res) => {
+app.delete('/api/buildings/:id', requirePerm('buildings', 'write'), asyncRoute(async (req, res) => {
     const buildingId = req.params.id;
     const [buildings] = await pdb.query('SELECT name, cover_image FROM buildings WHERE id = ?', [buildingId]);
     const [floorPlans] = await pdb.query('SELECT image_url FROM floor_plans WHERE building_id = ?', [buildingId]);
@@ -879,7 +1013,7 @@ app.delete('/api/buildings/:id', requireAdmin, asyncRoute(async (req, res) => {
 }));
 
 // 🌟 รูปปกอาคาร (แสดงบนการ์ดอาคารในแอป) อัปโหลดใหม่ = แทนที่รูปเดิมและลบไฟล์เก่า 🌟
-app.post('/api/admin/buildings/:id/cover', requireStaff, handleUpload(coverUploader, 'image', 10), asyncRoute(async (req, res) => {
+app.post('/api/admin/buildings/:id/cover', requireAnyWrite('buildings', 'floorplans', 'panoramas'), handleUpload(coverUploader, 'image', 10), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.params.id);
     if (buildingId === null) throw new HttpError(400, 'รหัสอาคารไม่ถูกต้อง');
     if (!req.file) throw new HttpError(400, 'กรุณาแนบไฟล์รูปปกอาคาร');
@@ -903,7 +1037,7 @@ app.post('/api/admin/buildings/:id/cover', requireStaff, handleUpload(coverUploa
     res.json({ message: 'อัปโหลดรูปปกอาคารสำเร็จ!', cover_image: saved.url });
 }));
 
-app.delete('/api/admin/buildings/:id/cover', requireStaff, asyncRoute(async (req, res) => {
+app.delete('/api/admin/buildings/:id/cover', requireAnyWrite('buildings', 'floorplans', 'panoramas'), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.params.id);
     if (buildingId === null) throw new HttpError(400, 'รหัสอาคารไม่ถูกต้อง');
 
@@ -929,7 +1063,7 @@ function parsePositiveInt(value) {
     return Number.isInteger(num) && num > 0 ? num : null;
 }
 
-app.get('/api/admin/floorplans', requireStaff, asyncRoute(async (req, res) => {
+app.get('/api/admin/floorplans', requirePerm('floorplans', 'read'), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.query.building_id);
     const sql = `
         SELECT fp.id, fp.building_id, b.name AS building_name, fp.floor, fp.image_url, fp.width, fp.height, fp.updated_at,
@@ -945,7 +1079,7 @@ app.get('/api/admin/floorplans', requireStaff, asyncRoute(async (req, res) => {
     res.json(rows);
 }));
 
-app.post('/api/admin/floorplans', requireStaff, handleUpload(floorPlanUploader, 'image', 10), asyncRoute(async (req, res) => {
+app.post('/api/admin/floorplans', requirePerm('floorplans', 'write'), handleUpload(floorPlanUploader, 'image', 10), asyncRoute(async (req, res) => {
     const body = req.body || {};
     const buildingId = parsePositiveInt(body.building_id);
     const floor = typeof body.floor === 'string' ? body.floor.trim() : '';
@@ -983,7 +1117,7 @@ app.post('/api/admin/floorplans', requireStaff, handleUpload(floorPlanUploader, 
     res.json({ message: 'อัปโหลดแผนผังชั้นสำเร็จ!', id: insertId, image_url: saved.url, width: saved.width, height: saved.height });
 }));
 
-app.put('/api/admin/floorplans/:id', requireStaff, handleUpload(floorPlanUploader, 'image', 10), asyncRoute(async (req, res) => {
+app.put('/api/admin/floorplans/:id', requirePerm('floorplans', 'write'), handleUpload(floorPlanUploader, 'image', 10), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสแผนผังไม่ถูกต้อง');
     if (!req.file) throw new HttpError(400, 'กรุณาแนบไฟล์รูปแผนผังชั้น');
@@ -1010,7 +1144,7 @@ app.put('/api/admin/floorplans/:id', requireStaff, handleUpload(floorPlanUploade
     res.json({ message: 'เปลี่ยนรูปแผนผังสำเร็จ!', image_url: saved.url, width: saved.width, height: saved.height });
 }));
 
-app.delete('/api/admin/floorplans/:id', requireStaff, asyncRoute(async (req, res) => {
+app.delete('/api/admin/floorplans/:id', requirePerm('floorplans', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสแผนผังไม่ถูกต้อง');
 
@@ -1096,7 +1230,7 @@ app.get('/api/rooms/:roomId/panoramas', asyncRoute(async (req, res) => {
     res.json(panoramas.map(item => ({ ...item, hotspots: byPanorama.get(item.id) || [] })));
 }));
 
-app.post('/api/rooms/:roomId/panoramas', requireStaff, handleUpload(panoramaUploader, 'image', 20), asyncRoute(async (req, res) => {
+app.post('/api/rooms/:roomId/panoramas', requirePerm('panoramas', 'write'), handleUpload(panoramaUploader, 'image', 20), asyncRoute(async (req, res) => {
     const roomId = parsePositiveInt(req.params.roomId);
     if (roomId === null) throw new HttpError(400, 'รหัสห้องไม่ถูกต้อง');
     if (!req.file) throw new HttpError(400, 'กรุณาแนบไฟล์ภาพพาโนรามา');
@@ -1131,7 +1265,7 @@ app.post('/api/rooms/:roomId/panoramas', requireStaff, handleUpload(panoramaUplo
 }));
 
 // แก้ไขป้ายชื่อ/ลำดับของภาพ (ถ้าจะเปลี่ยนไฟล์รูปให้ลบแล้วอัปโหลดใหม่)
-app.put('/api/panoramas/:id', requireAdmin, asyncRoute(async (req, res) => {
+app.put('/api/panoramas/:id', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสภาพไม่ถูกต้อง');
 
@@ -1150,7 +1284,7 @@ app.put('/api/panoramas/:id', requireAdmin, asyncRoute(async (req, res) => {
     res.json({ message: 'อัปเดตภาพพาโนรามาสำเร็จ!' });
 }));
 
-app.delete('/api/panoramas/:id', requireStaff, asyncRoute(async (req, res) => {
+app.delete('/api/panoramas/:id', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสภาพไม่ถูกต้อง');
 
@@ -1164,7 +1298,7 @@ app.delete('/api/panoramas/:id', requireStaff, asyncRoute(async (req, res) => {
     res.json({ message: 'ลบภาพพาโนรามาสำเร็จ!' });
 }));
 
-app.post('/api/panoramas/:panoramaId/hotspots', requireAdmin, asyncRoute(async (req, res) => {
+app.post('/api/panoramas/:panoramaId/hotspots', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const panoramaId = parsePositiveInt(req.params.panoramaId);
     if (panoramaId === null) throw new HttpError(400, 'รหัสภาพไม่ถูกต้อง');
 
@@ -1189,7 +1323,7 @@ app.post('/api/panoramas/:panoramaId/hotspots', requireAdmin, asyncRoute(async (
     res.json({ message: 'เพิ่มจุดเชื่อมสำเร็จ!', id: result.insertId });
 }));
 
-app.put('/api/hotspots/:id', requireAdmin, asyncRoute(async (req, res) => {
+app.put('/api/hotspots/:id', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสจุดเชื่อมไม่ถูกต้อง');
 
@@ -1210,7 +1344,7 @@ app.put('/api/hotspots/:id', requireAdmin, asyncRoute(async (req, res) => {
     res.json({ message: 'อัปเดตจุดเชื่อมสำเร็จ!' });
 }));
 
-app.delete('/api/hotspots/:id', requireAdmin, asyncRoute(async (req, res) => {
+app.delete('/api/hotspots/:id', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสจุดเชื่อมไม่ถูกต้อง');
 
@@ -1327,7 +1461,7 @@ app.get('/api/tour/:buildingId', asyncRoute(async (req, res) => {
 }));
 
 // แดชบอร์ด: ทุกจุดของอาคาร (รวมจุดที่ยังไม่ได้วางบนแผนผัง) พร้อมเส้นเชื่อม
-app.get('/api/admin/tour/points', requireStaff, asyncRoute(async (req, res) => {
+app.get('/api/admin/tour/points', requirePerm('panoramas', 'read'), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.query.building_id);
     if (buildingId === null) throw new HttpError(400, 'กรุณาเลือกอาคาร');
 
@@ -1338,7 +1472,7 @@ app.get('/api/admin/tour/points', requireStaff, asyncRoute(async (req, res) => {
     res.json({ points: points.map(formatTourPoint), links: links.map(link => [link.point_a, link.point_b]) });
 }));
 
-app.post('/api/admin/tour/points', requireStaff, handleUpload(tourImageUploader, 'image', 40), asyncRoute(async (req, res) => {
+app.post('/api/admin/tour/points', requirePerm('panoramas', 'write'), handleUpload(tourImageUploader, 'image', 40), asyncRoute(async (req, res) => {
     const body = req.body || {};
     const buildingId = parsePositiveInt(body.building_id);
     const floor = typeof body.floor === 'string' ? body.floor.trim() : '';
@@ -1408,7 +1542,7 @@ async function applyPointRoomIdUpdate(body, updates, buildingId) {
     updates.room_id = roomId;
 }
 
-app.put('/api/admin/tour/points/:id', requireAdmin, asyncRoute(async (req, res) => {
+app.put('/api/admin/tour/points/:id', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสจุดไม่ถูกต้อง');
     const [existing] = await pdb.query('SELECT building_id FROM tour_points WHERE id = ?', [id]);
@@ -1429,7 +1563,7 @@ app.put('/api/admin/tour/points/:id', requireAdmin, asyncRoute(async (req, res) 
     res.json({ message: 'บันทึกจุดเดินชมสำเร็จ!', point: formatTourPoint(rows[0]) });
 }));
 
-app.delete('/api/admin/tour/points/:id', requireStaff, asyncRoute(async (req, res) => {
+app.delete('/api/admin/tour/points/:id', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const id = parsePositiveInt(req.params.id);
     if (id === null) throw new HttpError(400, 'รหัสจุดไม่ถูกต้อง');
     const [rows] = await pdb.query('SELECT image_url FROM tour_points WHERE id = ?', [id]);
@@ -1452,14 +1586,14 @@ async function parseTourLink(body) {
     return [Math.min(a, b), Math.max(a, b)];
 }
 
-app.post('/api/admin/tour/links', requireAdmin, asyncRoute(async (req, res) => {
+app.post('/api/admin/tour/links', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const [a, b] = await parseTourLink(req.body);
     await pdb.query('INSERT IGNORE INTO tour_links (point_a, point_b) VALUES (?, ?)', [a, b]);
     logActivity(req, { action: 'create', entity: 'tour_link', detail: `เชื่อมจุดเดินชม #${a} ↔ #${b}` });
     res.json({ message: 'เชื่อมจุดสำเร็จ!' });
 }));
 
-app.delete('/api/admin/tour/links', requireAdmin, asyncRoute(async (req, res) => {
+app.delete('/api/admin/tour/links', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const [a, b] = await parseTourLink(req.body);
     const [result] = await pdb.query('DELETE FROM tour_links WHERE point_a = ? AND point_b = ?', [a, b]);
     if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบเส้นเชื่อมนี้');
@@ -1513,7 +1647,7 @@ function autoLinkPairs(points) {
     return [...pairs].map(key => key.split('-').map(Number));
 }
 
-app.post('/api/admin/tour/autolink', requireAdmin, asyncRoute(async (req, res) => {
+app.post('/api/admin/tour/autolink', requirePerm('panoramas', 'write'), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.body?.building_id);
     const floor = typeof req.body?.floor === 'string' ? req.body.floor.trim() : '';
     if (buildingId === null || !floor) throw new HttpError(400, 'กรุณาเลือกอาคารและชั้น');
@@ -1553,7 +1687,7 @@ function csvCell(value) {
     return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-app.get('/api/admin/rooms/export.csv', requireAdmin, asyncRoute(async (req, res) => {
+app.get('/api/admin/rooms/export.csv', requirePerm('buildings', 'read'), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.query.building_id);
     const sql = `
         SELECT b.code AS building_code, r.room_code, r.floor, r.room_type, r.capacity, r.status, r.amenities, r.pin_x, r.pin_y
@@ -1758,7 +1892,7 @@ function summarizeImport(items) {
     return { errorCount, summary };
 }
 
-app.post('/api/admin/rooms/import', requireAdmin, asyncRoute(async (req, res) => {
+app.post('/api/admin/rooms/import', requirePerm('buildings', 'write'), asyncRoute(async (req, res) => {
     const { csv, dry_run: dryRun } = req.body || {};
     if (typeof csv !== 'string' || csv.trim() === '') {
         throw new HttpError(400, 'กรุณาเลือกไฟล์ CSV');
@@ -1799,9 +1933,9 @@ const LOG_RANGES = { today: 'created_at >= CURDATE()', 7: 'created_at >= NOW() -
 function buildLogFilter(req, { withUserFilters = true } = {}) {
     const where = [];
     const params = [];
-    if (req.session.role !== 'admin') {
+    if (ROLE_DEFS[req.user.role].perms.logs !== 'all') {
         where.push('username = ?');
-        params.push(ACCOUNTS[req.session.role].username);
+        params.push(req.user.username);
     }
     if (withUserFilters) {
         for (const column of ['entity', 'action']) {
@@ -1820,7 +1954,7 @@ function buildLogFilter(req, { withUserFilters = true } = {}) {
     return { where, params, whereSql: where.length > 0 ? `WHERE ${where.join(' AND ')}` : '' };
 }
 
-app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
+app.get('/api/admin/logs', requirePerm('logs', 'read'), asyncRoute(async (req, res) => {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
     const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
     const { params, whereSql } = buildLogFilter(req);
@@ -1834,7 +1968,7 @@ app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
 }));
 
 // สรุปตัวเลขหน้า System Logs (นับเฉพาะ log ที่ผู้ใช้คนนี้มีสิทธิ์เห็น)
-app.get('/api/admin/logs/summary', requireStaff, asyncRoute(async (req, res) => {
+app.get('/api/admin/logs/summary', requirePerm('logs', 'read'), asyncRoute(async (req, res) => {
     const { where, params } = buildLogFilter(req, { withUserFilters: false });
     const scope = where.length > 0 ? `${where.join(' AND ')} AND ` : '';
     const [[row]] = await pdb.query(`
@@ -1856,7 +1990,7 @@ app.get('/api/admin/logs/summary', requireStaff, asyncRoute(async (req, res) => 
 
 const LOG_EXPORT_MAX = 5000;
 
-app.get('/api/admin/logs/export.csv', requireStaff, asyncRoute(async (req, res) => {
+app.get('/api/admin/logs/export.csv', requirePerm('logs', 'read'), asyncRoute(async (req, res) => {
     const { params, whereSql } = buildLogFilter(req);
     const [rows] = await pdb.query(
         `SELECT created_at, action, entity, detail, username, ip
@@ -1875,7 +2009,7 @@ app.get('/api/admin/logs/export.csv', requireStaff, asyncRoute(async (req, res) 
 }));
 
 // เช็กสุขภาพระบบจริง: ฐานข้อมูลตอบสนอง + โฟลเดอร์เก็บรูปเขียนไฟล์ได้ (ใช้แสดงสถานะบนแถบบนของแดชบอร์ด)
-app.get('/api/admin/health', requireStaff, asyncRoute(async (req, res) => {
+app.get('/api/admin/health', requireAuth, asyncRoute(async (req, res) => {
     let database = false;
     try {
         await pdb.query('SELECT 1');
@@ -1891,9 +2025,9 @@ app.get('/api/admin/health', requireStaff, asyncRoute(async (req, res) => {
             return false;
         }
     });
-    // จำนวนล็อกอินไม่สำเร็จใน 24 ชม. ล่าสุดใช้โชว์จุดแดงที่กระดิ่ง เห็นเฉพาะ admin (editor ไม่มีสิทธิ์ดู log ของคนอื่น)
+    // จำนวนล็อกอินไม่สำเร็จใน 24 ชม. ล่าสุดใช้โชว์จุดแดงที่กระดิ่ง เห็นเฉพาะ admin (บทบาทที่ไม่มีสิทธิ์ดู log ของคนอื่นจะไม่เห็น)
     let failedLogins24h = 0;
-    if (database && req.session.role === 'admin') {
+    if (database && ROLE_DEFS[req.user.role].perms.logs === 'all') {
         const [[row]] = await pdb.query(
             "SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
         failedLogins24h = row.total;
@@ -1902,7 +2036,7 @@ app.get('/api/admin/health', requireStaff, asyncRoute(async (req, res) => {
 }));
 
 // สรุปสถิติภาพรวมสำหรับหน้า Overview ของ Admin Dashboard
-app.get('/api/admin/overview', requireAdmin, asyncRoute(async (req, res) => {
+app.get('/api/admin/overview', requirePerm('overview', 'read'), asyncRoute(async (req, res) => {
     const [[stats]] = await pdb.query(`
         SELECT
             (SELECT COUNT(*) FROM buildings) AS building_count,
@@ -1934,8 +2068,13 @@ app.get('/api/admin/overview', requireAdmin, asyncRoute(async (req, res) => {
         WHERE rooms.status = 'maintenance'
         ORDER BY buildings.name, rooms.floor, rooms.room_code LIMIT 5
     `);
+    // ข้อมูลจาก log (กิจกรรมล่าสุด จำนวนล็อกอินผิด) ส่งให้เฉพาะบทบาทที่ดู log ของทุกคนได้
+    const seesAllLogs = ROLE_DEFS[req.user.role].perms.logs === 'all';
     res.json({
-        ...stats, recent_activity: recentActivity,
+        ...stats,
+        log_total: seesAllLogs ? stats.log_total : 0,
+        failed_logins_24h: seesAllLogs ? stats.failed_logins_24h : 0,
+        recent_activity: seesAllLogs ? recentActivity : [],
         rooms_without_panorama: roomsWithoutPanorama, maintenance_rooms: maintenanceRooms,
     });
 }));
@@ -2013,6 +2152,23 @@ const DASHBOARD_TABLES = [
         updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (setting_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
+    `CREATE TABLE IF NOT EXISTS admin_users (
+        id INT NOT NULL AUTO_INCREMENT,
+        username VARCHAR(50) NOT NULL,
+        password_hash VARCHAR(100) NOT NULL,
+        role VARCHAR(30) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        full_name VARCHAR(100) NOT NULL DEFAULT '',
+        email VARCHAR(120) NOT NULL DEFAULT '',
+        phone VARCHAR(40) NOT NULL DEFAULT '',
+        department VARCHAR(150) NOT NULL DEFAULT '',
+        avatar MEDIUMTEXT DEFAULT NULL,
+        last_login_at TIMESTAMP NULL DEFAULT NULL,
+        last_login_ip VARCHAR(64) DEFAULT NULL,
+        created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_admin_users_username (username)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
     `CREATE TABLE IF NOT EXISTS tour_points (
         id INT NOT NULL AUTO_INCREMENT,
         building_id INT NOT NULL,
@@ -2049,6 +2205,31 @@ const SEED_FLOOR_PLANS = [
     ['3', '/floorplans/lh3-floor-3.png', 1498, 1050],
 ];
 
+// ครั้งแรกที่ตาราง admin_users ว่าง: สร้างบัญชี admin และ editor เดิมจาก environment (ใช้รหัสผ่านและโปรไฟล์ที่เคยเปลี่ยนไว้ใน admin_settings ถ้ามี)
+async function seedAdminUsers() {
+    const [[{ total }]] = await pdb.query('SELECT COUNT(*) AS total FROM admin_users');
+    if (total > 0) return;
+    const readSetting = async (key) => {
+        const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [key]);
+        return rows.length > 0 ? rows[0].setting_value : null;
+    };
+    const legacyAccounts = [
+        { username: ADMIN_USERNAME, role: 'admin', hashKey: 'admin_password_hash', defaultHash: ADMIN_PASSWORD_HASH, profileKey: 'profile_admin' },
+        { username: EDITOR_USERNAME, role: 'panorama_editor', hashKey: 'editor_password_hash', defaultHash: EDITOR_PASSWORD_HASH, profileKey: 'profile_editor' },
+    ];
+    for (const account of legacyAccounts) {
+        let profile = {};
+        try { profile = JSON.parse(await readSetting(account.profileKey) || '{}') || {}; } catch (err) { profile = {}; }
+        const text = (key) => (typeof profile[key] === 'string' ? profile[key] : '');
+        await pdb.query(
+            `INSERT IGNORE INTO admin_users (username, password_hash, role, full_name, email, phone, department, avatar)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [account.username.toLowerCase(), (await readSetting(account.hashKey)) || account.defaultHash, account.role,
+                text('full_name'), text('email'), text('phone'), text('department'), typeof profile.avatar === 'string' ? profile.avatar : null]);
+    }
+    console.log('✅ สร้างบัญชีผู้ดูแลตั้งต้นจาก environment แล้ว');
+}
+
 async function ensureDashboardSchema(attempt = 1) {
     try {
         const [existing] = await pdb.query("SHOW TABLES LIKE 'floor_plans'");
@@ -2062,6 +2243,7 @@ async function ensureDashboardSchema(attempt = 1) {
         if (coverColumn.length === 0) {
             await pdb.query('ALTER TABLE buildings ADD COLUMN cover_image VARCHAR(500) DEFAULT NULL');
         }
+        await seedAdminUsers();
         if (floorPlansIsNew) {
             for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
                 await pdb.query(

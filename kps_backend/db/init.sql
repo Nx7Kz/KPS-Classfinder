@@ -167,6 +167,25 @@ CREATE TABLE `admin_settings` (
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+DROP TABLE IF EXISTS `admin_users`;
+CREATE TABLE `admin_users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password_hash` varchar(100) NOT NULL,
+  `role` varchar(30) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'active',
+  `full_name` varchar(100) NOT NULL DEFAULT '',
+  `email` varchar(120) NOT NULL DEFAULT '',
+  `phone` varchar(40) NOT NULL DEFAULT '',
+  `department` varchar(150) NOT NULL DEFAULT '',
+  `avatar` mediumtext,
+  `last_login_at` timestamp NULL DEFAULT NULL,
+  `last_login_ip` varchar(64) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_admin_users_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
