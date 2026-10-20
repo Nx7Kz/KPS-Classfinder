@@ -1517,6 +1517,28 @@
     </div>
   </div>
 
+  <!-- ============ Modal: ดูภาพ 360° (หมุนได้) ============ -->
+  <div class="modal fade" id="panoViewModal" tabindex="-1" aria-labelledby="panoViewTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content" style="border-radius: 1rem; overflow: hidden;">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5" id="panoViewTitle">ภาพ 360°</h2>
+            <div class="small text-secondary" id="panoViewHint">ลากเพื่อหมุนภาพ • เลื่อนล้อเมาส์เพื่อซูม • คลิกจุดเชื่อมเพื่อไปยังภาพอื่น</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body p-0" style="background:#0f172a;">
+          <div id="panoViewerBox" style="width:100%; height:68vh; min-height:320px;"></div>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <a id="panoViewOriginal" href="#" target="_blank" rel="noopener" class="small">เปิดภาพต้นฉบับในแท็บใหม่</a>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ Modal: Role permissions ============ -->
   <div class="modal fade" id="roleModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -3639,7 +3661,7 @@
               <span class="material-symbols-outlined tw-text-[0.75rem] tw-text-primary">arrow_forward</span>${escapeHtml(panoramaName(target))}</span>`).join('');
         return `
         <div class="tw-bg-surface-container-lowest tw-rounded-xl ${index === 0 ? 'tw-border-2 tw-border-primary/40 tw-shadow-md' : 'tw-border tw-border-outline-variant/40 tw-shadow-sm'} tw-flex tw-flex-col tw-overflow-hidden tw-group hover:tw-border-primary/60 tw-transition-all tw-duration-200">
-          <a href="${escapeHtml(pano.image_url)}" target="_blank" rel="noopener" class="tw-relative tw-aspect-[16/9] tw-w-full tw-bg-slate-900 tw-overflow-hidden tw-block" title="เปิดดูภาพเต็ม">
+          <div role="button" tabindex="0" onclick="openPanoViewer(${Number(pano.id)})" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPanoViewer(${Number(pano.id)}); }" class="tw-relative tw-aspect-[16/9] tw-w-full tw-bg-slate-900 tw-overflow-hidden tw-block tw-cursor-pointer" title="คลิกเพื่อดูแบบ 360° (หมุนภาพได้)">
             <img src="${escapeHtml(pano.image_url)}" alt="${escapeHtml(name)}" class="tw-w-full tw-h-full tw-object-cover group-hover:tw-scale-105 tw-transition-transform tw-duration-500 tw-ease-out">
             <div class="tw-absolute tw-inset-0 tw-bg-gradient-to-t tw-from-black/80 tw-via-black/20 tw-to-black/30 tw-pointer-events-none"></div>
             <div class="tw-absolute tw-top-3 tw-left-3 tw-flex tw-flex-wrap tw-gap-1.5">
@@ -3650,8 +3672,11 @@
             <div class="tw-absolute tw-top-3 tw-right-3">
               <span class="tw-px-2 tw-py-0.5 tw-rounded-full ${pano.hotspots.length > 0 ? 'tw-bg-emerald-600/90' : 'tw-bg-slate-600/90'} tw-text-white tw-text-label-sm tw-font-label-sm tw-font-medium tw-shadow-sm">จุดเชื่อม: ${pano.hotspots.length} จุด</span>
             </div>
+            <div class="tw-absolute tw-inset-0 tw-flex tw-items-center tw-justify-center tw-opacity-0 group-hover:tw-opacity-100 tw-transition-opacity tw-duration-200 tw-pointer-events-none">
+              <span class="tw-px-3.5 tw-py-2 tw-rounded-full tw-bg-black/60 tw-text-white tw-text-label-md tw-font-semibold tw-flex tw-items-center tw-gap-1.5 tw-backdrop-blur-sm"><span class="material-symbols-outlined tw-text-[1.25rem]">360</span>คลิกเพื่อดูแบบ 360°</span>
+            </div>
             <div class="tw-absolute tw-bottom-2.5 tw-left-3 tw-right-3 tw-text-white tw-text-label-sm tw-font-medium tw-truncate">${escapeHtml(name)}</div>
-          </a>
+          </div>
           <div class="tw-p-4 tw-flex tw-flex-col tw-flex-1 tw-justify-between tw-gap-3">
             <div>
               <div class="tw-flex tw-items-center tw-justify-between">
@@ -3676,6 +3701,80 @@
         </div>`;
       });
       grid.innerHTML = cards.join('') + uploadCard;
+    }
+
+    // ============ ตัวดูภาพ 360° (Photo Sphere Viewer) ============
+    let panoViewer = null;
+    let panoViewerMarkers = null;
+    let panoViewerCurrentId = null;
+    let panoViewModal = null;
+
+    function showPanoInViewer(panoramaId) {
+      const pano = panoramas.find(item => Number(item.id) === Number(panoramaId));
+      if (!pano || !panoViewer) return Promise.resolve();
+      panoViewerCurrentId = pano.id;
+      const room = rooms.find(item => Number(item.id) === Number(pano.room_id));
+      document.getElementById('panoViewTitle').textContent = `${panoramaName(pano)}${room ? ` — ${room.room_code}` : ''}`;
+      document.getElementById('panoViewOriginal').href = pano.image_url;
+      return panoViewer.setPanorama(pano.image_url, { showLoader: true }).then(() => {
+        panoViewerMarkers.clearMarkers();
+        for (const hotspot of pano.hotspots) {
+          const target = panoramas.find(item => Number(item.id) === Number(hotspot.target_panorama_id));
+          panoViewerMarkers.addMarker({
+            id: `hotspot-${hotspot.id}`,
+            position: { yaw: `${Number(hotspot.yaw)}deg`, pitch: `${Number(hotspot.pitch)}deg` },
+            html: `<div style="width:34px;height:34px;border-radius:50%;background:#15803d;border:2px solid #fff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:${target ? 'pointer' : 'default'};">${HOTSPOT_ICONS[hotspot.icon_type] || '➜'}</div>`,
+            size: { width: 34, height: 34 },
+            anchor: 'center center',
+            tooltip: hotspot.label || (target ? `ไปที่ ${panoramaName(target)}` : ''),
+            data: { targetId: target ? target.id : null },
+          });
+        }
+      });
+    }
+
+    async function openPanoViewer(panoramaId) {
+      const pano = panoramas.find(item => Number(item.id) === Number(panoramaId));
+      if (!pano) return;
+      panoViewModal = panoViewModal || new bootstrap.Modal(document.getElementById('panoViewModal'));
+      const modalElement = document.getElementById('panoViewModal');
+      const box = document.getElementById('panoViewerBox');
+      box.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-white-50">กำลังเตรียมตัวดู 360°…</div>';
+      // สร้างตัวดูหลัง modal แสดงเต็มแล้ว เพื่อให้กล่องมีขนาดจริงก่อน (WebGL วัดขนาดตอนสร้าง)
+      modalElement.addEventListener('shown.bs.modal', async function onShown() {
+        modalElement.removeEventListener('shown.bs.modal', onShown);
+        try {
+          const [{ Viewer }, { MarkersPlugin }] = await Promise.all([
+            import('@photo-sphere-viewer/core'), import('@photo-sphere-viewer/markers-plugin'),
+          ]);
+          box.innerHTML = '';
+          panoViewer = new Viewer({
+            container: box, loadingTxt: 'กำลังโหลดภาพ…', defaultZoomLvl: 20,
+            mousewheelCtrlKey: false, touchmoveTwoFingers: false,
+            lang: { loadError: 'โหลดภาพไม่สำเร็จ', twoFingers: 'ใช้สองนิ้วเพื่อเลื่อน' },
+            rendererParameters: { antialias: false, powerPreference: 'high-performance' },
+            navbar: ['zoom', 'move', 'fullscreen'],
+            plugins: [MarkersPlugin],
+          });
+          panoViewerMarkers = panoViewer.getPlugin(MarkersPlugin);
+          panoViewerMarkers.addEventListener('select-marker', ({ marker }) => {
+            const targetId = marker.data && marker.data.targetId;
+            if (targetId) showPanoInViewer(targetId);
+          });
+          await showPanoInViewer(pano.id);
+        } catch (error) {
+          console.error('เปิดตัวดู 360° ไม่สำเร็จ:', error);
+          box.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-white-50 text-center px-3">เปิดตัวดู 360° ไม่สำเร็จ ลองรีเฟรชหน้านี้ หรือใช้ลิงก์ "เปิดภาพต้นฉบับ" ด้านล่าง</div>';
+        }
+      });
+      modalElement.addEventListener('hidden.bs.modal', function onHidden() {
+        modalElement.removeEventListener('hidden.bs.modal', onHidden);
+        if (panoViewer) { panoViewer.destroy(); panoViewer = null; panoViewerMarkers = null; }
+        document.getElementById('panoViewerBox').innerHTML = '';
+      });
+      document.getElementById('panoViewTitle').textContent = panoramaName(pano);
+      document.getElementById('panoViewOriginal').href = pano.image_url;
+      panoViewModal.show();
     }
 
     function openFirstHotspotEditor() {
