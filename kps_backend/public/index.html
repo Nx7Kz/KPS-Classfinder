@@ -172,12 +172,22 @@
 
     .app-shell { display: flex; min-height: 100vh; }
     /* editor (ผู้ดูแลรูปภาพ) เห็นเฉพาะปุ่ม/เมนูที่ทำได้จริง ส่วนที่แก้ไข/ลบข้อมูลห้อง-อาคาร-จุดเชื่อมซ่อนไว้ */
-    /* ซ่อนส่วนที่บทบาทนี้ไม่มีสิทธิ์ใช้ (can-* ถูกตั้งที่ body ตามสิทธิ์จริงจากเซิร์ฟเวอร์ตอนเข้าสู่ระบบ) */
-    body:not(.can-buildings-w) .need-buildings-w,
-    body:not(.can-floorplans-w) .need-floorplans-w,
-    body:not(.can-panoramas-w) .need-panoramas-w,
-    body:not(.can-image-w) .need-image-w,
-    body:not(.can-settings) .need-settings { display: none !important; }
+    /* ซ่อนส่วนที่บัญชีนี้ไม่มีสิทธิ์ใช้ (has-* ถูกตั้งที่ body ตามสิทธิ์จริงจากเซิร์ฟเวอร์ตอนเข้าสู่ระบบ) */
+    body:not(.has-overview-view) .need-overview-view,
+    body:not(.has-buildings-read) .need-buildings-read,
+    body:not(.has-buildings-create) .need-buildings-create,
+    body:not(.has-buildings-delete) .need-buildings-delete,
+    body:not(.has-buildings-csv) .need-buildings-csv,
+    body:not(.has-floorplans-read) .need-floorplans-read,
+    body:not(.has-floorplans-write) .need-floorplans-write,
+    body:not(.has-floorplans-delete) .need-floorplans-delete,
+    body:not(.has-panoramas-read) .need-panoramas-read,
+    body:not(.has-panoramas-upload) .need-panoramas-upload,
+    body:not(.has-panoramas-hotspots) .need-panoramas-hotspots,
+    body:not(.has-panoramas-delete) .need-panoramas-delete,
+    body:not(.has-settings-manage) .need-settings-manage,
+    body:not(.has-image-write) .need-image-write,
+    body:not(.has-logs-any) .need-logs-any { display: none !important; }
     .content-body { padding: 2rem; width: 100%; flex: 1; }
     #appSidebar button { font-family: inherit; }
 
@@ -393,22 +403,22 @@
           </div>
         </div>
         <nav aria-label="Main Navigation" class="sidebar-nav tw-flex tw-flex-col tw-gap-1.5">
-          <button type="button" data-page="overview" onclick="showPage('overview')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-colors tw-cursor-pointer">
+          <button type="button" data-page="overview" onclick="showPage('overview')" class="need-overview-view tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">bar_chart</span><span>Overview</span>
           </button>
-          <button type="button" data-page="buildings-rooms" onclick="showPage('buildings-rooms')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
+          <button type="button" data-page="buildings-rooms" onclick="showPage('buildings-rooms')" class="need-buildings-read tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">apartment</span><span>Buildings &amp; Rooms</span>
           </button>
-          <button type="button" data-page="floor-plans" onclick="showPage('floor-plans')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
+          <button type="button" data-page="floor-plans" onclick="showPage('floor-plans')" class="need-floorplans-read tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">map</span><span>Floor Plans</span>
           </button>
-          <button type="button" data-page="panoramas" onclick="showPage('panoramas')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
+          <button type="button" data-page="panoramas" onclick="showPage('panoramas')" class="need-panoramas-read tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">photo_camera</span><span>360 Panorama Editor</span>
           </button>
           <!-- ซ่อนเมนู Virtual Tour ไว้ก่อน (ยังไม่พร้อมเปิดให้ใช้จริง) หน้า page-tour และ tour/admin.js ยังอยู่ครบ
                เปิดกลับมาได้ทันทีด้วยการเอาคอมเมนต์นี้ออก -->
           <!-- <button type="button" data-page="tour" onclick="showPage('tour')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer"><span class="material-symbols-outlined tw-text-[1.25rem]">signpost</span><span>Virtual Tour</span></button> -->
-          <button type="button" data-page="logs" onclick="showPage('logs')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
+          <button type="button" data-page="logs" onclick="showPage('logs')" class="need-logs-any tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">schedule</span><span>System Logs</span>
           </button>
           <button type="button" data-page="settings" onclick="showPage('settings')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
@@ -629,7 +639,7 @@
                 <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">อาคารทั้งหมด</h3>
                 <span id="buildingCountPill" class="tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-on-surface-variant tw-font-medium">-</span>
               </div>
-              <button type="button" onclick="openCreateBuildingModal()" class="need-buildings-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm">
+              <button type="button" onclick="openCreateBuildingModal()" class="need-buildings-create tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm">
                 <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มอาคาร</span>
               </button>
             </div>
@@ -668,13 +678,13 @@
                 </div>
               </div>
               <div class="tw-flex tw-items-center tw-gap-2.5 tw-pt-2 xl:tw-pt-0 tw-self-end xl:tw-self-auto">
-                <button id="addRoomButton" type="button" onclick="openCreateModal()" disabled class="need-buildings-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <button id="addRoomButton" type="button" onclick="openCreateModal()" disabled class="need-buildings-create tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มห้องเรียน</span>
                 </button>
-                <button id="exportCsvButton" type="button" onclick="exportRoomsCsv()" title="ส่งออกห้องเรียนของทุกอาคาร" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                <button id="exportCsvButton" type="button" onclick="exportRoomsCsv()" title="ส่งออกห้องเรียนของทุกอาคาร" class="need-buildings-csv tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">download</span><span>ส่งออก CSV</span>
                 </button>
-                <button type="button" onclick="openImportCsvModal()" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                <button type="button" onclick="openImportCsvModal()" class="need-buildings-csv tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">upload</span><span>นำเข้า CSV</span>
                 </button>
               </div>
@@ -688,7 +698,7 @@
               <span id="roomCount" class="tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium tw-border tw-border-indigo-100 dark:tw-border-indigo-400/20">0 ห้อง</span>
             </div>
 
-            <div id="bulkBar" class="need-buildings-w d-none tw-justify-between tw-items-center tw-gap-2 tw-flex-wrap tw-px-6 tw-py-2.5 tw-bg-error-container/40 tw-border-b tw-border-outline-variant/20">
+            <div id="bulkBar" class="need-buildings-delete d-none tw-justify-between tw-items-center tw-gap-2 tw-flex-wrap tw-px-6 tw-py-2.5 tw-bg-error-container/40 tw-border-b tw-border-outline-variant/20">
               <span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface" id="bulkCount"></span>
               <div class="tw-flex tw-gap-2">
                 <button type="button" onclick="clearRoomSelection()" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md hover:tw-bg-surface-container-high tw-transition-colors">ยกเลิกการเลือก</button>
@@ -700,7 +710,7 @@
               <table class="tw-w-full tw-min-w-[720px] tw-text-left tw-border-collapse" style="margin:0;">
                 <thead>
                   <tr class="tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-text-label-md tw-font-label-md tw-text-outline">
-                    <th scope="col" class="need-buildings-w tw-py-3 tw-px-4 tw-w-10 tw-text-center"><input type="checkbox" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer"></th>
+                    <th scope="col" class="need-buildings-delete tw-py-3 tw-px-4 tw-w-10 tw-text-center"><input type="checkbox" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer"></th>
                     <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold">ชื่อ / รหัสห้อง</th>
                     <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold tw-text-center tw-w-28">ชั้น</th>
                     <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold">ประเภท / ความจุ</th>
@@ -731,7 +741,7 @@
               </div>
             </div>
             <div class="tw-flex tw-items-center tw-gap-3 tw-w-full md:tw-w-auto tw-justify-end">
-              <button id="fpAddButton" type="button" onclick="openFloorPlanModal()" class="need-floorplans-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+              <button id="fpAddButton" type="button" onclick="openFloorPlanModal()" class="need-floorplans-write tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                 <span class="material-symbols-outlined tw-text-[1.25rem]">add</span><span>เพิ่มแผนผังชั้นใหม่</span>
               </button>
             </div>
@@ -801,7 +811,7 @@
             </div>
             <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-6 tw-border tw-border-outline-variant/30 tw-flex tw-flex-col tw-justify-between">
               <div id="fpMatchCard"></div>
-              <div class="need-buildings-w tw-mt-4 tw-pt-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-justify-between tw-items-center tw-text-body-sm">
+              <div class="need-buildings-create tw-mt-4 tw-pt-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-justify-between tw-items-center tw-text-body-sm">
                 <span class="tw-text-outline">ต้องการปักหมุดห้อง?</span>
                 <a href="#" onclick="managePins(); return false;" class="tw-text-primary tw-font-semibold hover:tw-underline tw-flex tw-items-center tw-gap-1 tw-text-label-md tw-no-underline">
                   <span>ไปที่ Buildings &amp; Rooms</span><span class="material-symbols-outlined tw-text-[1rem]">chevron_right</span>
@@ -871,7 +881,7 @@
                 </div>
               </div>
               <div class="tw-flex tw-items-center tw-gap-2.5 tw-pt-2 lg:tw-pt-0">
-                <button id="panoUploadButton" type="button" onclick="openPanoUploadModal()" disabled class="need-panoramas-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary hover:tw-bg-primary tw-transition-colors tw-text-label-md tw-font-label-md tw-font-semibold tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <button id="panoUploadButton" type="button" onclick="openPanoUploadModal()" disabled class="need-panoramas-upload tw-appearance-none tw-border-0 tw-cursor-pointer tw-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary hover:tw-bg-primary tw-transition-colors tw-text-label-md tw-font-label-md tw-font-semibold tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">add_circle</span><span>+ เพิ่มภาพ 360°</span>
                 </button>
               </div>
@@ -903,7 +913,7 @@
                   <span id="panoLinkStatus" class="tw-px-2 tw-py-0.5 tw-rounded-full tw-bg-primary/10 tw-text-primary tw-text-label-sm tw-font-label-sm tw-font-semibold">-</span>
                 </div>
                 <div id="panoLinkMap" class="tw-my-4 tw-p-4 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-flex tw-flex-col tw-gap-3"></div>
-                <button id="panoEditorButton" type="button" onclick="openFirstHotspotEditor()" disabled class="need-panoramas-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold hover:tw-bg-primary tw-transition tw-flex tw-items-center tw-justify-center tw-gap-2 tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <button id="panoEditorButton" type="button" onclick="openFirstHotspotEditor()" disabled class="need-panoramas-hotspots tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold hover:tw-bg-primary tw-transition tw-flex tw-items-center tw-justify-center tw-gap-2 tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">open_in_full</span>เปิดตัวแก้ไขจุดเชื่อม
                 </button>
               </div>
@@ -1152,7 +1162,7 @@
             <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0">จัดการบัญชีของคุณ ความปลอดภัย และตรวจสอบสถานะระบบ KPS ClassFinder</p>
           </div>
 
-          <div id="settingsTabs" class="need-settings tw-flex tw-items-center tw-gap-6 tw-border-b tw-border-outline-variant/30 tw-mb-6 tw-overflow-x-auto tw-text-label-md tw-font-label-md">
+          <div id="settingsTabs" class="need-settings-manage tw-flex tw-items-center tw-gap-6 tw-border-b tw-border-outline-variant/30 tw-mb-6 tw-overflow-x-auto tw-text-label-md tw-font-label-md">
             <button type="button" data-settings-tab="profile" onclick="showSettingsTab('profile')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-text-primary-container tw-font-semibold tw-border-primary-container">โปรไฟล์และบัญชี</button>
             <button type="button" data-settings-tab="admins" onclick="showSettingsTab('admins')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">shield_person</span>ผู้ดูแลและสิทธิ์การใช้งาน (Admin &amp; Roles)</button>
           </div>
@@ -1316,7 +1326,7 @@
             </div>
           </div>
 
-          <div class="need-settings tw-mt-8 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-p-6 tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
+          <div class="need-settings-manage tw-mt-8 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-p-6 tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
             <div class="tw-flex tw-items-start tw-gap-3.5">
               <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-tertiary-fixed tw-text-tertiary tw-flex tw-items-center tw-justify-center tw-flex-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">database</span></div>
               <div>
@@ -1330,7 +1340,7 @@
           </div><!-- /settingsTabProfile -->
 
           <!-- ============ Settings tab: Admin & Roles (ตามดีไซน์ code.html) ============ -->
-          <div id="settingsTabAdmins" class="need-settings d-none">
+          <div id="settingsTabAdmins" class="need-settings-manage d-none">
             <div class="tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-center tw-justify-between tw-gap-4 tw-mb-6">
               <div>
                 <div class="tw-flex tw-items-center tw-gap-2.5 tw-flex-wrap">
@@ -1409,9 +1419,12 @@
               <div class="tw-flex tw-flex-col sm:tw-flex-row sm:tw-items-center tw-justify-between tw-gap-2">
                 <div>
                   <h4 class="tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-m-0 tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-primary-container">security_update_good</span><span>บทบาทและสิทธิ์การเข้าถึง (Roles &amp; Permissions)</span></h4>
-                  <p class="tw-text-body-sm tw-text-on-surface-variant tw-mt-1 tw-mb-0">สิทธิ์ของแต่ละบทบาทแยกรายโมดูล กำหนดไว้ในระบบ (แก้ผ่านหน้านี้ไม่ได้) ใช้เลือกบทบาทตอนเพิ่มหรือแก้ไขบัญชี</p>
+                  <p class="tw-text-body-sm tw-text-on-surface-variant tw-mt-1 tw-mb-0">สิทธิ์ของแต่ละบทบาทแยกรายโมดูล กด &quot;แก้ไขสิทธิ์&quot; ที่การ์ดบทบาทเพื่อติ๊กเลือกสิทธิ์ย่อย หรือสร้างบทบาทใหม่ของหน่วยงานเอง</p>
                 </div>
-                <div id="roleMatrixFilter" class="tw-inline-flex tw-flex-wrap tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-p-1 tw-text-label-sm tw-gap-1"></div>
+                <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-3">
+                  <div id="roleMatrixFilter" class="tw-inline-flex tw-flex-wrap tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-p-1 tw-text-label-sm tw-gap-1"></div>
+                  <button type="button" onclick="openRoleModal()" class="tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-surface-container-lowest tw-border tw-border-outline-variant tw-text-on-surface tw-text-label-md tw-font-medium hover:tw-bg-surface-container-low tw-transition-all active:tw-scale-[0.98]"><span class="material-symbols-outlined tw-text-[1.125rem]">add_moderator</span><span>สร้างบทบาทใหม่ (Custom Role)</span></button>
+                </div>
               </div>
               <div id="roleCards" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 xl:tw-grid-cols-4 tw-gap-4"></div>
               <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden">
@@ -1501,6 +1514,13 @@
           <button id="userSaveButton" type="submit" class="btn btn-primary">บันทึก</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: Role permissions ============ -->
+  <div class="modal fade" id="roleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content" id="roleModalContent" style="border-radius: 1rem; overflow: hidden;"></div>
     </div>
   </div>
 
@@ -1637,7 +1657,7 @@
         </div>
         <div class="modal-body">
           <input id="buildingId" type="hidden">
-          <div class="need-buildings-w">
+          <div class="need-buildings-create">
             <div class="mb-3">
               <label for="buildingCode" class="form-label">รหัสอาคาร</label>
               <input id="buildingCode" class="form-control" required maxlength="20" placeholder="เช่น LH3">
@@ -1656,7 +1676,7 @@
             </div>
           </div>
           <!-- รูปปกอาคาร: อัปโหลด/ลบได้ทันที (ไม่ต้องกดบันทึก) แสดงบนการ์ดอาคารในแอป -->
-          <div id="buildingCoverSection" class="need-image-w border-top pt-3 d-none">
+          <div id="buildingCoverSection" class="need-image-write border-top pt-3 d-none">
             <div class="form-label mb-1">รูปปกอาคาร <span class="text-secondary small">(แสดงบนการ์ดอาคารในแอป)</span></div>
             <div class="rounded border bg-light overflow-hidden mb-2" style="aspect-ratio: 16 / 7;">
               <img id="buildingCoverPreview" alt="รูปปกอาคาร" class="w-100 h-100 d-none" style="object-fit: cover;">
@@ -1672,11 +1692,11 @@
             </div>
             <div class="form-text">PNG, JPG หรือ WebP ไม่เกิน 10 MB แนะนำรูปแนวนอน (เช่น ภาพถ่ายด้านหน้าอาคาร)</div>
           </div>
-          <div id="buildingCoverHint" class="need-image-w form-text">บันทึกอาคารก่อน แล้วกด "แก้ไข" เพื่อเพิ่มรูปปก</div>
+          <div id="buildingCoverHint" class="need-image-write form-text">บันทึกอาคารก่อน แล้วกด "แก้ไข" เพื่อเพิ่มรูปปก</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button id="saveBuildingButton" type="submit" class="btn btn-primary need-buildings-w">บันทึก</button>
+          <button id="saveBuildingButton" type="submit" class="btn btn-primary need-buildings-create">บันทึก</button>
         </div>
       </form>
     </div>
@@ -2063,7 +2083,7 @@
       document.getElementById('loginSection').classList.add('d-none');
       document.getElementById('dashboardSection').classList.remove('d-none');
       document.getElementById('dashboardSection').classList.add('d-flex');
-      showPage('overview');
+      showPage(landingPage());
     }
 
     // ตัวเลขหน้าเข้าสู่ระบบ: อ่านจาก API สาธารณะ (ไม่ต้องล็อกอิน) และบอกสถานะเซิร์ฟเวอร์จริงจากผลการเรียก
@@ -2094,19 +2114,23 @@
 
     let currentRole = null;
     let currentRoleLabel = '';
-    let currentPerms = {};
+    let currentPerms = new Set();
+    let appliedPermClasses = [];
 
-    // ซ่อนปุ่ม/เมนูที่บทบาทนี้ไม่มีสิทธิ์ (เป็นแค่ความสะดวกของหน้าจอ — เซิร์ฟเวอร์ตรวจสิทธิ์จริงทุก API)
+    function can(permission) {
+      return currentPerms.has(permission);
+    }
+
+    // ซ่อนปุ่ม/เมนูที่บัญชีนี้ไม่มีสิทธิ์ (เป็นแค่ความสะดวกของหน้าจอ — เซิร์ฟเวอร์ตรวจสิทธิ์จริงทุก API)
     function applyRole(session) {
       currentRole = session.role;
       currentRoleLabel = session.role_label || '';
-      currentPerms = session.permissions || {};
-      const writes = key => currentPerms[key] === 'write';
-      document.body.classList.toggle('can-buildings-w', writes('buildings'));
-      document.body.classList.toggle('can-floorplans-w', writes('floorplans'));
-      document.body.classList.toggle('can-panoramas-w', writes('panoramas'));
-      document.body.classList.toggle('can-image-w', writes('buildings') || writes('floorplans') || writes('panoramas'));
-      document.body.classList.toggle('can-settings', writes('settings'));
+      currentPerms = new Set(session.permissions || []);
+      document.body.classList.remove(...appliedPermClasses);
+      appliedPermClasses = [...currentPerms].map(key => `has-${key.replace('.', '-')}`);
+      if (can('buildings.create') || can('floorplans.write') || can('panoramas.upload')) appliedPermClasses.push('has-image-write');
+      if (can('logs.own') || can('logs.all')) appliedPermClasses.push('has-logs-any');
+      document.body.classList.add(...appliedPermClasses);
       document.getElementById('settingsUsername').textContent = session.username || '';
       const badge = document.getElementById('settingsRoleBadge');
       if (badge) badge.textContent = currentRoleLabel;
@@ -2117,6 +2141,16 @@
       document.getElementById('profileRole').textContent = currentRoleLabel;
       loadHealth();
       loadProfile();
+    }
+
+    // หน้าแรกหลังเข้าสู่ระบบ: หน้าแรกที่บัญชีนี้มีสิทธิ์เข้า
+    function landingPage() {
+      if (can('overview.view')) return 'overview';
+      if (can('buildings.read')) return 'buildings-rooms';
+      if (can('floorplans.read')) return 'floor-plans';
+      if (can('panoramas.read')) return 'panoramas';
+      if (can('logs.own') || can('logs.all')) return 'logs';
+      return 'settings';
     }
 
     // สถานะระบบบนแถบบน: เช็กจริงจาก /api/admin/health (ฐานข้อมูล + โฟลเดอร์เก็บรูป) และจุดแดงที่กระดิ่ง = มีล็อกอินไม่สำเร็จใน 24 ชม.
@@ -2423,8 +2457,8 @@
           <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.room_count)} ห้อง</td>
           <td class="tw-py-4 tw-px-6 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-2">
-              <button type="button" onclick="openEditBuildingModal(${Number(building.id)})" class="need-image-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
-              <button type="button" onclick="deleteBuilding(${Number(building.id)})" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+              <button type="button" onclick="openEditBuildingModal(${Number(building.id)})" class="need-image-write tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
+              <button type="button" onclick="deleteBuilding(${Number(building.id)})" class="need-buildings-delete tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
             </div>
           </td>
         </tr>`).join('');
@@ -2708,7 +2742,7 @@
         const isSelected = selectedRoomIds.has(Number(room.id));
         return `
         <tr class="hover:tw-bg-surface-container-low tw-transition-colors ${isSelected ? 'tw-bg-primary/5' : ''}">
-          <td class="need-buildings-w tw-py-3.5 tw-px-4 tw-text-center"><input type="checkbox" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
+          <td class="need-buildings-delete tw-py-3.5 tw-px-4 tw-text-center"><input type="checkbox" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
           <td class="tw-py-3.5 tw-px-4 tw-font-semibold tw-text-on-surface">${escapeHtml(room.room_code || '-')}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center"><span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
           <td class="tw-py-3.5 tw-px-4 tw-text-on-surface-variant">${typeCapacity}</td>
@@ -2716,8 +2750,8 @@
           <td class="tw-py-3.5 tw-px-4 tw-text-center">${pinBadge}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-1.5">
-              <button type="button" onclick="openEditModal(${Number(room.id)})" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
-              <button type="button" onclick="deleteRoom(${Number(room.id)})" class="need-buildings-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+              <button type="button" onclick="openEditModal(${Number(room.id)})" class="need-buildings-create tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
+              <button type="button" onclick="deleteRoom(${Number(room.id)})" class="need-buildings-delete tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
             </div>
           </td>
         </tr>`;
@@ -3279,14 +3313,14 @@
           <div class="tw-p-4 tw-pt-0">
             <div class="tw-flex tw-items-center tw-justify-between tw-gap-2 tw-border-t tw-border-outline-variant/20 tw-pt-3">
               <div class="tw-flex tw-items-center tw-gap-1.5">
-                <button type="button" onclick="openFloorPlanModal(${Number(plan.id)})" class="need-floorplans-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">เปลี่ยนรูป</button>
+                <button type="button" onclick="openFloorPlanModal(${Number(plan.id)})" class="need-floorplans-write tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">เปลี่ยนรูป</button>
                 <a href="${escapeHtml(plan.image_url)}" target="_blank" rel="noopener" class="tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors tw-no-underline">ดูรูปเต็ม</a>
               </div>
               <div class="tw-flex tw-items-center tw-gap-2">
-                <button type="button" onclick="deleteFloorPlan(${Number(plan.id)})" title="ลบแผนผังชั้น ${escapeHtml(plan.floor)}" class="need-floorplans-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors active:tw-scale-95 tw-flex tw-items-center">
+                <button type="button" onclick="deleteFloorPlan(${Number(plan.id)})" title="ลบแผนผังชั้น ${escapeHtml(plan.floor)}" class="need-floorplans-delete tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors active:tw-scale-95 tw-flex tw-items-center">
                   <span class="material-symbols-outlined tw-text-[1.125rem]">delete</span>
                 </button>
-                <button type="button" onclick="managePins()" class="need-buildings-w tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1 tw-px-3 tw-py-1.5 tw-rounded-md tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity active:tw-scale-95">
+                <button type="button" onclick="managePins()" class="need-buildings-create tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1 tw-px-3 tw-py-1.5 tw-rounded-md tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity active:tw-scale-95">
                   <span class="material-symbols-outlined tw-text-[1rem]">pin_drop</span><span>จัดการหมุด</span>
                 </button>
               </div>
@@ -3296,7 +3330,7 @@
       });
 
       const addCard = `
-        <article onclick="openFloorPlanModal()" class="need-floorplans-w tw-border-2 tw-border-dashed tw-border-outline-variant/60 hover:tw-border-primary tw-rounded-xl tw-bg-surface-container-low/30 hover:tw-bg-surface-container-low/60 tw-transition-all tw-p-6 tw-flex tw-flex-col tw-items-center tw-justify-center tw-text-center tw-group tw-cursor-pointer tw-min-h-[380px]">
+        <article onclick="openFloorPlanModal()" class="need-floorplans-write tw-border-2 tw-border-dashed tw-border-outline-variant/60 hover:tw-border-primary tw-rounded-xl tw-bg-surface-container-low/30 hover:tw-bg-surface-container-low/60 tw-transition-all tw-p-6 tw-flex tw-flex-col tw-items-center tw-justify-center tw-text-center tw-group tw-cursor-pointer tw-min-h-[380px]">
           <div class="tw-w-16 tw-h-16 tw-rounded-full tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-mb-4 group-hover:tw-scale-110 tw-transition-transform">
             <span class="material-symbols-outlined tw-text-3xl">cloud_upload</span>
           </div>
@@ -3586,7 +3620,7 @@
       renderPanoLinkMap();
 
       const uploadCard = `
-        <div onclick="openPanoUploadModal()" class="need-panoramas-w tw-border-2 tw-border-dashed tw-border-outline-variant/70 hover:tw-border-primary-container tw-bg-surface-container-low/40 hover:tw-bg-primary-container/5 tw-rounded-xl tw-flex tw-flex-col tw-items-center tw-justify-center tw-p-8 tw-text-center tw-transition-all tw-cursor-pointer tw-group tw-min-h-[300px]">
+        <div onclick="openPanoUploadModal()" class="need-panoramas-upload tw-border-2 tw-border-dashed tw-border-outline-variant/70 hover:tw-border-primary-container tw-bg-surface-container-low/40 hover:tw-bg-primary-container/5 tw-rounded-xl tw-flex tw-flex-col tw-items-center tw-justify-center tw-p-8 tw-text-center tw-transition-all tw-cursor-pointer tw-group tw-min-h-[300px]">
           <div class="tw-w-16 tw-h-16 tw-rounded-full tw-bg-surface-container tw-flex tw-items-center tw-justify-center tw-text-primary group-hover:tw-scale-110 tw-transition-all tw-shadow-sm">
             <span class="material-symbols-outlined tw-text-[2rem]">add_a_photo</span>
           </div>
@@ -3632,11 +3666,11 @@
             </div>
             <div class="tw-flex tw-items-center tw-justify-between tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-mt-1">
               <div class="tw-flex tw-items-center tw-gap-1.5">
-                <button type="button" onclick="openHotspotEditor(${Number(pano.id)})" class="need-panoramas-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-primary-container tw-text-primary-container hover:tw-bg-primary-container/10 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1.5 active:tw-scale-95">
+                <button type="button" onclick="openHotspotEditor(${Number(pano.id)})" class="need-panoramas-hotspots tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-primary-container tw-text-primary-container hover:tw-bg-primary-container/10 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1.5 active:tw-scale-95">
                   <span class="material-symbols-outlined tw-text-[1rem]">point_scan</span>จัดการจุดเชื่อม</button>
-                <button type="button" onclick="openPanoUploadModal(${Number(pano.id)})" class="need-panoramas-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant tw-text-on-surface-variant hover:tw-bg-surface-container tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">แก้ไข</button>
+                <button type="button" onclick="openPanoUploadModal(${Number(pano.id)})" class="need-panoramas-upload tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant tw-text-on-surface-variant hover:tw-bg-surface-container tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">แก้ไข</button>
               </div>
-              <button type="button" onclick="deletePanorama(${Number(pano.id)})" title="ลบภาพนี้" class="need-panoramas-w tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">ลบ</button>
+              <button type="button" onclick="deletePanorama(${Number(pano.id)})" title="ลบภาพนี้" class="need-panoramas-delete tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">ลบ</button>
             </div>
           </div>
         </div>`;
@@ -4067,7 +4101,7 @@
         document.getElementById('logTotal').textContent = `${data.total.toLocaleString('th-TH')} รายการ`;
         document.getElementById('logRangeText').innerHTML = `แสดง <span class="tw-font-semibold tw-text-on-surface">${from}</span> ถึง <span class="tw-font-semibold tw-text-on-surface">${to}</span> จากทั้งหมด <span class="tw-font-semibold tw-text-on-surface">${data.total.toLocaleString('th-TH')}</span> รายการ`;
         renderLogPager(data.total);
-        if (currentPerms.logs !== 'all') {
+        if (!can('logs.all')) {
           document.getElementById('logPolicyText').textContent = 'บัญชีนี้เห็นเฉพาะบันทึกกิจกรรมของตัวเอง ส่วนบันทึกของบัญชีอื่นดูได้เฉพาะผู้ดูแลระบบ';
         }
       } catch (error) {
@@ -4077,18 +4111,20 @@
 
     // ============ Settings ============
     // ข้อความสิทธิ์ของบัญชีที่ล็อกอินอยู่ สร้างจากสิทธิ์จริงที่เซิร์ฟเวอร์ส่งมา
-    function permissionSummary(perms) {
-      const texts = {
-        overview: { read: 'ดูภาพรวมและสถิติของระบบ', write: 'ดูภาพรวมและสถิติของระบบ' },
-        buildings: { read: 'ดูข้อมูลอาคารและห้องเรียน (อ่านอย่างเดียว)', write: 'จัดการอาคาร ห้องเรียน การปักหมุด และนำเข้า/ส่งออก CSV' },
-        floorplans: { read: 'ดูแผนผังชั้น (อ่านอย่างเดียว)', write: 'อัปโหลด เปลี่ยน และลบรูปแผนผังชั้น' },
-        panoramas: { read: 'ดูภาพ 360° และจุดเชื่อม (อ่านอย่างเดียว)', write: 'จัดการภาพ 360° จุดเชื่อม และเส้นทางเดินชม' },
-        logs: { own: 'ดูบันทึกกิจกรรมของบัญชีตัวเอง', all: 'ดูและส่งออกบันทึกกิจกรรมของทุกบัญชี' },
-        settings: { write: 'จัดการบัญชีผู้ดูแลและสิทธิ์การใช้งาน' },
-      };
-      const items = Object.entries(texts).map(([key, byLevel]) => byLevel[perms[key]]).filter(Boolean);
-      items.push('แก้ไขโปรไฟล์และเปลี่ยนรหัสผ่านของตัวเอง');
-      return [...new Set(items)];
+    function permissionSummary() {
+      const items = [
+        ['overview.view', 'ดูภาพรวมและสถิติของระบบ'],
+        ['buildings.read', 'ดูข้อมูลอาคารและห้องเรียน'], ['buildings.create', 'เพิ่ม/แก้ไขอาคาร ห้องเรียน และปักหมุดพิกัด'],
+        ['buildings.delete', 'ลบอาคารและห้องเรียน'], ['buildings.csv', 'นำเข้า/ส่งออกข้อมูลห้องด้วย CSV'],
+        ['floorplans.read', 'ดูแผนผังชั้น'], ['floorplans.write', 'อัปโหลดและเปลี่ยนรูปแผนผังชั้น'], ['floorplans.delete', 'ลบรูปแผนผังชั้น'],
+        ['panoramas.read', 'ดูภาพ 360° และจุดเชื่อม'], ['panoramas.upload', 'อัปโหลดภาพ 360°'],
+        ['panoramas.hotspots', 'แก้ไขจุดเชื่อม (Hotspots) และเส้นทางเดินชม'], ['panoramas.delete', 'ลบภาพ 360°'],
+        ['logs.own', 'ดูบันทึกกิจกรรมของบัญชีตัวเอง'], ['logs.all', 'ดูและส่งออกบันทึกกิจกรรมของทุกบัญชี'],
+        ['settings.manage', 'จัดการบัญชีผู้ดูแลและสิทธิ์บทบาท'],
+      ];
+      const texts = items.filter(([key]) => can(key)).map(([, text]) => text);
+      texts.push('แก้ไขโปรไฟล์และเปลี่ยนรหัสผ่านของตัวเอง');
+      return texts;
     }
 
     function togglePasswordVisibility(inputId, button) {
@@ -4128,7 +4164,7 @@
       showSettingsTab('profile');
       const username = document.getElementById('settingsUsername').textContent || '';
       loadProfile();
-      document.getElementById('settingsPermissions').innerHTML = permissionSummary(currentPerms).map(text => `
+      document.getElementById('settingsPermissions').innerHTML = permissionSummary().map(text => `
         <li class="tw-flex tw-items-start tw-gap-2 tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-text-body-sm tw-text-on-surface-variant">
           <span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem] tw-shrink-0">check_circle</span><span>${escapeHtml(text)}</span>
         </li>`).join('');
@@ -4276,7 +4312,7 @@
     const SETTINGS_TABS = { profile: 'settingsTabProfile', admins: 'settingsTabAdmins' };
 
     function showSettingsTab(name) {
-      if (name === 'admins' && !document.body.classList.contains('can-settings')) name = 'profile';
+      if (name === 'admins' && !can('settings.manage')) name = 'profile';
       for (const [key, elementId] of Object.entries(SETTINGS_TABS)) {
         document.getElementById(elementId).classList.toggle('d-none', key !== name);
       }
@@ -4295,13 +4331,14 @@
       panorama_editor: { badge: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant', avatar: 'tw-bg-tertiary-container tw-text-on-tertiary-container', icon: '360' },
       auditor: { badge: 'tw-bg-surface-container-high tw-text-on-surface-variant', avatar: 'tw-bg-outline tw-text-on-primary', icon: 'visibility' },
     };
-    const FALLBACK_ROLE_STYLE = ROLE_STYLES.auditor;
+    const FALLBACK_ROLE_STYLE = { badge: 'tw-bg-secondary-fixed tw-text-on-secondary-fixed-variant', avatar: 'tw-bg-secondary-container tw-text-on-secondary-container', icon: 'badge' };
 
     let adminUsers = [];
     let rolesInfo = { modules: [], roles: [] };
     let matrixRoleFilter = '';
     let userModal = null;
     let resetPasswordModal = null;
+    let roleModal = null;
 
     function userInitials(user) {
       return (user.full_name || user.username).replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '??';
@@ -4414,42 +4451,50 @@
       return rolesInfo.roles.find(role => role.key === key)?.label || key;
     }
 
-    const PERMISSION_LEVEL_STYLES = {
-      write: { text: 'R / W / D', cls: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' },
-      read: { text: 'Read Only', cls: 'tw-bg-surface-container-high tw-text-on-surface-variant' },
-      own: { text: 'เฉพาะของตนเอง', cls: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant' },
-      all: { text: 'ดูทั้งหมด + Export', cls: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' },
-    };
+    // ป้ายสรุปสิทธิ์ของบทบาทในแต่ละโมดูล (ตารางสิทธิ์ด้านล่าง) สร้างจากสิทธิ์ย่อยจริง
+    const PERMISSION_SHORT = { read: 'R', view: 'R', create: 'W', write: 'W', upload: 'W', hotspots: 'Hotspot', delete: 'D', csv: 'CSV' };
+    const READ_ONLY_PATTERN = /\.(read|view)$/;
 
-    function permissionCellHtml(level) {
-      const style = PERMISSION_LEVEL_STYLES[level];
-      return style
-        ? `<span class="tw-inline-flex tw-items-center tw-px-2 tw-py-0.5 tw-rounded tw-text-label-sm tw-font-semibold ${style.cls}">${style.text}</span>`
-        : '<span class="tw-text-outline-variant">—</span>';
+    function permissionCellHtml(role, module) {
+      const owned = module.permissions.map(permission => permission.key).filter(key => role.permissions.includes(key));
+      const chip = (text, cls) => `<span class="tw-inline-flex tw-items-center tw-px-2 tw-py-0.5 tw-rounded tw-text-label-sm tw-font-semibold ${cls}">${escapeHtml(text)}</span>`;
+      if (owned.length === 0) return '<span class="tw-text-outline-variant">—</span>';
+      if (module.key === 'logs') {
+        return owned.includes('logs.all')
+          ? chip('ดูทั้งหมด + Export', 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant')
+          : chip('เฉพาะของตนเอง', 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant');
+      }
+      if (owned.every(key => READ_ONLY_PATTERN.test(key))) return chip('Read Only', 'tw-bg-surface-container-high tw-text-on-surface-variant');
+      const letters = [...new Set(owned.map(key => PERMISSION_SHORT[key.split('.')[1]] || key))];
+      return chip(letters.join(' / '), 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant');
     }
 
     function renderRoleCards() {
       document.getElementById('roleCards').innerHTML = rolesInfo.roles.map(role => {
         const style = ROLE_STYLES[role.key] || FALLBACK_ROLE_STYLE;
-        const levels = Object.values(role.perms);
-        const accessible = levels.filter(level => level !== 'none').length;
-        const writable = levels.filter(level => level === 'write').length;
+        const accessible = rolesInfo.modules.filter(module => module.permissions.some(permission => role.permissions.includes(permission.key)));
+        const editable = accessible.filter(module => module.permissions.some(permission =>
+          role.permissions.includes(permission.key) && !READ_ONLY_PATTERN.test(permission.key) && permission.key !== 'logs.own' && permission.key !== 'logs.all'));
         return `
-        <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border ${role.key === 'admin' ? 'tw-border-2 tw-border-primary-container/40' : 'tw-border-outline-variant/30'} tw-shadow-sm">
+        <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border ${role.key === 'admin' ? 'tw-border-2 tw-border-primary-container/40' : 'tw-border-outline-variant/30'} tw-shadow-sm tw-flex tw-flex-col">
           <div class="tw-flex tw-items-center tw-gap-3 tw-mb-3">
             <div class="tw-w-10 tw-h-10 tw-rounded-lg ${style.badge} tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">${style.icon}</span></div>
-            <div><h5 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">${escapeHtml(role.label)}</h5>
+            <div class="tw-min-w-0"><h5 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">${escapeHtml(role.label)}</h5>
               <span class="tw-text-label-sm tw-text-on-surface-variant">${escapeHtml(role.label_th)} (${Number(role.user_count)} บัญชี)</span></div>
           </div>
-          <p class="tw-text-body-sm tw-text-on-surface-variant tw-mb-4 tw-mt-0">${escapeHtml(role.description)}</p>
-          <div class="tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-label-sm tw-font-semibold tw-text-on-surface">${accessible} / ${levels.length} โมดูล • แก้ไขได้ ${writable} โมดูล</div>
+          <p class="tw-text-body-sm tw-text-on-surface-variant tw-mb-4 tw-mt-0 tw-flex-1">${escapeHtml(role.description)}</p>
+          <div class="tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-flex tw-items-center tw-justify-between tw-gap-2">
+            <span class="tw-text-label-sm tw-font-semibold tw-text-on-surface">${accessible.length} / ${rolesInfo.modules.length} โมดูล • แก้ไขได้ ${editable.length}</span>
+            <button type="button" onclick="openRoleModal('${escapeHtml(role.key)}')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-0 tw-text-label-sm tw-font-semibold tw-text-primary hover:tw-underline tw-flex tw-items-center tw-gap-1">
+              <span class="material-symbols-outlined tw-text-[1rem]">${role.locked ? 'visibility' : 'tune'}</span>${role.locked ? 'ดูสิทธิ์' : 'แก้ไขสิทธิ์'}</button>
+          </div>
         </div>`;
       }).join('');
 
       const filter = document.getElementById('roleMatrixFilter');
       const options = [['', `ทั้งหมด (${rolesInfo.roles.length})`], ...rolesInfo.roles.map(role => [role.key, role.label.split(' ')[0]])];
       filter.innerHTML = options.map(([key, label]) => `
-        <button type="button" onclick="setMatrixRoleFilter('${key}')" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${key === matrixRoleFilter ? 'tw-bg-primary-container tw-text-on-primary tw-font-semibold' : 'tw-bg-transparent tw-text-on-surface-variant hover:tw-text-on-surface'}">${escapeHtml(label)}</button>`).join('');
+        <button type="button" onclick="setMatrixRoleFilter('${escapeHtml(key)}')" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${key === matrixRoleFilter ? 'tw-bg-primary-container tw-text-on-primary tw-font-semibold' : 'tw-bg-transparent tw-text-on-surface-variant hover:tw-text-on-surface'}">${escapeHtml(label)}</button>`).join('');
     }
 
     function setMatrixRoleFilter(key) {
@@ -4467,8 +4512,219 @@
         <tbody class="tw-divide-y tw-divide-outline-variant/20">${rolesInfo.modules.map(module => `
           <tr class="hover:tw-bg-surface-container-low/60 tw-transition-colors">
             <td class="tw-py-3 tw-px-4"><div class="tw-font-medium tw-text-on-surface">${escapeHtml(module.label)}</div><div class="tw-text-body-sm tw-text-outline">${escapeHtml(module.description)}</div></td>
-            ${roles.map(role => `<td class="tw-py-3 tw-px-4 tw-text-center">${permissionCellHtml(role.perms[module.key])}</td>`).join('')}
+            ${roles.map(role => `<td class="tw-py-3 tw-px-4 tw-text-center">${permissionCellHtml(role, module)}</td>`).join('')}
           </tr>`).join('')}</tbody>`;
+    }
+
+    // ============ หน้าต่างแก้ไขและกำหนดสิทธิ์บทบาท ============
+    let roleDraft = null;
+    const roleInputClass = 'tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/60 tw-bg-surface-container-lowest tw-px-3 tw-py-2 tw-text-body-md tw-text-on-surface focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-outline-none';
+
+    function allPermissionDefs() {
+      return rolesInfo.modules.flatMap(module => module.permissions);
+    }
+
+    function setRolePermission(key, on) {
+      if (on) {
+        roleDraft.perms.add(key);
+        for (const required of allPermissionDefs().find(permission => permission.key === key)?.requires || []) setRolePermission(required, true);
+      } else {
+        roleDraft.perms.delete(key);
+        for (const permission of allPermissionDefs()) {
+          if ((permission.requires || []).includes(key)) setRolePermission(permission.key, false);
+        }
+      }
+    }
+
+    function onRolePermissionChange(key, checked) {
+      setRolePermission(key, checked);
+      renderRolePermissionSection();
+    }
+
+    function rolePresetSets() {
+      const grantable = allPermissionDefs().filter(permission => !permission.locked).map(permission => permission.key);
+      const presets = {
+        full: grantable,
+        readonly: grantable.filter(key => READ_ONLY_PATTERN.test(key) || key === 'logs.own'),
+      };
+      if (roleDraft.defaults) presets.default = roleDraft.defaults;
+      return presets;
+    }
+
+    function applyRolePreset(name) {
+      const set = rolePresetSets()[name];
+      if (!set || roleDraft.locked) return;
+      roleDraft.perms = new Set(set);
+      renderRolePermissionSection();
+    }
+
+    function sameSet(list, set) {
+      return list.length === set.size && list.every(key => set.has(key));
+    }
+
+    function renderRolePermissionSection() {
+      const presets = rolePresetSets();
+      const matched = Object.keys(presets).find(name => sameSet(presets[name], roleDraft.perms)) || 'custom';
+      const presetButton = (name, icon, label) => {
+        const active = matched === name;
+        const disabled = roleDraft.locked || (name !== 'custom' && !presets[name]);
+        return `<button type="button" ${disabled ? 'disabled' : ''} onclick="applyRolePreset('${name}')" class="tw-appearance-none tw-cursor-pointer tw-px-3 tw-py-2 tw-rounded-lg ${active ? 'tw-border-2 tw-border-primary tw-bg-primary/5 tw-text-primary tw-font-semibold' : 'tw-border tw-border-outline-variant tw-bg-transparent tw-text-on-surface-variant tw-font-medium hover:tw-bg-surface-container-low'} tw-text-label-md tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-transition-colors disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+          <span class="material-symbols-outlined tw-text-[1rem]">${icon}</span><span>${label}</span></button>`;
+      };
+      document.getElementById('rolePresets').innerHTML =
+        presetButton('custom', 'tune', 'กำหนดเอง (Custom)') + presetButton('full', 'verified_user', 'สิทธิ์เต็ม (Full Access)')
+        + presetButton('readonly', 'visibility', 'อ่านอย่างเดียว') + presetButton('default', 'restart_alt', 'รีเซ็ตเป็นค่าเริ่มต้น');
+
+      document.getElementById('rolePermMatrix').innerHTML = rolesInfo.modules.map(module => {
+        const boxes = module.permissions.map(permission => {
+          if (permission.locked) {
+            return '<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3 tw-py-1.5 tw-rounded-lg tw-bg-surface-container tw-text-outline tw-text-label-md"><span class="material-symbols-outlined tw-text-[1rem]">lock</span>จำกัดเฉพาะ Super Admin เท่านั้น</span>';
+          }
+          const checked = roleDraft.perms.has(permission.key);
+          const danger = Boolean(permission.danger);
+          return `<label class="tw-inline-flex tw-items-center tw-gap-2 tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border ${danger ? 'tw-bg-error-container/20 tw-border-error/30 tw-text-error' : 'tw-bg-surface-container-low tw-border-outline-variant/30 tw-text-on-surface'} ${roleDraft.locked ? 'tw-opacity-70' : 'tw-cursor-pointer'} tw-select-none">
+            <input type="checkbox" ${checked ? 'checked' : ''} ${roleDraft.locked ? 'disabled' : ''} onchange="onRolePermissionChange('${permission.key}', this.checked)" class="tw-h-4 tw-w-4 ${danger ? 'tw-accent-error' : 'tw-accent-primary-container'}">
+            <span class="tw-text-label-md tw-font-label-md ${danger ? 'tw-font-medium' : ''}">${escapeHtml(permission.label)}</span>${danger ? '<span class="material-symbols-outlined tw-text-[0.875rem]">warning</span>' : ''}</label>`;
+        }).join('');
+        return `
+        <div class="tw-p-4 tw-bg-surface-container-lowest tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-center tw-justify-between tw-gap-3">
+          <div class="tw-flex tw-items-center tw-gap-3 lg:tw-w-[22rem] tw-shrink-0">
+            <div class="tw-w-9 tw-h-9 tw-rounded-lg tw-bg-primary-fixed/60 tw-text-on-primary-fixed tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.25rem]">${module.icon}</span></div>
+            <div><h4 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">${escapeHtml(module.label)}</h4><p class="tw-text-body-sm tw-text-outline tw-m-0">${escapeHtml(module.description)}</p></div>
+          </div>
+          <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-3">${boxes}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function openRoleModal(key) {
+      const role = key ? rolesInfo.roles.find(item => item.key === key) : null;
+      if (key && !role) return;
+      roleDraft = {
+        key: role ? role.key : '', isNew: !role, locked: Boolean(role && role.locked), isSystem: Boolean(role && role.is_system),
+        perms: new Set(role ? role.permissions : ['overview.view']), defaults: role ? role.default_permissions : null,
+      };
+      const members = role ? adminUsers.filter(user => user.role === role.key) : [];
+      const avatars = members.slice(0, 4).map(user => userAvatarHtml(user, 'tw-h-7 tw-w-7 tw-ring-2 tw-ring-surface-container-lowest')).join('');
+      const label = role ? role.label : '';
+      document.getElementById('roleModalContent').innerHTML = `
+        <div class="tw-px-6 tw-py-5 tw-border-b tw-border-outline-variant/20 tw-flex tw-items-start tw-justify-between tw-gap-3">
+          <div class="tw-flex tw-items-start tw-gap-3.5">
+            <div class="tw-w-11 tw-h-11 tw-rounded-xl tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.5rem]">admin_panel_settings</span></div>
+            <div>
+              <div class="tw-flex tw-items-center tw-gap-3 tw-flex-wrap">
+                <h2 class="tw-text-headline-md tw-font-headline-md tw-font-bold tw-text-on-surface tw-tracking-tight tw-m-0">${role ? (role.locked ? 'สิทธิ์ของบทบาท (Role Permissions)' : 'แก้ไขและกำหนดสิทธิ์บทบาท (Edit Role Permissions)') : 'สร้างบทบาทใหม่ (New Role)'}</h2>
+                <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-primary-fixed tw-text-on-primary-fixed tw-font-semibold">${!role ? 'บทบาทใหม่' : role.is_system ? 'บทบาทตั้งต้นของระบบ' : 'บทบาทที่สร้างเอง'}</span>
+              </div>
+              <p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">กำหนดขอบเขตการเข้าถึงและการกระทำ (Read / Write / Delete / Export)${role ? ` สำหรับบทบาท: <strong class="tw-text-primary tw-font-semibold">${escapeHtml(role.label)} (${escapeHtml(role.label_th)})</strong>` : ''}</p>
+            </div>
+          </div>
+          <button type="button" data-bs-dismiss="modal" aria-label="ปิด" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-text-outline hover:tw-text-on-surface hover:tw-bg-surface-container tw-rounded-lg tw-flex"><span class="material-symbols-outlined tw-text-[1.5rem]">close</span></button>
+        </div>
+        <div class="tw-p-6 tw-space-y-6 tw-overflow-y-auto" style="max-height: 68vh;">
+          ${roleDraft.locked ? '<div class="tw-p-3 tw-rounded-lg tw-bg-tertiary-fixed/60 tw-text-on-tertiary-fixed-variant tw-text-body-sm tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem]">lock</span>บทบาทผู้ดูแลระบบสูงสุดมีสิทธิ์ครบทุกอย่างเสมอ แก้ไขไม่ได้ เพื่อป้องกันการล็อกตัวเองออกจากระบบ</div>' : ''}
+          <section class="tw-rounded-xl tw-border tw-border-outline-variant/30 tw-bg-surface-container-low tw-p-4 tw-space-y-4">
+            <div class="tw-flex tw-items-center tw-justify-between tw-border-b tw-border-outline-variant/20 tw-pb-3">
+              <div class="tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem]">badge</span><h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">ข้อมูลบทบาทพื้นฐาน</h3></div>
+              <span class="tw-text-label-sm tw-text-outline">${role ? `Role ID: #${escapeHtml(role.key)}` : ''}</span>
+            </div>
+            <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+              ${role ? '' : `<div><label for="roleKey" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">รหัสบทบาท (Role ID — ตั้งแล้วแก้ไม่ได้)</label>
+                <input id="roleKey" maxlength="30" autocomplete="off" placeholder="เช่น library_staff" class="${roleInputClass} tw-font-mono"></div>`}
+              <div><label for="roleLabel" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">ชื่อบทบาท (Role Name - อังกฤษ)</label>
+                <input id="roleLabel" maxlength="60" value="${escapeHtml(label)}" ${roleDraft.locked ? 'disabled' : ''} class="${roleInputClass}"></div>
+              <div><label for="roleLabelTh" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">ชื่อแสดงในระบบ (Display Name - ภาษาไทย)</label>
+                <input id="roleLabelTh" maxlength="100" value="${escapeHtml(role ? role.label_th : '')}" ${roleDraft.locked ? 'disabled' : ''} class="${roleInputClass}"></div>
+              <div class="md:tw-col-span-2"><label for="roleDescription" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">คำอธิบายขอบเขตงาน (Role Description)</label>
+                <textarea id="roleDescription" rows="2" maxlength="300" ${roleDraft.locked ? 'disabled' : ''} class="${roleInputClass}">${escapeHtml(role ? role.description : '')}</textarea></div>
+            </div>
+            ${role ? `<div class="tw-flex tw-items-center tw-justify-between tw-pt-2 tw-border-t tw-border-outline-variant/20 tw-text-body-sm tw-flex-wrap tw-gap-2">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                <span class="tw-text-label-md tw-text-on-surface-variant tw-font-medium">ผู้ใช้งานในบทบาทนี้:</span>
+                <div class="tw-flex -tw-space-x-2 tw-items-center">${avatars}</div>
+                <span class="tw-text-label-sm tw-bg-surface-container tw-text-on-surface tw-px-2 tw-py-0.5 tw-rounded-full tw-font-semibold">${members.length} บัญชี</span>
+              </div>
+              ${members.length > 0 ? `<button type="button" onclick="showRoleMembers('${escapeHtml(role.key)}')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-0 tw-text-primary tw-text-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1 hover:tw-underline">ดูรายชื่อผู้ใช้งานทั้งหมด<span class="material-symbols-outlined tw-text-[0.875rem]">open_in_new</span></button>` : ''}
+            </div>` : ''}
+          </section>
+          <div>
+            <div class="tw-flex tw-items-center tw-justify-between tw-mb-2.5"><span class="tw-text-label-sm tw-text-outline">ชุดสิทธิ์ด่วน (Permission Presets)</span><span class="tw-text-label-sm tw-text-outline">คลิกเพื่อปรับค่าแบบกลุ่ม</span></div>
+            <div id="rolePresets" class="tw-grid tw-grid-cols-2 sm:tw-grid-cols-4 tw-gap-2"></div>
+          </div>
+          <section class="tw-space-y-3">
+            <div><h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-font-bold tw-m-0">ตารางกำหนดสิทธิ์รายโมดูล (Granular Permission Matrix)</h3>
+              <p class="tw-text-body-sm tw-text-outline tw-m-0">ติ๊กเลือกความสามารถในแต่ละส่วนงาน สิทธิ์ที่ต้องใช้ควบคู่กัน (เช่น แก้ไขต้องดูได้ด้วย) ระบบจะติ๊กให้เอง</p></div>
+            <div id="rolePermMatrix" class="tw-border tw-border-outline-variant/30 tw-rounded-xl tw-overflow-hidden tw-divide-y tw-divide-outline-variant/20"></div>
+          </section>
+          <div class="tw-p-4 tw-rounded-xl tw-bg-surface-container-high/60 tw-border tw-border-outline-variant/40 tw-flex tw-items-start tw-gap-3.5">
+            <span class="material-symbols-outlined tw-text-primary tw-text-[1.5rem] tw-shrink-0">info</span>
+            <div><h4 class="tw-text-body-md tw-font-semibold tw-text-on-surface tw-m-0">การยืนยันและการบันทึกด้านความปลอดภัย (Audit Notice)</h4>
+              <p class="tw-text-body-sm tw-text-on-surface-variant tw-mt-1 tw-mb-0">การปรับปรุงสิทธิ์มีผลทันทีกับทุกบัญชีในบทบาทนี้ และถูกบันทึกลง <strong class="tw-text-on-surface">System Logs</strong> พร้อมชื่อผู้ดำเนินการ เวลา และ IP</p></div>
+          </div>
+        </div>
+        <div class="tw-px-6 tw-py-4 tw-bg-surface-container-low tw-border-t tw-border-outline-variant/30 tw-flex tw-flex-col-reverse sm:tw-flex-row tw-items-center tw-justify-between tw-gap-3">
+          <div>${role && !role.is_system ? `<button type="button" onclick="deleteRoleFromModal()" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-text-error hover:tw-bg-error-container/40 tw-rounded-lg tw-text-label-md tw-font-medium tw-transition-colors"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span>ลบบทบาทนี้ (Delete Role)</button>` : ''}</div>
+          <div class="tw-flex tw-items-center tw-gap-3">
+            <button type="button" data-bs-dismiss="modal" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-4 tw-py-2.5 tw-rounded-lg tw-border tw-border-outline-variant hover:tw-bg-surface-container-lowest tw-text-on-surface tw-text-label-md tw-font-medium tw-transition-colors">${roleDraft.locked ? 'ปิด' : 'ยกเลิก (Cancel)'}</button>
+            ${roleDraft.locked ? '' : `<button id="roleSaveButton" type="button" onclick="saveRole()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-5 tw-py-2.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold tw-shadow-sm tw-transition-all tw-flex tw-items-center tw-gap-2 active:tw-scale-95"><span class="material-symbols-outlined tw-text-[1.125rem]">check_circle</span><span>${role ? 'บันทึกการเปลี่ยนแปลงสิทธิ์ (Save Changes)' : 'สร้างบทบาท (Create Role)'}</span></button>`}
+          </div>
+        </div>`;
+      renderRolePermissionSection();
+      roleModal.show();
+    }
+
+    function showRoleMembers(key) {
+      roleModal.hide();
+      document.getElementById('adminRoleFilter').value = key;
+      document.getElementById('adminStatusFilter').value = '';
+      document.getElementById('adminSearch').value = '';
+      renderAdminUsers();
+      document.getElementById('adminUserBody').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // สิทธิ์ของบัญชีที่ล็อกอินอยู่อาจเพิ่งถูกแก้ จึงโหลดจากเซิร์ฟเวอร์ใหม่แล้วปรับหน้าจอ
+    async function refreshSession() {
+      try {
+        const data = await (await fetch('/api/session')).json();
+        if (data.role) applyRole(data);
+      } catch (error) { console.error('รีเฟรชสิทธิ์ไม่สำเร็จ:', error); }
+    }
+
+    async function saveRole() {
+      const body = {
+        label: document.getElementById('roleLabel').value,
+        label_th: document.getElementById('roleLabelTh').value,
+        description: document.getElementById('roleDescription').value,
+        permissions: [...roleDraft.perms],
+      };
+      if (roleDraft.isNew) body.key = document.getElementById('roleKey').value;
+      const button = document.getElementById('roleSaveButton');
+      button.disabled = true;
+      try {
+        const data = await api(roleDraft.isNew ? '/api/admin/roles' : `/api/admin/roles/${encodeURIComponent(roleDraft.key)}`,
+          jsonRequest(roleDraft.isNew ? 'POST' : 'PUT', body));
+        roleModal.hide();
+        showStatus(data.message);
+        await loadAdminsTab();
+        await refreshSession();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function deleteRoleFromModal() {
+      const role = rolesInfo.roles.find(item => item.key === roleDraft.key);
+      if (!role || !confirm(`ต้องการลบบทบาท "${role.label}" ใช่หรือไม่?`)) return;
+      try {
+        const data = await api(`/api/admin/roles/${encodeURIComponent(role.key)}`, { method: 'DELETE' });
+        roleModal.hide();
+        showStatus(data.message);
+        await loadAdminsTab();
+      } catch (error) {
+        reportError(error);
+      }
     }
 
     function updateUserRoleHint() {
@@ -4626,6 +4882,7 @@
       importModal = new bootstrap.Modal(document.getElementById('importModal'));
       userModal = new bootstrap.Modal(document.getElementById('userModal'));
       resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+      roleModal = new bootstrap.Modal(document.getElementById('roleModal'));
       initTourPage();
       checkSession();
     });

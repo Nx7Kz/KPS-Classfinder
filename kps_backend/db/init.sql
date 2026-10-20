@@ -167,6 +167,19 @@ CREATE TABLE `admin_settings` (
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+DROP TABLE IF EXISTS `admin_roles`;
+CREATE TABLE `admin_roles` (
+  `role_key` varchar(40) NOT NULL,
+  `label` varchar(60) NOT NULL,
+  `label_th` varchar(100) NOT NULL DEFAULT '',
+  `description` varchar(300) NOT NULL DEFAULT '',
+  `permissions` text NOT NULL,
+  `is_system` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`role_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 DROP TABLE IF EXISTS `admin_users`;
 CREATE TABLE `admin_users` (
   `id` int NOT NULL AUTO_INCREMENT,
