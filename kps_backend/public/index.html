@@ -6,6 +6,19 @@
   <title>KPS ClassFinder - Admin</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"
+        integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+  <!-- อ่านโหมดมืด/สว่างที่จำไว้ก่อนวาดหน้าจอ กันไม่ให้กะพริบสีตอนโหลด (เหมือนแอปมือถือ) -->
+  <script>
+    try {
+      const saved = localStorage.getItem('kps_admin_theme');
+      if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+      }
+    } catch (_) { /* เก็บค่าไม่ได้ (โหมดส่วนตัว) ก็ใช้โหมดสว่างไปก่อน */ }
+  </script>
   <!-- Photo Sphere Viewer สำหรับตั้งทิศภาพในหน้า Virtual Tour (โมดูลเดียวกับหน้าเดินชม /tour/) -->
   <link rel="stylesheet" href="/vendor/psv/core/index.css">
   <link rel="stylesheet" href="/vendor/psv/map-plugin/index.css">
@@ -23,43 +36,105 @@
     }
   </script>
   <style>
-    :root { --brand: #00503a; }
-    body { background: #f5f6fa; color: #1f2937; }
+    /* ธีมเดียวกับแอปมือถือ (เขียว KPS) แทนสีน้ำเงินเริ่มต้นของ Bootstrap — ทับตัวแปรของ Bootstrap เองเพื่อให้
+       ปุ่ม/แบดจ์/ฟอร์มที่ใช้คลาส primary ของ Bootstrap อยู่แล้วเปลี่ยนสีตามโดยไม่ต้องแก้ class ทีละจุด */
+    :root {
+      --brand: #15803d;
+      --brand-dark: #0f5c2b;
+      --brand-tint: #eaf6ee;
+      --surface: #fff;
+      --bs-primary: var(--brand);
+      --bs-primary-rgb: 21, 128, 61;
+    }
+    [data-bs-theme="dark"] {
+      --brand: #4ade80;
+      --brand-dark: #22c55e;
+      --brand-tint: #15261c;
+      --surface: #15201a;
+      --bs-primary: var(--brand);
+      --bs-primary-rgb: 74, 222, 128;
+      --bs-body-bg: #0d1511;
+      --bs-body-color: #e6f0ea;
+    }
+    .btn-primary {
+      --bs-btn-bg: var(--brand); --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand-dark); --bs-btn-hover-border-color: var(--brand-dark);
+      --bs-btn-active-bg: var(--brand-dark); --bs-btn-active-border-color: var(--brand-dark);
+      --bs-btn-disabled-bg: var(--brand); --bs-btn-disabled-border-color: var(--brand);
+      --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+    }
+    [data-bs-theme="dark"] .btn-primary { --bs-btn-color: #052e16; --bs-btn-hover-color: #052e16; --bs-btn-active-color: #052e16; --bs-btn-disabled-color: #052e16; }
+    .btn-outline-primary {
+      --bs-btn-color: var(--brand); --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand); --bs-btn-hover-border-color: var(--brand);
+      --bs-btn-active-bg: var(--brand); --bs-btn-active-border-color: var(--brand);
+      --bs-btn-disabled-color: var(--brand); --bs-btn-disabled-border-color: var(--brand);
+      --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+    }
+    [data-bs-theme="dark"] .btn-outline-primary { --bs-btn-hover-color: #052e16; --bs-btn-active-color: #052e16; }
+    .btn-link { --bs-btn-color: var(--brand); --bs-btn-hover-color: var(--brand-dark); }
+    .text-bg-primary { background-color: var(--brand) !important; }
+    [data-bs-theme="dark"] .text-bg-primary { color: #052e16 !important; }
+    .form-control:focus, .form-select:focus, .form-check-input:focus {
+      border-color: var(--brand); box-shadow: 0 0 0 .25rem rgba(var(--bs-primary-rgb), .25);
+    }
+    .form-check-input:checked { background-color: var(--brand); border-color: var(--brand); }
+    .btn-check:checked + .btn-outline-primary { background-color: var(--brand); border-color: var(--brand); }
+    a { color: var(--brand); }
+
+    body {
+      font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: #f5f6fa;
+    }
+    [data-bs-theme="dark"] body { background: #0d1511; }
     .login-card { max-width: 380px; margin: 4.5rem auto; border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
 
     .app-shell { display: flex; min-height: 100vh; }
     .sidebar {
-      width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid #eef0f3;
+      width: 240px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--bs-border-color);
       display: flex; flex-direction: column; padding: 1.25rem 1rem;
     }
-    .sidebar-brand { font-weight: 700; color: var(--brand); font-size: 1.05rem; padding: .5rem .75rem 1.25rem; }
+    .sidebar-brand { font-weight: 700; color: var(--brand); font-size: 1.05rem; padding: .5rem .75rem 1.25rem; display: flex; align-items: center; gap: .5rem; }
+    .sidebar-brand .bi { font-size: 1.3rem; }
     .sidebar-nav .nav-link {
-      color: #374151; border-radius: 10px; padding: .6rem .75rem; font-weight: 500; font-size: .92rem;
-      display: flex; align-items: center; gap: .6rem; cursor: pointer;
+      color: var(--bs-secondary-color); border-radius: 10px; padding: .6rem .75rem; font-weight: 500; font-size: .92rem;
+      display: flex; align-items: center; gap: .65rem; cursor: pointer;
       /* เป็น <button> ไม่ใช่ <a> (กด Tab/Enter ได้ตามมาตรฐานปุ่ม) จึงต้องล้างสไตล์ปุ่มเริ่มต้นของเบราว์เซอร์ */
       border: 0; background: transparent; width: 100%; text-align: left; font-family: inherit;
     }
-    .sidebar-nav .nav-link:hover { background: #f3f4f6; }
+    .sidebar-nav .nav-link .bi { font-size: 1.05rem; width: 1.1rem; text-align: center; flex-shrink: 0; }
+    .sidebar-nav .nav-link:hover { background: var(--bs-tertiary-bg); }
     .sidebar-nav .nav-link.active { background: var(--brand); color: #fff; }
+    [data-bs-theme="dark"] .sidebar-nav .nav-link.active { color: #052e16; }
     .sidebar-nav .nav-link.disabled { color: #9ca3af; cursor: default; pointer-events: none; }
     .main-content { flex: 1; min-width: 0; }
     .content-topbar {
-      background: #fff; border-bottom: 1px solid #eef0f3; padding: .9rem 1.5rem;
+      background: var(--surface); border-bottom: 1px solid var(--bs-border-color); padding: .9rem 1.5rem;
       display: flex; justify-content: space-between; align-items: center;
     }
     .content-body { padding: 1.5rem; }
+    .theme-toggle {
+      width: 2.25rem; height: 2.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); font-size: 1.05rem;
+    }
+    .theme-toggle:hover { background: var(--bs-tertiary-bg); }
 
     .stat-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .06); }
-    .stat-value { font-size: 1.9rem; font-weight: 700; color: #111827; }
-    .stat-label { color: #6b7280; font-size: .85rem; }
+    [data-bs-theme="dark"] .stat-card { box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
+    .stat-value { font-size: 1.9rem; font-weight: 700; }
+    .stat-label { color: var(--bs-secondary-color); font-size: .85rem; }
 
     .toolbar, .room-card, .building-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
-    .toolbar { background: #fff; }
-    .room-card .card-header, .building-card .card-header { background: #fff; border-bottom: 1px solid #eef0f3; }
+    [data-bs-theme="dark"] .toolbar, [data-bs-theme="dark"] .room-card, [data-bs-theme="dark"] .building-card { box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
+    .toolbar, .room-card, .building-card, .stat-card { background: var(--surface); }
+    .room-card .card-header, .building-card .card-header { background: var(--surface); border-bottom: 1px solid var(--bs-border-color); }
     .table > :not(caption) > * > * { padding: .85rem .75rem; }
     .room-name { font-weight: 600; }
     .floor-badge { background: #e9efff; color: #2454c6; font-weight: 600; }
-    .empty-state { padding: 3rem 1rem; color: #6b7280; }
+    [data-bs-theme="dark"] .floor-badge { background: #1b2a4a; color: #9db4f0; }
+    .empty-state { padding: 3rem 1rem; color: var(--bs-secondary-color); }
+    .empty-state .bi { font-size: 2.2rem; display: block; margin-bottom: .5rem; opacity: .5; }
+    .table-head th { background: var(--bs-tertiary-bg); }
 
     /* หน้าเดินชม 360° */
     .tour-plan { position: relative; user-select: none; background: #f8faf9; border-radius: 12px; overflow: hidden; }
@@ -115,24 +190,27 @@
 
   <div id="dashboardSection" class="app-shell d-none">
     <aside class="sidebar">
-      <div class="sidebar-brand">KPS ClassFinder<br><span class="fw-normal text-secondary" style="font-size:.75rem;">Admin Console</span></div>
+      <div class="sidebar-brand"><i class="bi bi-mortarboard-fill"></i> KPS ClassFinder<br><span class="fw-normal text-secondary" style="font-size:.75rem;">Admin Console</span></div>
       <nav class="sidebar-nav d-flex flex-row flex-md-column gap-1 flex-grow-1">
-        <button type="button" class="nav-link active" data-page="overview" onclick="showPage('overview')">📊 Overview</button>
-        <button type="button" class="nav-link" data-page="buildings-rooms" onclick="showPage('buildings-rooms')">🏢 Buildings &amp; Rooms</button>
-        <button type="button" class="nav-link" data-page="floor-plans" onclick="showPage('floor-plans')">🗺️ Floor Plans</button>
-        <button type="button" class="nav-link" data-page="panoramas" onclick="showPage('panoramas')">🖼️ 360 Panorama Editor</button>
+        <button type="button" class="nav-link active" data-page="overview" onclick="showPage('overview')"><i class="bi bi-bar-chart-line-fill"></i> Overview</button>
+        <button type="button" class="nav-link" data-page="buildings-rooms" onclick="showPage('buildings-rooms')"><i class="bi bi-building"></i> Buildings &amp; Rooms</button>
+        <button type="button" class="nav-link" data-page="floor-plans" onclick="showPage('floor-plans')"><i class="bi bi-map"></i> Floor Plans</button>
+        <button type="button" class="nav-link" data-page="panoramas" onclick="showPage('panoramas')"><i class="bi bi-images"></i> 360 Panorama Editor</button>
         <!-- ซ่อนเมนู Virtual Tour ไว้ก่อน (ยังไม่พร้อมเปิดให้ใช้จริง) หน้า page-tour และ tour/admin.js ยังอยู่ครบ
              เปิดกลับมาได้ทันทีด้วยการเอาคอมเมนต์นี้ออก -->
-        <!-- <button type="button" class="nav-link" data-page="tour" onclick="showPage('tour')">🚶 Virtual Tour</button> -->
-        <button type="button" class="nav-link" data-page="logs" onclick="showPage('logs')">📜 System Logs</button>
-        <button type="button" class="nav-link" data-page="settings" onclick="showPage('settings')">⚙️ Settings</button>
+        <!-- <button type="button" class="nav-link" data-page="tour" onclick="showPage('tour')"><i class="bi bi-signpost-2"></i> Virtual Tour</button> -->
+        <button type="button" class="nav-link" data-page="logs" onclick="showPage('logs')"><i class="bi bi-clock-history"></i> System Logs</button>
+        <button type="button" class="nav-link" data-page="settings" onclick="showPage('settings')"><i class="bi bi-gear-fill"></i> Settings</button>
       </nav>
-      <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-sm mt-3" onclick="logout()">ออกจากระบบ</button>
+      <button id="logoutButton" type="button" class="btn btn-outline-secondary btn-sm mt-3" onclick="logout()"><i class="bi bi-box-arrow-right"></i> ออกจากระบบ</button>
     </aside>
 
     <div class="main-content">
       <div class="content-topbar">
         <h1 class="h5 mb-0" id="pageTitle">Overview</h1>
+        <button type="button" id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมดมืด/สว่าง" aria-label="สลับโหมดมืด/สว่าง">
+          <i class="bi bi-moon-stars-fill"></i>
+        </button>
       </div>
 
       <div class="content-body">
@@ -197,7 +275,7 @@
             <div class="card-body p-0">
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                  <thead class="table-light">
+                  <thead class="table-head">
                     <tr>
                       <th>รหัส</th>
                       <th>ชื่ออาคาร</th>
@@ -248,7 +326,7 @@
             <div class="card-body p-0">
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                  <thead class="table-light">
+                  <thead class="table-head">
                     <tr>
                       <th scope="col" style="width:44px;"><input type="checkbox" class="form-check-input" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)"></th>
                       <th scope="col">ชื่อ / รหัสห้อง</th>
@@ -426,7 +504,7 @@
             <div class="card-body p-0">
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                  <thead class="table-light">
+                  <thead class="table-head">
                     <tr>
                       <th scope="col">เวลา</th>
                       <th scope="col">การกระทำ</th>
@@ -440,7 +518,7 @@
                 </table>
               </div>
             </div>
-            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+            <div class="card-footer d-flex justify-content-between align-items-center">
               <span class="small text-secondary" id="logRange"></span>
               <div class="btn-group">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="logPrev" onclick="loadLogs(logOffset - LOG_PAGE_SIZE)">‹ ก่อนหน้า</button>
@@ -1693,7 +1771,7 @@
       html += `
         <div class="table-responsive border rounded" style="max-height:260px; overflow-y:auto;">
           <table class="table table-sm align-middle mb-0">
-            <thead class="table-light"><tr><th>แถว</th><th>รหัสห้อง</th><th>อาคาร</th><th>ผล</th></tr></thead>
+            <thead class="table-head"><tr><th>แถว</th><th>รหัสห้อง</th><th>อาคาร</th><th>ผล</th></tr></thead>
             <tbody>${data.rows.slice(0, 100).map(row => `
               <tr><td>${row.row}</td><td>${escapeHtml(row.room_code)}</td><td>${escapeHtml(row.building)}</td><td>${actionBadgeFor(row)}</td></tr>`).join('')}
             </tbody>
@@ -2332,7 +2410,21 @@
       }
     }
 
+    // โหมดมืด/สว่าง: ค่าที่เลือกจำไว้ใน localStorage (ค่าเริ่มต้นอ่านไว้แล้วในสคริปต์ที่หัวไฟล์ กันจอกะพริบ)
+    function syncThemeToggleIcon() {
+      const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+      document.querySelector('#themeToggle i').className = dark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+    }
+
+    function toggleTheme() {
+      const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+      document.documentElement.setAttribute('data-bs-theme', dark ? 'light' : 'dark');
+      try { localStorage.setItem('kps_admin_theme', dark ? 'light' : 'dark'); } catch (_) { /* โหมดส่วนตัว เก็บไม่ได้ก็ไม่เป็นไร */ }
+      syncThemeToggleIcon();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+      syncThemeToggleIcon();
       document.getElementById('roomType').addEventListener('change', () => {
         syncRoomTypeOther();
         if (document.getElementById('roomType').value === '__other__') document.getElementById('roomTypeOther').focus();
