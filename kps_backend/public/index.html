@@ -372,13 +372,27 @@
                 </div>
               </div>
               <div class="tw-flex tw-items-center tw-justify-between tw-text-label-sm tw-font-label-sm tw-text-outline">
-                <span class="tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.9375rem]">timer</span>เซสชันหมดอายุใน 8 ชั่วโมง</span>
-                <span class="tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.9375rem]">block</span>ใส่ผิดเกิน 5 ครั้งใน 15 นาทีจะถูกระงับชั่วคราว</span>
+                <span class="tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.9375rem]">timer</span>เซสชันหมดอายุเมื่อไม่มีการใช้งาน</span>
+                <span class="tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.9375rem]">block</span>ใส่รหัสผิดหลายครั้งจะถูกระงับชั่วคราว</span>
               </div>
               <button id="loginButton" type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2 tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-gradient-to-b tw-from-primary-container tw-to-primary tw-text-on-primary tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-shadow-[0_10px_24px_-8px_rgba(0,101,44,0.65)] hover:tw-shadow-[0_16px_30px_-8px_rgba(0,101,44,0.75)] hover:-tw-translate-y-0.5 active:tw-translate-y-0 active:tw-scale-[0.99] tw-transition-all tw-duration-150 disabled:tw-opacity-60 disabled:tw-cursor-not-allowed">
                 <span id="loginButtonLabel">เข้าสู่ระบบ</span>
                 <span class="material-symbols-outlined tw-text-[1.125rem]">arrow_forward</span>
               </button>
+            </form>
+            <form id="login2faForm" onsubmit="submitLogin2fa(event)" class="tw-space-y-5 d-none">
+              <div class="tw-p-3.5 tw-rounded-lg tw-bg-primary-fixed/40 tw-text-on-primary-fixed-variant tw-text-body-sm tw-flex tw-items-start tw-gap-2.5">
+                <span class="material-symbols-outlined tw-text-[1.25rem]">phonelink_lock</span>
+                <span>บัญชีนี้เปิดใช้การยืนยันตัวตน 2 ขั้นตอน กรอกรหัส 6 หลักจากแอป Authenticator หรือใช้รหัสสำรองฉุกเฉิน</span>
+              </div>
+              <div class="tw-space-y-1.5">
+                <label for="login2faCode" class="tw-block tw-text-label-md tw-font-label-md tw-font-medium tw-text-on-surface">รหัสยืนยัน</label>
+                <input id="login2faCode" type="text" required inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="000000" class="tw-block tw-w-full tw-text-center tw-tracking-[0.35em] tw-py-3 tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-bg-surface-container-lowest tw-rounded-lg tw-border tw-border-outline-variant/60 tw-shadow-[inset_0_1px_2px_rgba(15,23,42,0.07)] focus:tw-border-primary focus:tw-ring-4 focus:tw-ring-primary/15 tw-transition-all tw-outline-none">
+              </div>
+              <button id="login2faButton" type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2 tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-gradient-to-b tw-from-primary-container tw-to-primary tw-text-on-primary tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-shadow-[0_10px_24px_-8px_rgba(0,101,44,0.65)] disabled:tw-opacity-60 disabled:tw-cursor-not-allowed">
+                <span>ยืนยันและเข้าสู่ระบบ</span><span class="material-symbols-outlined tw-text-[1.125rem]">verified_user</span>
+              </button>
+              <button type="button" onclick="cancelLogin2fa()" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-w-full tw-text-label-md tw-text-primary tw-font-semibold hover:tw-underline">← กลับไปหน้ากรอกรหัสผ่าน</button>
             </form>
           </div>
         </section>
@@ -1162,9 +1176,10 @@
             <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0">จัดการบัญชีของคุณ ความปลอดภัย และตรวจสอบสถานะระบบ KPS ClassFinder</p>
           </div>
 
-          <div id="settingsTabs" class="need-settings-manage tw-flex tw-items-center tw-gap-6 tw-border-b tw-border-outline-variant/30 tw-mb-6 tw-overflow-x-auto tw-text-label-md tw-font-label-md">
+          <div id="settingsTabs" class="tw-flex tw-items-center tw-gap-6 tw-border-b tw-border-outline-variant/30 tw-mb-6 tw-overflow-x-auto tw-text-label-md tw-font-label-md">
             <button type="button" data-settings-tab="profile" onclick="showSettingsTab('profile')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-text-primary-container tw-font-semibold tw-border-primary-container">โปรไฟล์และบัญชี</button>
-            <button type="button" data-settings-tab="admins" onclick="showSettingsTab('admins')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">shield_person</span>ผู้ดูแลและสิทธิ์การใช้งาน (Admin &amp; Roles)</button>
+            <button type="button" data-settings-tab="security" onclick="showSettingsTab('security')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">verified_user</span>ความปลอดภัย (Security &amp; 2FA)</button>
+            <button type="button" data-settings-tab="admins" onclick="showSettingsTab('admins')" class="need-settings-manage tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">shield_person</span>ผู้ดูแลและสิทธิ์การใช้งาน (Admin &amp; Roles)</button>
           </div>
 
           <div id="settingsTabProfile">
@@ -1298,7 +1313,7 @@
                 </div>
                 <div class="tw-space-y-3 tw-pb-4 tw-border-b tw-border-outline-variant/20 tw-mb-4">
                   <div class="tw-flex tw-items-start tw-gap-3"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem] tw-mt-0.5">timer</span>
-                    <div><h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">อายุเซสชัน 8 ชั่วโมง</h4><p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">ระบบจะออกจากระบบให้อัตโนมัติเมื่อครบ 8 ชั่วโมงนับจากเข้าสู่ระบบ</p></div></div>
+                    <div><h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">ออกจากระบบอัตโนมัติเมื่อไม่มีการใช้งาน</h4><p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">ระยะเวลากำหนดโดยผู้ดูแลระบบที่แท็บ ความปลอดภัย (ค่าเริ่มต้น 8 ชั่วโมง)</p></div></div>
                   <div class="tw-flex tw-items-start tw-gap-3"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem] tw-mt-0.5">block</span>
                     <div><h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">จำกัดการเดารหัสผ่าน</h4><p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">ใส่รหัสผ่านผิดเกิน 5 ครั้งใน 15 นาที ระบบจะระงับการล็อกอินชั่วคราว</p></div></div>
                   <div class="tw-flex tw-items-start tw-gap-3"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem] tw-mt-0.5">history</span>
@@ -1448,6 +1463,49 @@
             </section>
           </div><!-- /settingsTabAdmins -->
 
+          <!-- ============ Settings tab: Security & 2FA (ตามดีไซน์ code.html) ============ -->
+          <div id="settingsTabSecurity" class="d-none">
+            <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4 tw-mb-6">
+              <div>
+                <div class="tw-flex tw-items-center tw-gap-3 tw-flex-wrap">
+                  <h3 class="tw-text-headline-lg tw-font-headline-lg tw-text-on-surface tw-font-bold tw-m-0">ความปลอดภัยและการปกป้องระบบ (Security &amp; Access Control)</h3>
+                  <span id="secScorePill" class="need-settings-manage tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3 tw-py-1 tw-rounded-full tw-bg-surface-container tw-text-on-surface-variant tw-text-label-sm tw-font-semibold">กำลังตรวจสอบ...</span>
+                </div>
+                <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1.5 tw-mb-0 tw-max-w-3xl">การยืนยันตัวตน 2 ขั้นตอน (2FA) นโยบายรหัสผ่าน เซสชัน และการจำกัดการเข้าถึงตามเครือข่าย สำหรับผู้ดูแลระบบ KPS ClassFinder</p>
+              </div>
+              <button type="button" onclick="openSecurityAudit()" class="need-settings-manage tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/60 tw-bg-surface-container-lowest tw-text-on-surface tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-95 tw-shadow-sm tw-shrink-0">
+                <span class="material-symbols-outlined tw-text-[1.125rem] tw-text-primary">verified_user</span><span>ตรวจสอบความปลอดภัย (Run Security Audit)</span>
+              </button>
+            </div>
+
+            <section id="secMetrics" class="need-settings-manage tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-5 tw-mb-8"></section>
+
+            <div class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-12 tw-gap-8">
+              <div class="lg:tw-col-span-7 tw-space-y-8">
+                <section id="secTwoFaCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]"></section>
+                <section id="secPolicyCard" class="need-settings-manage tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]"></section>
+              </div>
+              <div class="need-settings-manage lg:tw-col-span-5 tw-space-y-8">
+                <section id="secIpCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]"></section>
+                <section id="secEventsCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]"></section>
+              </div>
+            </div>
+
+            <div class="need-settings-manage tw-mt-8 tw-p-5 tw-rounded-xl tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-shadow-sm tw-flex tw-flex-col md:tw-flex-row tw-items-center tw-justify-between tw-gap-4">
+              <div class="tw-flex tw-items-start tw-gap-3.5 tw-max-w-3xl">
+                <div class="tw-p-2 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-shrink-0 tw-flex"><span class="material-symbols-outlined tw-text-[1.5rem]">info</span></div>
+                <p class="tw-text-body-sm tw-text-outline tw-m-0">การตั้งค่าในหน้านี้ (บังคับ 2FA, นโยบายรหัสผ่าน, เซสชัน, ล็อกบัญชี, IP) จะมีผลหลังกดบันทึก ระบบบันทึกการแก้ไขทุกครั้งลง System Logs การจำกัด IP ไม่อนุญาตให้บันทึกถ้า IP ปัจจุบันของคุณไม่อยู่ในรายการ เพื่อกันล็อกตัวเองออก</p>
+              </div>
+              <div class="tw-flex tw-items-center tw-gap-3 tw-shrink-0">
+                <button type="button" onclick="resetSecurityDraft()" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-4 tw-py-2.5 tw-rounded-lg tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-95">ยกเลิกการแก้ไข</button>
+                <button id="secSaveButton" type="button" onclick="saveSecuritySettings()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-5 tw-py-2.5 tw-rounded-lg tw-bg-primary hover:tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold tw-transition-colors tw-shadow-sm active:tw-scale-95 tw-flex tw-items-center tw-gap-2 disabled:tw-opacity-60">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">save</span><span>บันทึกการตั้งค่าความปลอดภัย</span>
+                </button>
+              </div>
+            </div>
+          </div><!-- /settingsTabSecurity -->
+
+
           <footer class="tw-mt-10 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-text-center tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant">
             KPS ClassFinder Navigation System · มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตกำแพงแสน
           </footer>
@@ -1514,6 +1572,105 @@
           <button id="userSaveButton" type="submit" class="btn btn-primary">บันทึก</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: ตั้งค่า 2FA ============ -->
+  <div class="modal fade" id="twoFaModal" tabindex="-1" aria-labelledby="twoFaTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="twoFaTitle">ตั้งค่า 2FA (Authenticator)</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div id="twoFaStepSetup">
+          <form onsubmit="confirmTwoFaEnable(event)">
+            <div class="modal-body">
+              <ol class="small ps-3 mb-3">
+                <li>ติดตั้งแอป Google Authenticator, Microsoft Authenticator หรือ Authy ในโทรศัพท์</li>
+                <li>เลือก "สแกน QR code" แล้วสแกนภาพด้านล่าง</li>
+                <li>กรอกรหัส 6 หลักที่แอปแสดง เพื่อยืนยัน</li>
+              </ol>
+              <div class="text-center mb-2"><img id="twoFaQr" alt="QR code สำหรับตั้งค่า 2FA" width="224" height="224" class="border rounded bg-white p-1"></div>
+              <div class="text-center small text-secondary mb-3">สแกนไม่ได้? กรอกรหัสนี้ในแอปเอง: <code id="twoFaSecret" class="user-select-all"></code></div>
+              <label for="twoFaCode" class="form-label">รหัส 6 หลักจากแอป</label>
+              <input id="twoFaCode" class="form-control form-control-lg text-center" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000000" required style="letter-spacing: .3em;">
+              <div id="twoFaError" class="text-danger small mt-2 d-none"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+              <button id="twoFaConfirmButton" type="submit" class="btn btn-primary">ยืนยันและเปิดใช้งาน</button>
+            </div>
+          </form>
+        </div>
+        <div id="twoFaStepCodes" class="d-none">
+          <div class="modal-body">
+            <div class="alert alert-warning small">เก็บรหัสสำรองเหล่านี้ไว้ในที่ปลอดภัย <strong>ระบบแสดงให้ดูครั้งนี้ครั้งเดียว</strong> ใช้แทนรหัส Authenticator ได้เมื่อโทรศัพท์หาย (แต่ละรหัสใช้ได้ครั้งเดียว)</div>
+            <div id="twoFaCodesList" class="d-grid gap-2 mb-3" style="grid-template-columns: 1fr 1fr;"></div>
+            <div class="d-flex gap-2 mb-3">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyBackupCodes()">คัดลอก</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="downloadBackupCodes()">ดาวน์โหลด (.txt)</button>
+            </div>
+            <div class="form-check">
+              <input id="twoFaAck" type="checkbox" class="form-check-input" onchange="document.getElementById('twoFaDoneButton').disabled = !this.checked">
+              <label for="twoFaAck" class="form-check-label small">ฉันบันทึกรหัสสำรองไว้ในที่ปลอดภัยแล้ว</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="twoFaDoneButton" type="button" class="btn btn-primary" data-bs-dismiss="modal" disabled>เสร็จสิ้น</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: ยืนยันรหัสผ่านก่อนปิด 2FA / สร้างรหัสสำรองใหม่ ============ -->
+  <div class="modal fade" id="twoFaPasswordModal" tabindex="-1" aria-labelledby="twoFaPasswordTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="submitTwoFaPassword(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="twoFaPasswordTitle">ยืนยันรหัสผ่าน</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-secondary" id="twoFaPasswordText"></p>
+          <label for="twoFaPasswordInput" class="form-label">รหัสผ่านของคุณ</label>
+          <input id="twoFaPasswordInput" type="password" class="form-control" required autocomplete="current-password">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary">ยืนยัน</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: ต้องทำก่อนใช้งานต่อ (บังคับ 2FA / รหัสผ่านหมดอายุ) ============ -->
+  <div class="modal fade" id="restrictionModal" tabindex="-1" aria-labelledby="restrictionTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="restrictionTitle">ต้องดำเนินการก่อนใช้งานต่อ</h2>
+        </div>
+        <div class="modal-body" id="restrictionBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" onclick="logout()">ออกจากระบบ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: ผลตรวจสอบความปลอดภัย ============ -->
+  <div class="modal fade" id="auditModal" tabindex="-1" aria-labelledby="auditTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="auditTitle">ผลการตรวจสอบความปลอดภัย (Security Audit)</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body" id="auditBody"></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button></div>
+      </div>
     </div>
   </div>
 
@@ -1955,6 +2112,10 @@
         throw new SessionExpiredError('session expired');
       }
       const data = await response.json().catch(() => ({}));
+      if (response.status === 403 && data.code === 'RESTRICTED') {
+        showRestrictionModal(data.restrictions);
+        throw new SessionExpiredError('restricted');
+      }
       if (!response.ok) {
         const error = new Error(data.error || 'ทำรายการไม่สำเร็จ');
         error.data = data;
@@ -2163,6 +2324,7 @@
       document.getElementById('profileRole').textContent = currentRoleLabel;
       loadHealth();
       loadProfile();
+      showRestrictionModal(session.restrictions || []);
     }
 
     // หน้าแรกหลังเข้าสู่ระบบ: หน้าแรกที่บัญชีนี้มีสิทธิ์เข้า
@@ -2209,6 +2371,19 @@
       }
     }
 
+    function showLoginStep(step) {
+      document.getElementById('loginForm').classList.toggle('d-none', step !== 'password');
+      document.getElementById('login2faForm').classList.toggle('d-none', step !== '2fa');
+    }
+
+    function finishLogin(data) {
+      document.getElementById('loginForm').reset();
+      document.getElementById('login2faForm').reset();
+      showLoginStep('password');
+      applyRole(data);
+      showDashboard();
+    }
+
     async function login(event) {
       event.preventDefault();
       const username = document.getElementById('loginUsername').value.trim();
@@ -2227,15 +2402,50 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
 
-        document.getElementById('loginForm').reset();
-        applyRole(data);
-        showDashboard();
+        if (data.needs_2fa) {
+          // รหัสผ่านถูกแล้ว ต้องยืนยันรหัส 2FA ต่อ (ไม่เก็บรหัสผ่านค้างในช่อง)
+          document.getElementById('loginPassword').value = '';
+          showLoginStep('2fa');
+          document.getElementById('login2faCode').focus();
+          return;
+        }
+        finishLogin(data);
       } catch (error) {
         showStatus(error.message, 'danger');
       } finally {
         loginButton.disabled = false;
         document.getElementById('loginButtonLabel').textContent = 'เข้าสู่ระบบ';
       }
+    }
+
+    async function submitLogin2fa(event) {
+      event.preventDefault();
+      const button = document.getElementById('login2faButton');
+      button.disabled = true;
+      try {
+        const response = await fetch('/api/login/2fa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: document.getElementById('login2faCode').value })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          if (response.status === 401 && /เข้าสู่ระบบใหม่/.test(data.error || '')) cancelLogin2fa();
+          throw new Error(data.error || 'ยืนยันรหัสไม่สำเร็จ');
+        }
+        finishLogin(data);
+      } catch (error) {
+        showStatus(error.message, 'danger');
+        document.getElementById('login2faCode').select();
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function cancelLogin2fa() {
+      document.getElementById('login2faForm').reset();
+      showLoginStep('password');
+      document.getElementById('loginPassword').focus();
     }
 
     async function logout() {
@@ -4408,7 +4618,7 @@
     // ============ Settings: tabs + Admin & Roles ============
     const SETTINGS_TAB_ACTIVE = ['tw-text-primary-container', 'tw-font-semibold', 'tw-border-primary-container'];
     const SETTINGS_TAB_IDLE = ['tw-text-outline', 'tw-border-transparent'];
-    const SETTINGS_TABS = { profile: 'settingsTabProfile', admins: 'settingsTabAdmins' };
+    const SETTINGS_TABS = { profile: 'settingsTabProfile', security: 'settingsTabSecurity', admins: 'settingsTabAdmins' };
 
     function showSettingsTab(name) {
       if (name === 'admins' && !can('settings.manage')) name = 'profile';
@@ -4421,6 +4631,7 @@
         button.classList.add(...(active ? SETTINGS_TAB_ACTIVE : SETTINGS_TAB_IDLE));
       });
       if (name === 'admins') loadAdminsTab();
+      if (name === 'security') loadSecurityTab();
     }
 
     // สไตล์ป้ายบทบาท/สีรูปย่อ ต่อบทบาท (ใช้โทนสีของธีม ไม่ฮาร์ดโค้ดสีเฉพาะ)
@@ -4529,12 +4740,14 @@
             </td>
             <td class="tw-py-3.5 tw-px-4 tw-text-on-surface">${user.department ? escapeHtml(user.department) : '<span class="tw-text-outline">-</span>'}</td>
             <td class="tw-py-3.5 tw-px-4">${roleBadgeHtml(user.role, roleLabelByKey(user.role))}</td>
-            <td class="tw-py-3.5 tw-px-4">${statusHtml}</td>
+            <td class="tw-py-3.5 tw-px-4"><div class="tw-flex tw-flex-col tw-items-start tw-gap-1.5">${statusHtml}${user.totp_enabled
+              ? '<span class="tw-inline-flex tw-items-center tw-gap-1 tw-text-label-sm tw-font-semibold tw-text-secondary tw-bg-secondary-container/50 tw-px-2 tw-py-0.5 tw-rounded-full"><span class="material-symbols-outlined tw-text-[0.875rem]">phonelink_lock</span>2FA</span>' : ''}</div></td>
             <td class="tw-py-3.5 tw-px-4">${lastLogin}</td>
             <td class="tw-py-3.5 tw-px-5 tw-text-right">
               <div class="tw-inline-flex tw-items-center tw-gap-1">
                 <button type="button" onclick="openUserModal(${Number(user.id)})" title="แก้ไขบัญชีและสิทธิ์" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-primary-container hover:tw-bg-primary-fixed/50 tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">edit</span></button>
                 <button type="button" onclick="openResetPasswordModal(${Number(user.id)})" title="รีเซ็ตรหัสผ่าน" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">lock_reset</span></button>
+                ${user.totp_enabled ? `<button type="button" onclick="resetUserTwoFa(${Number(user.id)})" title="รีเซ็ต 2FA (กรณีโทรศัพท์หาย)" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">phonelink_erase</span></button>` : ''}
                 ${user.is_self
                   ? '<button type="button" disabled title="ไม่สามารถลบบัญชีของตัวเองได้" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-1.5 tw-rounded-md tw-text-outline-variant tw-cursor-not-allowed tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span></button>'
                   : `<button type="button" onclick="deleteUser(${Number(user.id)})" title="ลบบัญชี" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">person_remove</span></button>`}
@@ -4927,6 +5140,479 @@
       } catch (error) {
         reportError(error);
       }
+    }
+
+    // ============ Settings: Security & 2FA ============
+    let twoFaStatus = null;
+    let secSettings = null;
+    let secDraft = null;
+    let secClientIp = '';
+    let secAudit = null;
+    let twoFaModal = null;
+    let twoFaPasswordModal = null;
+    let restrictionModal = null;
+    let auditModal = null;
+    let twoFaPasswordAction = null;
+    let latestBackupCodes = [];
+
+    function ensureSecurityModals() {
+      if (twoFaModal) return;
+      twoFaModal = new bootstrap.Modal(document.getElementById('twoFaModal'), { backdrop: 'static' });
+      twoFaPasswordModal = new bootstrap.Modal(document.getElementById('twoFaPasswordModal'));
+      restrictionModal = new bootstrap.Modal(document.getElementById('restrictionModal'), { backdrop: 'static', keyboard: false });
+      auditModal = new bootstrap.Modal(document.getElementById('auditModal'));
+      document.getElementById('twoFaModal').addEventListener('hidden.bs.modal', onTwoFaModalHidden);
+    }
+
+    const secCardClass = 'tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]';
+    const secSelectClass = 'tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/60 tw-bg-surface-container-lowest tw-text-on-surface tw-text-body-md tw-py-2 tw-px-3 focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-outline-none';
+    const secGhostButton = 'tw-whitespace-nowrap tw-shrink-0 tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant/60 hover:tw-bg-surface-container tw-text-on-surface tw-text-label-md tw-font-label-md tw-transition-colors active:tw-scale-95 tw-flex tw-items-center tw-gap-1.5';
+
+    function secCardHeader(icon, title, subtitle, rightHtml = '') {
+      return `
+        <div class="tw-flex tw-items-center tw-justify-between tw-gap-3 tw-pb-5 tw-border-b tw-border-outline-variant/30">
+          <div class="tw-flex tw-items-center tw-gap-3">
+            <div class="tw-p-2.5 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex"><span class="material-symbols-outlined tw-text-[1.5rem]">${icon}</span></div>
+            <div><h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">${title}</h4>
+              <p class="tw-text-body-sm tw-text-outline tw-m-0">${subtitle}</p></div>
+          </div>${rightHtml}
+        </div>`;
+    }
+
+    function switchHtml(checked, onchange, label) {
+      return `<label class="tw-relative tw-inline-flex tw-items-center tw-cursor-pointer tw-shrink-0" aria-label="${escapeHtml(label)}">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="${onchange}" class="tw-sr-only tw-peer">
+        <div class="tw-w-11 tw-h-6 tw-bg-surface-container-highest tw-rounded-full peer-checked:after:tw-translate-x-full after:tw-content-[''] after:tw-absolute after:tw-top-[2px] after:tw-left-[2px] after:tw-bg-white after:tw-border after:tw-border-gray-300 after:tw-rounded-full after:tw-h-5 after:tw-w-5 after:tw-transition-all peer-checked:tw-bg-primary"></div></label>`;
+    }
+
+    async function loadSecurityTab() {
+      const manage = can('settings.manage');
+      try {
+        const results = await Promise.all([
+          api('/api/admin/2fa/status'),
+          ...(manage ? [api('/api/admin/security/settings'), api('/api/admin/security/audit'), api('/api/admin/security/events')] : []),
+        ]);
+        twoFaStatus = results[0];
+        if (manage) {
+          secSettings = results[1].settings;
+          secClientIp = results[1].client_ip;
+          secDraft = JSON.parse(JSON.stringify(secSettings));
+          secAudit = results[2];
+          renderSecMetrics();
+          renderSecScore();
+          renderPolicyCard();
+          renderIpCard();
+          renderEventsCard(results[3].rows);
+        }
+        renderTwoFaCard();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    function renderSecScore() {
+      const pill = document.getElementById('secScorePill');
+      const score = secAudit.score;
+      const level = score >= 80 ? ['tw-bg-primary-fixed tw-text-on-primary-fixed-variant', 'tw-bg-primary', 'ดี']
+        : score >= 50 ? ['tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant', 'tw-bg-tertiary-container', 'พอใช้']
+          : ['tw-bg-error-container tw-text-on-error-container', 'tw-bg-error', 'ควรปรับปรุง'];
+      pill.className = `need-settings-manage tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-semibold ${level[0]}`;
+      pill.innerHTML = `<span class="tw-w-2 tw-h-2 tw-rounded-full ${level[1]}"></span>คะแนนความปลอดภัย: ${level[2]} (${score}/100)`;
+    }
+
+    function renderSecMetrics() {
+      const m = secAudit.metrics;
+      const card = (icon, tone, label, value, sub, subTone) => `
+        <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-sm tw-flex tw-items-start tw-gap-4">
+          <div class="tw-w-12 tw-h-12 tw-rounded-lg ${tone} tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.5rem]">${icon}</span></div>
+          <div class="tw-min-w-0"><div class="tw-text-body-sm tw-text-outline tw-truncate">${label}</div>
+            <div class="tw-text-headline-md tw-font-headline-md tw-font-bold tw-text-on-surface tw-mt-0.5">${value}</div>
+            <div class="tw-text-label-sm tw-font-medium tw-mt-1 ${subTone}">${sub}</div></div>
+        </div>`;
+      const allTwoFa = m.users_active > 0 && m.two_factor_enabled === m.users_active;
+      document.getElementById('secMetrics').innerHTML =
+        card('lock_reset', 'tw-bg-primary/10 tw-text-primary', '2FA Coverage', `${m.two_factor_enabled} / ${m.users_active} บัญชี`, allTwoFa ? 'เปิดครบทุกบัญชีที่ใช้งาน' : 'ยังมีบัญชีที่ไม่ได้เปิด 2FA', allTwoFa ? 'tw-text-primary' : 'tw-text-tertiary')
+        + card('gpp_bad', 'tw-bg-surface-container tw-text-outline', 'Failed Login Attempts', `${m.failed_logins_24h} ครั้งใน 24 ชม.`, m.failed_logins_24h === 0 ? 'ไม่พบความพยายามเข้าสู่ระบบผิด' : 'ดูรายละเอียดใน System Logs', m.failed_logins_24h === 0 ? 'tw-text-primary' : 'tw-text-tertiary')
+        + card('devices', 'tw-bg-secondary-container/50 tw-text-secondary', 'Active Sessions', `${m.active_sessions} เซสชัน`, 'ผู้ดูแลที่ล็อกอินอยู่ขณะนี้', 'tw-text-secondary')
+        + card('enhanced_encryption', 'tw-bg-primary/10 tw-text-primary', 'การเชื่อมต่อ (HTTPS)', m.https ? 'เข้ารหัสแล้ว' : 'ยังเป็น HTTP', m.https ? 'ใช้ HTTPS' : 'ปกติบนเครื่องพัฒนา ควรใช้ HTTPS บนโฮสต์จริง', m.https ? 'tw-text-primary' : 'tw-text-tertiary');
+    }
+
+    function renderTwoFaCard() {
+      const status = twoFaStatus;
+      const manage = can('settings.manage');
+      const enforceRow = manage ? `
+        <div class="tw-mt-4 tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-flex tw-items-center tw-justify-between tw-gap-3">
+          <div class="tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem]">policy</span>
+            <div><div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">บังคับใช้ 2FA กับทุกบัญชี (Enforce 2FA)</div>
+              <div class="tw-text-body-sm tw-text-outline">บัญชีที่ยังไม่เปิด 2FA จะต้องตั้งค่าก่อนใช้งานส่วนอื่น (กดบันทึกด้านล่างเพื่อให้มีผล)</div></div></div>
+          ${switchHtml(secDraft.require_2fa, 'setSecDraft(\'require_2fa\', this.checked)', 'บังคับใช้ 2FA')}
+        </div>` : '';
+      const methodButton = status.enabled
+        ? `<button type="button" onclick="openTwoFaPassword('disable')" ${status.enforced ? 'disabled title="ระบบบังคับใช้ 2FA จึงปิดไม่ได้"' : ''} class="${secGhostButton} tw-text-error disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">ปิดใช้งาน</button>`
+        : `<button type="button" onclick="openTwoFaSetup()" class="tw-whitespace-nowrap tw-shrink-0 tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-3.5 tw-py-1.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold tw-transition-colors active:tw-scale-95">เปิดใช้งาน</button>`;
+      const backupSection = status.enabled ? `
+        <div class="tw-mt-6 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-flex tw-items-center tw-justify-between tw-gap-3 tw-flex-wrap">
+          <div><div class="tw-text-label-md tw-font-label-md tw-font-bold tw-text-on-surface tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem] tw-text-tertiary">pin</span>รหัสสำรองฉุกเฉิน (Backup Recovery Codes)</div>
+            <p class="tw-text-body-sm tw-text-outline tw-mt-0.5 tw-mb-0">ใช้เมื่อเข้าโทรศัพท์ไม่ได้ ใช้ได้ครั้งละ 1 รหัส (เหลือ ${status.backup_codes_remaining} จาก ${status.backup_codes_total} ชุด)</p></div>
+          <button type="button" onclick="openTwoFaPassword('regenerate')" class="${secGhostButton}"><span class="material-symbols-outlined tw-text-[1rem]">refresh</span>สร้างรหัสใหม่</button>
+        </div>` : '';
+      document.getElementById('secTwoFaCard').innerHTML = `
+        ${secCardHeader('security', 'การยืนยันตัวตนสองขั้นตอน (Two-Factor Authentication - 2FA)', 'ปกป้องบัญชีของคุณด้วยรหัส 6 หลักจากแอปในโทรศัพท์')}
+        ${enforceRow}
+        <div class="tw-mt-6 tw-space-y-4">
+          <div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">ช่องทางยืนยันตัวตนของบัญชีคุณ</div>
+          <div class="tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-bright tw-flex tw-items-center tw-justify-between tw-gap-3">
+            <div class="tw-flex tw-items-start tw-gap-3.5">
+              <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-surface-container tw-flex tw-items-center tw-justify-center tw-text-primary tw-mt-0.5 tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.25rem]">phonelink_lock</span></div>
+              <div>
+                <div class="tw-flex tw-items-center tw-gap-2 tw-flex-wrap"><span class="tw-text-label-md tw-font-label-md tw-font-bold tw-text-on-surface">Google Authenticator / TOTP</span>
+                  <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-bg-secondary-container/60 tw-text-secondary tw-text-label-sm tw-font-semibold">แนะนำ</span></div>
+                <p class="tw-text-body-sm tw-text-outline tw-mt-0.5 tw-mb-0">ใช้แอป Google Authenticator, Microsoft Authenticator หรือ Authy สร้างรหัส 6 หลักที่เปลี่ยนทุก 30 วินาที</p>
+                <div class="tw-text-label-sm tw-font-medium tw-mt-1.5 tw-flex tw-items-center tw-gap-1 ${status.enabled ? 'tw-text-primary' : 'tw-text-outline'}"><span class="tw-w-2 tw-h-2 tw-rounded-full ${status.enabled ? 'tw-bg-primary' : 'tw-bg-outline'}"></span>สถานะ: ${status.enabled ? 'เปิดใช้งานแล้ว' : 'ยังไม่ได้เปิดใช้งาน'}</div>
+              </div>
+            </div>${methodButton}
+          </div>
+        </div>
+        ${backupSection}
+        <p class="tw-text-body-sm tw-text-outline tw-mt-5 tw-mb-0 tw-flex tw-items-start tw-gap-1.5"><span class="material-symbols-outlined tw-text-[1rem]">info</span>ถ้าโทรศัพท์หายและไม่มีรหัสสำรอง ให้ผู้จัดการระบบรีเซ็ต 2FA ของบัญชีนี้ให้ที่แท็บ ผู้ดูแลและสิทธิ์การใช้งาน</p>`;
+    }
+
+    function setSecDraft(key, value) {
+      secDraft[key] = value;
+      if (key === 'ip_allowlist_enabled' || key === 'ip_allowlist') renderIpCard();
+      if (key !== 'require_2fa' && key !== 'ip_allowlist_enabled' && key !== 'ip_allowlist') renderPolicyCard();
+    }
+
+    const SESSION_TIMEOUT_LABELS = { 15: '15 นาที', 30: '30 นาที', 60: '1 ชั่วโมง', 240: '4 ชั่วโมง', 480: '8 ชั่วโมง' };
+
+    function renderPolicyCard() {
+      const d = secDraft;
+      const timeoutButtons = Object.entries(SESSION_TIMEOUT_LABELS).map(([minutes, label]) => `
+        <button type="button" onclick="setSecDraft('session_timeout_minutes', ${minutes})" class="tw-appearance-none tw-cursor-pointer tw-py-2.5 tw-px-3 tw-rounded-lg tw-text-label-md tw-text-center tw-transition-colors ${Number(minutes) === d.session_timeout_minutes ? 'tw-border-2 tw-border-primary tw-bg-primary/5 tw-text-primary tw-font-bold' : 'tw-border tw-border-outline-variant/40 tw-bg-transparent tw-text-on-surface hover:tw-bg-surface-container-low'}">${label}</button>`).join('');
+      const option = (value, label, current) => `<option value="${value}" ${Number(value) === Number(current) ? 'selected' : ''}>${label}</option>`;
+      const switchRow = (title, description, checked, key) => `
+        <div class="tw-flex tw-items-center tw-justify-between tw-gap-4">
+          <div><div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">${title}</div><div class="tw-text-body-sm tw-text-outline">${description}</div></div>
+          ${switchHtml(checked, `setSecDraft('${key}', this.checked)`, title)}
+        </div>`;
+      document.getElementById('secPolicyCard').innerHTML = `
+        ${secCardHeader('password', 'นโยบายรหัสผ่านและการหมดอายุเซสชัน (Password &amp; Session Policies)', 'มีผลกับทุกบัญชีหลังกดบันทึก')}
+        <div class="tw-mt-6 tw-space-y-6">
+          <div>
+            <label class="tw-block tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-2">ระยะเวลาเซสชันไม่เคลื่อนไหว (Session Inactivity Timeout)</label>
+            <div class="tw-grid tw-grid-cols-2 sm:tw-grid-cols-5 tw-gap-3">${timeoutButtons}</div>
+            <p class="tw-text-body-sm tw-text-outline tw-mt-2 tw-mb-0">หากไม่มีการใช้งานเกินเวลาที่เลือก ระบบจะออกจากระบบและต้องใส่รหัสผ่านใหม่ (มีผลกับเซสชันที่ใช้งานอยู่ในคำขอถัดไป)</p>
+          </div>
+          <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4 tw-pt-4 tw-border-t tw-border-outline-variant/20">
+            <div><label class="tw-block tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-1.5">บังคับเปลี่ยนรหัสผ่านทุก</label>
+              <select onchange="setSecDraft('password_expiry_days', Number(this.value))" class="${secSelectClass}">
+                ${option(0, 'ไม่มีกำหนดหมดอายุ', d.password_expiry_days)}${option(60, '60 วัน', d.password_expiry_days)}${option(90, '90 วัน (มาตรฐานสากล)', d.password_expiry_days)}${option(180, '180 วัน', d.password_expiry_days)}</select></div>
+            <div><label class="tw-block tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-1.5">ความยาวรหัสผ่านขั้นต่ำ</label>
+              <select onchange="setSecDraft('password_min_length', Number(this.value))" class="${secSelectClass}">
+                ${option(8, '8 ตัวอักษร', d.password_min_length)}${option(10, '10 ตัวอักษร (แนะนำ)', d.password_min_length)}${option(12, '12 ตัวอักษร', d.password_min_length)}</select></div>
+          </div>
+          <div class="tw-space-y-4 tw-pt-4 tw-border-t tw-border-outline-variant/20">
+            ${switchRow('ข้อกำหนดความซับซ้อนของรหัสผ่าน (Complexity)', 'ต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และอักขระพิเศษ (ใช้กับรหัสผ่านที่ตั้งใหม่)', d.password_complexity, 'password_complexity')}
+            ${switchRow('ล็อกบัญชีอัตโนมัติเมื่อใส่รหัสผิด (Account Lockout)', 'ล็อกบัญชี 15 นาที เมื่อใส่รหัสผ่านหรือรหัส 2FA ผิดติดต่อกัน 5 ครั้ง', d.account_lockout, 'account_lockout')}
+          </div>
+        </div>`;
+    }
+
+    // ตรวจว่า IP (v4) อยู่ในรายการหรือไม่ ใช้เตือนก่อนกดบันทึก (เซิร์ฟเวอร์ตรวจซ้ำอีกชั้น)
+    function ipMatchesList(ip, list) {
+      const toInt = text => { const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(text); return m ? (((+m[1] * 256 + +m[2]) * 256 + +m[3]) * 256 + +m[4]) : null; };
+      const value = toInt(ip);
+      return list.some(item => {
+        const [base, prefixText] = item.cidr.split('/');
+        if (value === null) return base.toLowerCase() === ip.toLowerCase();
+        const baseValue = toInt(base);
+        if (baseValue === null) return false;
+        const prefix = prefixText === undefined ? 32 : Number(prefixText);
+        const size = 2 ** (32 - prefix);
+        return Math.floor(value / size) === Math.floor(baseValue / size);
+      });
+    }
+
+    function renderIpCard() {
+      const d = secDraft;
+      const myIpIncluded = ipMatchesList(secClientIp, d.ip_allowlist);
+      const rows = d.ip_allowlist.length === 0
+        ? '<div class="tw-text-body-sm tw-text-outline tw-p-2.5">ยังไม่มีรายการ</div>'
+        : d.ip_allowlist.map((item, index) => `
+          <div class="tw-p-2.5 tw-rounded-lg tw-border tw-border-outline-variant/30 tw-bg-surface-bright tw-flex tw-items-center tw-justify-between tw-gap-2">
+            <div class="tw-min-w-0"><div class="tw-font-mono tw-text-label-md tw-font-semibold tw-text-on-surface">${escapeHtml(item.cidr)}</div>
+              <div class="tw-text-body-sm tw-text-outline tw-truncate">${escapeHtml(item.note || '-')}</div></div>
+            <button type="button" onclick="removeIpEntry(${index})" title="ลบรายการนี้" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-text-error hover:tw-bg-error-container/40 tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span></button>
+          </div>`).join('');
+      document.getElementById('secIpCard').innerHTML = `
+        ${secCardHeader('lan', 'การควบคุมตามเครือข่ายและ IP', 'IP Whitelist สำหรับหน้า login และระบบจัดการ')}
+        <div class="tw-mt-5 tw-space-y-4">
+          <div class="tw-p-3.5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-bg-surface-container-low tw-flex tw-items-center tw-justify-between tw-gap-3">
+            <div><div class="tw-text-label-md tw-font-label-md tw-font-bold tw-text-on-surface">จำกัดเฉพาะ IP ในรายการ</div>
+              <div class="tw-text-body-sm tw-text-outline">IP อื่นจะเข้าหน้า login และระบบจัดการไม่ได้ (แอปมือถือไม่ได้รับผลกระทบ)</div></div>
+            ${switchHtml(d.ip_allowlist_enabled, 'setSecDraft(\'ip_allowlist_enabled\', this.checked)', 'จำกัดเฉพาะ IP ในรายการ')}
+          </div>
+          ${d.ip_allowlist_enabled && !myIpIncluded ? `<div class="tw-p-3 tw-rounded-lg tw-bg-error-container/50 tw-text-on-error-container tw-text-body-sm tw-flex tw-items-start tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem]">warning</span><span>IP ปัจจุบันของคุณ (${escapeHtml(secClientIp)}) ไม่อยู่ในรายการ ถ้าบันทึกจะล็อกตัวเองออก ระบบจึงไม่อนุญาต <button type="button" onclick="addIpEntry('${escapeHtml(secClientIp)}', 'IP ปัจจุบันของฉัน')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-font-semibold tw-underline tw-text-on-error-container">เพิ่ม IP นี้</button></span></div>` : ''}
+          <div>
+            <div class="tw-flex tw-items-center tw-justify-between tw-mb-2"><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">ช่วง IP ที่ได้รับอนุญาต (Allowed IP Ranges)</span>
+              <span class="tw-text-body-sm tw-text-outline">IP ของคุณ: <span class="tw-font-mono">${escapeHtml(secClientIp)}</span></span></div>
+            <div class="tw-space-y-2">${rows}</div>
+            <div class="tw-flex tw-flex-wrap tw-gap-2 tw-mt-3">
+              <input id="secIpInput" placeholder="เช่น 158.108.0.0/16 หรือ 203.0.113.5" class="${secSelectClass} tw-font-mono tw-flex-1 tw-min-w-[10rem]">
+              <input id="secIpNote" placeholder="หมายเหตุ (ไม่บังคับ)" class="${secSelectClass} tw-flex-1 tw-min-w-[8rem]">
+              <button type="button" onclick="addIpEntry()" class="${secGhostButton}"><span class="material-symbols-outlined tw-text-[1rem]">add</span>เพิ่ม</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function addIpEntry(cidr, note) {
+      const value = (cidr || document.getElementById('secIpInput').value).trim();
+      const noteText = (note !== undefined ? note : document.getElementById('secIpNote').value).trim();
+      if (!value) return;
+      if (secDraft.ip_allowlist.some(item => item.cidr === value)) { showStatus('IP นี้อยู่ในรายการแล้ว', 'warning'); return; }
+      secDraft.ip_allowlist.push({ cidr: value, note: noteText });
+      renderIpCard();
+    }
+
+    function removeIpEntry(index) {
+      secDraft.ip_allowlist.splice(index, 1);
+      renderIpCard();
+    }
+
+    const EVENT_ICONS = { login: ['check_circle', 'tw-bg-primary/10 tw-text-primary'], login_failed: ['warning', 'tw-bg-error/10 tw-text-error'],
+      logout: ['logout', 'tw-bg-surface-container tw-text-on-surface-variant'], change_password: ['password', 'tw-bg-secondary-container/50 tw-text-secondary'] };
+
+    function renderEventsCard(rows) {
+      const list = rows.length === 0 ? '<div class="tw-text-body-sm tw-text-outline">ยังไม่มีเหตุการณ์</div>' : rows.map(row => {
+        const [icon, tone] = EVENT_ICONS[row.action] || ['manage_accounts', 'tw-bg-secondary-container/50 tw-text-secondary'];
+        const failed = row.action === 'login_failed';
+        return `
+        <div class="tw-p-3 tw-rounded-lg tw-border ${failed ? 'tw-border-error/20 tw-bg-error-container/20' : 'tw-border-outline-variant/20 tw-bg-surface-bright'} tw-flex tw-items-start tw-gap-3">
+          <div class="tw-w-8 tw-h-8 tw-rounded-full ${tone} tw-flex tw-items-center tw-justify-center tw-shrink-0 tw-mt-0.5"><span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span></div>
+          <div class="tw-flex-1 tw-min-w-0">
+            <div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">${escapeHtml(ACTION_LABELS[row.action] || row.action)}${row.username ? `: ${escapeHtml(row.username)}` : ''}</div>
+            <div class="tw-text-body-sm tw-text-outline tw-truncate">${escapeHtml(row.detail || '')}</div>
+            <div class="tw-text-label-sm tw-text-outline tw-mt-1">${escapeHtml(formatDateTime(row.created_at))} • IP ${escapeHtml(row.ip || '-')}</div>
+          </div>
+        </div>`;
+      }).join('');
+      document.getElementById('secEventsCard').innerHTML = `
+        ${secCardHeader('notification_important', 'บันทึกความปลอดภัยล่าสุด', 'Security Alerts &amp; Audit Log')}
+        <div class="tw-mt-4 tw-space-y-3">${list}</div>
+        ${can('logs.all') || can('logs.own') ? `<div class="tw-mt-4 tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-center"><button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-text-label-md tw-font-label-md tw-font-semibold tw-text-primary hover:tw-underline tw-inline-flex tw-items-center tw-gap-1">เปิดดูบันทึกทั้งหมด (System Logs)<span class="material-symbols-outlined tw-text-[1rem]">arrow_forward</span></button></div>` : ''}`;
+    }
+
+    async function saveSecuritySettings() {
+      const button = document.getElementById('secSaveButton');
+      button.disabled = true;
+      try {
+        const data = await api('/api/admin/security/settings', jsonRequest('PUT', secDraft));
+        showStatus(data.message);
+        await loadSecurityTab();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function resetSecurityDraft() {
+      secDraft = JSON.parse(JSON.stringify(secSettings));
+      renderTwoFaCard();
+      renderPolicyCard();
+      renderIpCard();
+    }
+
+    async function openSecurityAudit() {
+      ensureSecurityModals();
+      try {
+        secAudit = await api('/api/admin/security/audit');
+        renderSecScore();
+        renderSecMetrics();
+      } catch (error) { reportError(error); return; }
+      const rows = secAudit.checks.map(check => `
+        <div class="tw-p-3 tw-rounded-lg tw-border ${check.ok ? 'tw-border-outline-variant/30' : 'tw-border-error/25 tw-bg-error-container/15'} tw-flex tw-items-start tw-gap-3">
+          <span class="material-symbols-outlined tw-text-[1.375rem] ${check.ok ? 'tw-text-primary' : 'tw-text-error'}" style="font-variation-settings:'FILL' 1;">${check.ok ? 'check_circle' : 'cancel'}</span>
+          <div class="tw-flex-1 tw-min-w-0">
+            <div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">${escapeHtml(check.label)}</div>
+            <div class="tw-text-body-sm tw-text-on-surface-variant">${escapeHtml(check.detail)}</div>
+            ${check.ok ? '' : `<div class="tw-text-body-sm tw-text-error tw-mt-0.5">วิธีแก้: ${escapeHtml(check.fix)}</div>`}
+          </div>
+          <span class="tw-text-label-sm tw-text-outline tw-shrink-0">น้ำหนัก ${check.weight}</span>
+        </div>`).join('');
+      document.getElementById('auditBody').innerHTML = `
+        <div class="tw-flex tw-items-center tw-gap-4 tw-mb-4">
+          <div class="tw-text-display-lg tw-font-display-lg tw-text-on-surface">${secAudit.score}<span class="tw-text-headline-md tw-text-outline">/100</span></div>
+          <div class="tw-text-body-sm tw-text-on-surface-variant">คะแนนคำนวณจากการตั้งค่าจริงของระบบ ไม่ใช่การรับรองมาตรฐานใด ๆ รายการสีแดงคือสิ่งที่ควรแก้ก่อน</div>
+        </div>
+        <div class="tw-space-y-2.5">${rows}</div>`;
+      auditModal.show();
+    }
+
+    // ----- 2FA: เปิดใช้งาน / รหัสสำรอง / ปิดใช้งาน -----
+    async function openTwoFaSetup() {
+      ensureSecurityModals();
+      try {
+        const data = await api('/api/admin/2fa/setup', { method: 'POST' });
+        document.getElementById('twoFaQr').src = data.qr;
+        document.getElementById('twoFaSecret').textContent = data.secret.match(/.{1,4}/g).join(' ');
+        document.getElementById('twoFaCode').value = '';
+        document.getElementById('twoFaError').classList.add('d-none');
+        showTwoFaStep('setup');
+        if (restrictionModal) restrictionModal.hide();
+        twoFaModal.show();
+        setTimeout(() => document.getElementById('twoFaCode').focus(), 400);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    function showTwoFaStep(step) {
+      document.getElementById('twoFaStepSetup').classList.toggle('d-none', step !== 'setup');
+      document.getElementById('twoFaStepCodes').classList.toggle('d-none', step !== 'codes');
+      document.getElementById('twoFaTitle').textContent = step === 'setup' ? 'ตั้งค่า 2FA (Authenticator)' : 'บันทึกรหัสสำรองฉุกเฉิน';
+    }
+
+    async function confirmTwoFaEnable(event) {
+      event.preventDefault();
+      const button = document.getElementById('twoFaConfirmButton');
+      button.disabled = true;
+      try {
+        const data = await api('/api/admin/2fa/enable', jsonRequest('POST', { code: document.getElementById('twoFaCode').value }));
+        showBackupCodes(data.backup_codes);
+        showStatus(data.message);
+      } catch (error) {
+        if (error instanceof SessionExpiredError) return;
+        const box = document.getElementById('twoFaError');
+        box.textContent = error.message;
+        box.classList.remove('d-none');
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function showBackupCodes(codes) {
+      ensureSecurityModals();
+      latestBackupCodes = codes;
+      document.getElementById('twoFaCodesList').innerHTML = codes.map(code =>
+        `<div class="tw-font-mono tw-text-body-md tw-px-3 tw-py-2 tw-rounded-lg tw-bg-surface-container tw-text-on-surface tw-text-center tw-select-all">${escapeHtml(code)}</div>`).join('');
+      document.getElementById('twoFaAck').checked = false;
+      document.getElementById('twoFaDoneButton').disabled = true;
+      showTwoFaStep('codes');
+      if (!document.getElementById('twoFaModal').classList.contains('show')) twoFaModal.show();
+    }
+
+    function copyBackupCodes() {
+      navigator.clipboard.writeText(latestBackupCodes.join('\n')).then(() => showStatus('คัดลอกรหัสสำรองแล้ว'), () => showStatus('คัดลอกไม่สำเร็จ ให้เลือกรหัสแล้วคัดลอกเอง', 'warning'));
+    }
+
+    function downloadBackupCodes() {
+      const username = document.getElementById('settingsUsername').textContent || 'admin';
+      const text = `KPS ClassFinder - รหัสสำรองฉุกเฉิน 2FA (${username})\nแต่ละรหัสใช้ได้ครั้งเดียว เก็บไว้ในที่ปลอดภัย\n\n${latestBackupCodes.join('\n')}\n`;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+      link.download = `kps-2fa-backup-codes-${username}.txt`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function openTwoFaPassword(action) {
+      ensureSecurityModals();
+      twoFaPasswordAction = action;
+      document.getElementById('twoFaPasswordTitle').textContent = action === 'disable' ? 'ปิดใช้งาน 2FA' : 'สร้างรหัสสำรองชุดใหม่';
+      document.getElementById('twoFaPasswordText').textContent = action === 'disable'
+        ? 'ยืนยันด้วยรหัสผ่านของคุณเพื่อปิด 2FA บัญชีจะปลอดภัยน้อยลง'
+        : 'ยืนยันด้วยรหัสผ่านเพื่อสร้างรหัสสำรองชุดใหม่ ชุดเก่าทั้งหมดจะใช้ไม่ได้อีก';
+      document.getElementById('twoFaPasswordInput').value = '';
+      twoFaPasswordModal.show();
+    }
+
+    async function submitTwoFaPassword(event) {
+      event.preventDefault();
+      const password = document.getElementById('twoFaPasswordInput').value;
+      try {
+        if (twoFaPasswordAction === 'disable') {
+          const data = await api('/api/admin/2fa/disable', jsonRequest('POST', { password }));
+          twoFaPasswordModal.hide();
+          showStatus(data.message);
+          await refreshSession();
+          await loadSecurityTab();
+        } else {
+          const data = await api('/api/admin/2fa/backup-codes', jsonRequest('POST', { password }));
+          twoFaPasswordModal.hide();
+          showBackupCodes(data.backup_codes);
+          showStatus(data.message);
+        }
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    async function resetUserTwoFa(id) {
+      const user = adminUsers.find(item => item.id === id);
+      if (!user || !confirm(`ต้องการรีเซ็ต 2FA ของ "${user.username}" ใช่หรือไม่?\n\nผู้ใช้จะเข้าสู่ระบบด้วยรหัสผ่านอย่างเดียวได้ จนกว่าจะตั้งค่า 2FA ใหม่`)) return;
+      try {
+        const data = await api(`/api/admin/users/${id}/reset-2fa`, { method: 'POST' });
+        showStatus(data.message);
+        await loadAdminsTab();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    // ----- สิ่งที่ต้องทำก่อนใช้งานต่อ (ระบบบังคับ 2FA / รหัสผ่านหมดอายุ) -----
+    let activeRestrictions = [];
+
+    function showRestrictionModal(restrictions) {
+      ensureSecurityModals();
+      activeRestrictions = restrictions || [];
+      if (activeRestrictions.length === 0) {
+        if (restrictionModal) restrictionModal.hide();
+        return;
+      }
+      const twoFa = activeRestrictions.includes('2fa_setup');
+      const expired = activeRestrictions.includes('password_expired');
+      document.getElementById('restrictionBody').innerHTML = `
+        <p class="tw-text-body-md tw-text-on-surface-variant tw-mt-0">ผู้ดูแลระบบกำหนดให้ต้องทำรายการต่อไปนี้ก่อนจึงจะใช้งานส่วนอื่นได้</p>
+        ${expired ? `
+        <form onsubmit="submitRestrictedPassword(event)" class="tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-space-y-3 tw-mb-4">
+          <div class="tw-flex tw-items-center tw-gap-2 tw-text-label-md tw-font-semibold tw-text-on-surface"><span class="material-symbols-outlined tw-text-tertiary">lock_clock</span>รหัสผ่านหมดอายุ — เปลี่ยนรหัสผ่านใหม่</div>
+          <input id="rpCurrent" type="password" required autocomplete="current-password" placeholder="รหัสผ่านปัจจุบัน" class="${secSelectClass}">
+          <input id="rpNew" type="password" required autocomplete="new-password" placeholder="รหัสผ่านใหม่" class="${secSelectClass}">
+          <input id="rpConfirm" type="password" required autocomplete="new-password" placeholder="ยืนยันรหัสผ่านใหม่" class="${secSelectClass}">
+          <button type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold">บันทึกรหัสผ่านใหม่</button>
+        </form>` : ''}
+        ${twoFa ? `
+        <div class="tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-flex tw-items-center tw-justify-between tw-gap-3">
+          <div class="tw-flex tw-items-center tw-gap-2 tw-text-label-md tw-font-semibold tw-text-on-surface"><span class="material-symbols-outlined tw-text-primary">phonelink_lock</span>ระบบบังคับใช้ 2FA — ตั้งค่า Authenticator</div>
+          <button type="button" onclick="openTwoFaSetup()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold">ตั้งค่าเดี๋ยวนี้</button>
+        </div>` : ''}`;
+      restrictionModal.show();
+    }
+
+    async function submitRestrictedPassword(event) {
+      event.preventDefault();
+      if (document.getElementById('rpNew').value !== document.getElementById('rpConfirm').value) {
+        showStatus('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน', 'danger');
+        return;
+      }
+      try {
+        const data = await api('/api/admin/change-password', jsonRequest('POST', {
+          current_password: document.getElementById('rpCurrent').value, new_password: document.getElementById('rpNew').value }));
+        showStatus(data.message);
+        await refreshSession();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    // เมื่อผู้ใช้ปิดหน้าต่างตั้งค่า 2FA: ตรวจสิทธิ์ใหม่ ถ้ายังติดเงื่อนไขให้กลับไปหน้าต่างบังคับ
+    function onTwoFaModalHidden() {
+      refreshSession().then(() => {
+        if (document.getElementById('settingsTabSecurity') && !document.getElementById('settingsTabSecurity').classList.contains('d-none')) loadSecurityTab();
+        if (activeRestrictions.length === 0 && document.getElementById('dashboardSection').classList.contains('d-flex')) showPage(landingPage());
+      });
     }
 
     // ============ Settings: change password ============

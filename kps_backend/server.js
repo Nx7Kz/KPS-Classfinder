@@ -11,6 +11,7 @@ const multer = require('multer');
 const { parse: parseCsv } = require('csv-parse/sync');
 const { imageSize } = require('image-size');
 const sharp = require('sharp');
+const QRCode = require('qrcode');
 
 const app = express();
 const port = 3000;
@@ -196,22 +197,219 @@ function roleLabelTh(role) {
     return rolesCache.get(role)?.label_th || rolesCache.get(role)?.label || role;
 }
 
+// ==========================================
+// 🌟 นโยบายความปลอดภัย (Security & 2FA) 🌟
+// ==========================================
+const SECURITY_DEFAULTS = {
+    require_2fa: false, // บังคับให้ทุกบัญชีเปิด 2FA (บัญชีที่ยังไม่เปิดต้องตั้งค่าก่อนใช้งานส่วนอื่น)
+    password_min_length: 8,
+    password_complexity: false, // ต้องมีตัวพิมพ์ใหญ่ เล็ก ตัวเลข และอักขระพิเศษ
+    password_expiry_days: 0, // 0 = ไม่หมดอายุ
+    session_timeout_minutes: 480, // หมดเวลาเมื่อไม่มีการใช้งาน
+    account_lockout: true, // ล็อกบัญชีชั่วคราวเมื่อใส่รหัสผิดติดกัน
+    ip_allowlist_enabled: false, // จำกัดการเข้าสู่ระบบจัดการเฉพาะ IP ในรายการ
+    ip_allowlist: [], // [{ cidr, note }]
+};
+const SECURITY_CHOICES = {
+    password_min_length: [8, 10, 12],
+    password_expiry_days: [0, 60, 90, 180],
+    session_timeout_minutes: [15, 30, 60, 240, 480],
+};
+const SECURITY_SETTING_KEY = 'security_settings';
+const LOCKOUT_MAX_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+const IP_ALLOWLIST_MAX = 50;
+const TWO_FACTOR_ISSUER = 'KPS ClassFinder';
+const BACKUP_CODE_COUNT = 10;
+const TWO_FACTOR_PENDING_MS = 5 * 60 * 1000;
+const TWO_FACTOR_MAX_ATTEMPTS = 5;
+
+let securitySettings = { ...SECURITY_DEFAULTS };
+
+// ตัดค่าที่ไม่รู้จัก/นอกช่วงทิ้ง แล้วเติมค่าตั้งต้นให้ครบ (ใช้ทั้งตอนโหลดจากฐานข้อมูลและตอนรับค่าจากหน้าเว็บ)
+function sanitizeSecuritySettings(input, base = SECURITY_DEFAULTS) {
+    const source = input && typeof input === 'object' ? input : {};
+    const result = { ...base };
+    for (const key of ['require_2fa', 'password_complexity', 'account_lockout', 'ip_allowlist_enabled']) {
+        if (typeof source[key] === 'boolean') result[key] = source[key];
+    }
+    for (const [key, choices] of Object.entries(SECURITY_CHOICES)) {
+        const value = Number(source[key]);
+        if (choices.includes(value)) result[key] = value;
+    }
+    const list = Array.isArray(source.ip_allowlist) ? source.ip_allowlist : [];
+    result.ip_allowlist = list.slice(0, IP_ALLOWLIST_MAX).map((item) => ({
+        cidr: typeof item?.cidr === 'string' ? item.cidr.trim() : '',
+        note: typeof item?.note === 'string' ? item.note.trim().slice(0, 100) : '',
+    })).filter(item => parseAllowEntry(item.cidr) !== null);
+    return result;
+}
+
+async function reloadSecuritySettings() {
+    const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [SECURITY_SETTING_KEY]);
+    let stored = {};
+    if (rows.length > 0) {
+        try { stored = JSON.parse(rows[0].setting_value); } catch (err) { stored = {}; }
+    }
+    securitySettings = sanitizeSecuritySettings(stored);
+}
+
+// ----- IP allow-list (รองรับ IPv4 แบบ x.x.x.x และ x.x.x.x/n กับ IPv6 แบบตรงตัว) -----
+function normalizeIp(ip) {
+    return String(ip || '').replace(/^::ffff:/, '');
+}
+function parseIpv4(text) {
+    const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+    if (!match) return null;
+    const parts = match.slice(1).map(Number);
+    if (parts.some(part => part > 255)) return null;
+    return ((parts[0] * 16777216) + (parts[1] * 65536) + (parts[2] * 256) + parts[3]) >>> 0;
+}
+function parseAllowEntry(raw) {
+    if (typeof raw !== 'string') return null;
+    const text = raw.trim();
+    const [addressText, prefixText] = text.split('/');
+    const v4 = parseIpv4(addressText);
+    if (v4 !== null) {
+        const prefix = prefixText === undefined ? 32 : Number(prefixText);
+        if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32 || (prefixText !== undefined && !/^\d+$/.test(prefixText))) return null;
+        const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+        return { kind: 'v4', base: (v4 & mask) >>> 0, mask };
+    }
+    if (prefixText === undefined && /^[0-9a-fA-F:]+$/.test(text) && text.includes(':')) return { kind: 'exact', value: text.toLowerCase() };
+    return null;
+}
+function isIpAllowed(ip, list = securitySettings.ip_allowlist) {
+    const address = normalizeIp(ip);
+    const v4 = parseIpv4(address);
+    return list.some((item) => {
+        const entry = parseAllowEntry(item.cidr);
+        if (!entry) return false;
+        if (entry.kind === 'v4') return v4 !== null && ((v4 & entry.mask) >>> 0) === entry.base;
+        return address.toLowerCase() === entry.value;
+    });
+}
+// ใช้กับหน้า login และ API ผู้ดูแล เท่านั้น (API สาธารณะที่แอปมือถือใช้ไม่ถูกจำกัด)
+function ipGate(req, res, next) {
+    if (!securitySettings.ip_allowlist_enabled || isIpAllowed(req.ip)) return next();
+    res.status(403).json({ error: `ระบบจัดการอนุญาตเฉพาะเครือข่ายที่กำหนด (IP ของคุณ: ${normalizeIp(req.ip)})`, code: 'IP_BLOCKED' });
+}
+
+// ----- TOTP (RFC 6238: HMAC-SHA1, 6 หลัก, ทุก 30 วินาที — ใช้ได้กับ Google Authenticator / Microsoft Authenticator / Authy) -----
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32Encode(buffer) {
+    let bits = 0; let value = 0; let output = '';
+    for (const byte of buffer) {
+        value = (value << 8) | byte; bits += 8;
+        while (bits >= 5) { output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31]; bits -= 5; }
+    }
+    if (bits > 0) output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+    return output;
+}
+function base32Decode(text) {
+    let bits = 0; let value = 0; const bytes = [];
+    for (const char of text.replace(/=+$/, '').toUpperCase()) {
+        const index = BASE32_ALPHABET.indexOf(char);
+        if (index < 0) continue;
+        value = (value << 5) | index; bits += 5;
+        if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; }
+    }
+    return Buffer.from(bytes);
+}
+function hotp(secret, counter) {
+    const message = Buffer.alloc(8);
+    message.writeBigUInt64BE(BigInt(counter));
+    const digest = crypto.createHmac('sha1', secret).update(message).digest();
+    const offset = digest[19] & 0xf;
+    const code = (((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3]) % 1000000;
+    return String(code).padStart(6, '0');
+}
+// คืนเลขช่วงเวลา (step) ที่ตรงกับรหัส หรือ null ถ้าไม่ตรง — ไม่รับ step ที่เคยใช้แล้ว (lastStep) กันการใช้รหัสซ้ำ
+function verifyTotp(secretBase32, code, lastStep = 0) {
+    const clean = String(code || '').replace(/\s/g, '');
+    if (!/^\d{6}$/.test(clean)) return null;
+    const secret = base32Decode(secretBase32);
+    const now = Math.floor(Date.now() / 30000);
+    for (const delta of [0, -1, 1]) {
+        const step = now + delta;
+        if (step <= lastStep) continue;
+        if (crypto.timingSafeEqual(Buffer.from(hotp(secret, step)), Buffer.from(clean))) return step;
+    }
+    return null;
+}
+
+// ----- รหัสสำรองฉุกเฉิน (เก็บเป็น bcrypt hash ใช้ได้ครั้งเดียว) -----
+async function generateBackupCodes() {
+    const plain = Array.from({ length: BACKUP_CODE_COUNT }, () => {
+        const raw = crypto.randomBytes(5).toString('hex');
+        return `${raw.slice(0, 5)}-${raw.slice(5)}`;
+    });
+    const hashes = await Promise.all(plain.map(code => bcrypt.hash(code, 8)));
+    return { plain, hashes };
+}
+function parseBackupHashes(stored) {
+    try { const list = JSON.parse(stored || '[]'); return Array.isArray(list) ? list : []; } catch (err) { return []; }
+}
+async function consumeBackupCode(user, input) {
+    const normalized = String(input || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{5}-?[0-9a-f]{5}$/.test(normalized)) return false;
+    const code = normalized.includes('-') ? normalized : `${normalized.slice(0, 5)}-${normalized.slice(5)}`;
+    const hashes = parseBackupHashes(user.backup_codes);
+    for (let index = 0; index < hashes.length; index += 1) {
+        if (await bcrypt.compare(code, hashes[index])) {
+            hashes.splice(index, 1);
+            await pdb.query('UPDATE admin_users SET backup_codes = ? WHERE id = ?', [JSON.stringify(hashes), user.id]);
+            return true;
+        }
+    }
+    return false;
+}
+
+// ล็อกบัญชีชั่วคราวเมื่อใส่รหัสผิดติดกัน (นับทั้งรหัสผ่านและรหัส 2FA)
+async function registerFailedAttempt(userId) {
+    if (!securitySettings.account_lockout) return;
+    await pdb.query('UPDATE admin_users SET failed_attempts = failed_attempts + 1 WHERE id = ?', [userId]);
+    await pdb.query(
+        `UPDATE admin_users SET locked_until = DATE_ADD(NOW(), INTERVAL ${LOCKOUT_MINUTES} MINUTE), failed_attempts = 0
+         WHERE id = ? AND failed_attempts >= ?`, [userId, LOCKOUT_MAX_ATTEMPTS]);
+}
+
+// สิ่งที่บัญชีนี้ต้องทำก่อนใช้งานต่อ: เปิด 2FA (ถ้าระบบบังคับ) หรือเปลี่ยนรหัสผ่านที่หมดอายุ
+function computeRestrictions(user) {
+    const restrictions = [];
+    if (securitySettings.require_2fa && !user.totp_enabled) restrictions.push('2fa_setup');
+    const days = securitySettings.password_expiry_days;
+    if (days > 0 && user.password_changed_at && Date.now() - new Date(user.password_changed_at).getTime() > days * 86400000) {
+        restrictions.push('password_expired');
+    }
+    return restrictions;
+}
+
 // ผู้ใช้ปัจจุบันของ session ดึงจากฐานข้อมูลทุกคำขอ เพื่อให้การระงับบัญชี ลบบัญชี หรือเปลี่ยนบทบาทมีผลทันที
 async function loadSessionUser(req) {
     const id = req.session?.userId;
     if (!id) return null;
     await ensureRolesLoaded();
-    const [rows] = await pdb.query('SELECT id, username, role, status, full_name FROM admin_users WHERE id = ?', [id]);
+    const [rows] = await pdb.query(
+        'SELECT id, username, role, status, full_name, totp_enabled, password_changed_at FROM admin_users WHERE id = ?', [id]);
     const user = rows[0];
-    return user && user.status === 'active' && rolesCache.has(user.role) ? user : null;
+    if (!user || user.status !== 'active' || !rolesCache.has(user.role)) return null;
+    user.restrictions = computeRestrictions(user);
+    return user;
 }
 
-function guard(isAllowed) {
+function guard(isAllowed, { allowRestricted = false } = {}) {
     return async (req, res, next) => {
         const user = await loadSessionUser(req);
         if (!user) {
             if (req.session?.userId) req.session.destroy(() => {});
             return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำรายการนี้' });
+        }
+        if (!allowRestricted && user.restrictions.length > 0) {
+            return res.status(403).json({
+                error: user.restrictions.includes('2fa_setup') ? 'ระบบบังคับใช้ 2FA กรุณาตั้งค่าการยืนยันตัวตน 2 ขั้นตอนก่อนใช้งาน' : 'รหัสผ่านหมดอายุ กรุณาเปลี่ยนรหัสผ่านก่อนใช้งาน',
+                code: 'RESTRICTED', restrictions: user.restrictions,
+            });
         }
         if (!isAllowed(user.role)) {
             return res.status(403).json({ error: 'บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้' });
@@ -220,8 +418,10 @@ function guard(isAllowed) {
         next();
     };
 }
-// requireAuth: เข้าสู่ระบบแล้วก็พอ  |  requirePerm(...keys): ต้องมีสิทธิ์ย่อยอย่างน้อยหนึ่งข้อที่ระบุ
+// requireAuth: เข้าสู่ระบบแล้วก็พอ  |  requireAnyUser: เหมือน requireAuth แต่ใช้ได้แม้ติดเงื่อนไข (ตั้งค่า 2FA / เปลี่ยนรหัสผ่านหมดอายุ)
+// requirePerm(...keys): ต้องมีสิทธิ์ย่อยอย่างน้อยหนึ่งข้อที่ระบุ
 const requireAuth = guard(() => true);
+const requireAnyUser = guard(() => true, { allowRestricted: true });
 const requirePerm = (...permissionKeys) => guard(role => hasPermission(role, ...permissionKeys));
 
 function sessionPayload(user) {
@@ -232,6 +432,8 @@ function sessionPayload(user) {
         username: user.username,
         full_name: user.full_name || '',
         permissions: [...role.permissions],
+        totp_enabled: Boolean(user.totp_enabled),
+        restrictions: user.restrictions || [],
     };
 }
 
@@ -256,15 +458,25 @@ for (const name of ['core', 'virtual-tour-plugin', 'map-plugin', 'markers-plugin
     app.use(`/vendor/psv/${name}`, express.static(path.join(NODE_MODULES_DIR, '@photo-sphere-viewer', name)));
 }
 
+const sessionStore = new session.MemoryStore();
 app.use(session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'kps-classfinder-dev-secret',
     resave: false,
     saveUninitialized: false,
+    rolling: true, // ต่ออายุ session ทุกครั้งที่ใช้งาน (หมดอายุเมื่อไม่มีการใช้งานตามเวลาที่ผู้ดูแลตั้ง)
     cookie: {
         httpOnly: true,
-        maxAge: 8 * 60 * 60 * 1000, // 8 ชั่วโมง
+        maxAge: 8 * 60 * 60 * 1000, // ค่าเริ่มต้นสำหรับ session ที่ยังไม่ล็อกอิน
     },
 }));
+// ผู้ที่ล็อกอินแล้วใช้เวลาหมดอายุตามนโยบายความปลอดภัย (Settings > ความปลอดภัย)
+app.use((req, res, next) => {
+    if (req.session?.userId) req.session.cookie.maxAge = securitySettings.session_timeout_minutes * 60 * 1000;
+    next();
+});
+// จำกัด IP เฉพาะหน้า login และ API ผู้ดูแล (API สาธารณะของแอปมือถือไม่ถูกจำกัด)
+app.use(['/api/login', '/api/admin'], ipGate);
 
 // ==========================================
 // 🌟 บันทึกกิจกรรม (System Logs) 🌟
@@ -308,6 +520,22 @@ const changePasswordLimiter = rateLimit({
     message: { error: 'ใส่รหัสผ่านปัจจุบันผิดหลายครั้งเกินไป กรุณาลองใหม่อีกครั้งในอีก 15 นาที' },
 });
 
+function clientIp(req) {
+    return normalizeIp(req.ip).slice(0, 64);
+}
+
+// เริ่ม session ใหม่ของผู้ใช้ (หมุนรหัส session กัน session fixation) แล้วบันทึกการเข้าสู่ระบบ
+async function completeLogin(req, res, user, detail) {
+    await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve())));
+    req.session.userId = user.id;
+    await pdb.query(
+        'UPDATE admin_users SET last_login_at = NOW(), last_login_ip = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?',
+        [clientIp(req), user.id]);
+    logActivity(req, { action: 'login', entity: 'session', username: user.username, detail });
+    const fresh = await loadSessionUser(req);
+    res.json({ message: 'เข้าสู่ระบบสำเร็จ', ...sessionPayload(fresh) });
+}
+
 app.post('/api/login', loginLimiter, asyncRoute(async (req, res) => {
     const { username, password } = req.body || {};
 
@@ -323,26 +551,66 @@ app.post('/api/login', loginLimiter, asyncRoute(async (req, res) => {
         return rejectLogin();
     }
     const [rows] = await pdb.query(
-        'SELECT id, username, password_hash, role, status, full_name FROM admin_users WHERE username = ?',
-        [username.trim().toLowerCase()]);
+        `SELECT id, username, password_hash, role, status, full_name, totp_enabled, failed_attempts, locked_until
+         FROM admin_users WHERE username = ?`, [username.trim().toLowerCase()]);
     const user = rows[0];
     const passwordOk = bcrypt.compareSync(password, user ? user.password_hash : DUMMY_PASSWORD_HASH);
+
+    if (user && securitySettings.account_lockout && user.locked_until && new Date(user.locked_until) > new Date()) {
+        const minutes = Math.max(1, Math.ceil((new Date(user.locked_until) - Date.now()) / 60000));
+        logActivity(req, { action: 'login_failed', entity: 'session', detail: 'บัญชีถูกล็อกชั่วคราว', username: user.username });
+        return res.status(423).json({ error: `บัญชีนี้ถูกล็อกชั่วคราวเพราะใส่รหัสผ่านผิดหลายครั้ง ลองใหม่ในอีก ${minutes} นาที` });
+    }
     if (!user || !passwordOk || !rolesCache.has(user.role)) {
+        if (user) await registerFailedAttempt(user.id);
         return rejectLogin();
     }
     if (user.status !== 'active') {
         return rejectLogin('บัญชีนี้ถูกระงับ');
     }
 
-    await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve())));
-    req.session.userId = user.id;
-    const ip = String(req.ip || '').replace(/^::ffff:/, '').slice(0, 64);
-    await pdb.query('UPDATE admin_users SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?', [ip, user.id]);
-    logActivity(req, {
-        action: 'login', entity: 'session', username: user.username,
-        detail: `เข้าสู่ระบบสำเร็จ (${roleLabelTh(user.role)})`,
-    });
-    res.json({ message: 'เข้าสู่ระบบสำเร็จ', ...sessionPayload(user) });
+    if (user.totp_enabled) {
+        // รหัสผ่านถูกแล้ว แต่ยังไม่ถือว่าเข้าสู่ระบบ จนกว่าจะยืนยันรหัส 2FA (ภายใน 5 นาที)
+        await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve())));
+        req.session.pending2fa = { userId: user.id, attempts: 0, expires: Date.now() + TWO_FACTOR_PENDING_MS };
+        return res.json({ needs_2fa: true, message: 'กรอกรหัส 6 หลักจากแอป Authenticator เพื่อเข้าสู่ระบบ' });
+    }
+    await completeLogin(req, res, user, `เข้าสู่ระบบสำเร็จ (${roleLabelTh(user.role)})`);
+}));
+
+app.post('/api/login/2fa', loginLimiter, asyncRoute(async (req, res) => {
+    const pending = req.session?.pending2fa;
+    if (!pending || pending.expires < Date.now()) {
+        throw new HttpError(401, 'หมดเวลายืนยันรหัส 2FA กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+    }
+    const [rows] = await pdb.query(
+        `SELECT id, username, role, status, full_name, totp_secret, totp_enabled, totp_last_step, backup_codes
+         FROM admin_users WHERE id = ?`, [pending.userId]);
+    const user = rows[0];
+    if (!user || user.status !== 'active' || !user.totp_enabled || !rolesCache.has(user.role)) {
+        throw new HttpError(401, 'บัญชีนี้ไม่สามารถเข้าสู่ระบบได้');
+    }
+
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+    let method = null;
+    const step = verifyTotp(user.totp_secret, code, Number(user.totp_last_step) || 0);
+    if (step !== null) {
+        method = 'Authenticator';
+        await pdb.query('UPDATE admin_users SET totp_last_step = ? WHERE id = ?', [step, user.id]);
+    } else if (await consumeBackupCode(user, code)) {
+        method = 'รหัสสำรองฉุกเฉิน';
+    }
+    if (method === null) {
+        pending.attempts += 1;
+        await registerFailedAttempt(user.id);
+        logActivity(req, { action: 'login_failed', entity: 'session', detail: 'รหัส 2FA ไม่ถูกต้อง', username: user.username });
+        if (pending.attempts >= TWO_FACTOR_MAX_ATTEMPTS) {
+            delete req.session.pending2fa;
+            throw new HttpError(401, 'ใส่รหัส 2FA ผิดหลายครั้ง กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        }
+        throw new HttpError(401, 'รหัส 2FA ไม่ถูกต้องหรือหมดอายุ');
+    }
+    await completeLogin(req, res, user, `เข้าสู่ระบบสำเร็จด้วย 2FA (${method})`);
 }));
 
 app.post('/api/logout', asyncRoute(async (req, res) => {
@@ -361,17 +629,22 @@ app.get('/api/session', asyncRoute(async (req, res) => {
     res.json({ isAdmin: user.role === 'admin', ...sessionPayload(user) });
 }));
 
-// ตรวจรหัสผ่านใหม่ (ใช้ทั้งตอนเปลี่ยนรหัสของตัวเอง สร้างบัญชี และรีเซ็ตรหัส)
+// ตรวจรหัสผ่านใหม่ตามนโยบาย (ใช้ทั้งตอนเปลี่ยนรหัสของตัวเอง สร้างบัญชี และรีเซ็ตรหัส)
 function assertValidNewPassword(newPassword) {
-    if (typeof newPassword !== 'string' || newPassword.length < PASSWORD_MIN_LENGTH) {
-        throw new HttpError(400, `รหัสผ่านใหม่ต้องยาวอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`);
+    const minLength = Math.max(PASSWORD_MIN_LENGTH, securitySettings.password_min_length);
+    if (typeof newPassword !== 'string' || newPassword.length < minLength) {
+        throw new HttpError(400, `รหัสผ่านใหม่ต้องยาวอย่างน้อย ${minLength} ตัวอักษร`);
     }
     if (Buffer.byteLength(newPassword, 'utf8') > PASSWORD_MAX_BYTES) {
         throw new HttpError(400, `รหัสผ่านใหม่ยาวเกินไป (ไม่เกิน ${PASSWORD_MAX_BYTES} ไบต์)`);
     }
+    if (securitySettings.password_complexity
+        && !(/[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword) && /\d/.test(newPassword) && /[^A-Za-z0-9]/.test(newPassword))) {
+        throw new HttpError(400, 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และอักขระพิเศษ');
+    }
 }
 
-app.post('/api/admin/change-password', requireAuth, changePasswordLimiter, asyncRoute(async (req, res) => {
+app.post('/api/admin/change-password', requireAnyUser, changePasswordLimiter, asyncRoute(async (req, res) => {
     const { current_password: currentPassword, new_password: newPassword } = req.body || {};
 
     if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || currentPassword === '') {
@@ -387,9 +660,88 @@ app.post('/api/admin/change-password', requireAuth, changePasswordLimiter, async
         throw new HttpError(400, 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
     }
 
-    await pdb.query('UPDATE admin_users SET password_hash = ? WHERE id = ?', [await bcrypt.hash(newPassword, 10), req.user.id]);
+    await pdb.query('UPDATE admin_users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?', [await bcrypt.hash(newPassword, 10), req.user.id]);
     logActivity(req, { action: 'change_password', entity: 'admin', detail: `เปลี่ยนรหัสผ่านของ ${req.user.username}` });
     res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ!' });
+}));
+
+// ==========================================
+// 🌟 การยืนยันตัวตน 2 ขั้นตอน (2FA) ของบัญชีตัวเอง 🌟
+// ==========================================
+const twoFactorLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: { error: 'ลองยืนยันผิดหลายครั้งเกินไป กรุณาลองใหม่อีกครั้งในอีก 15 นาที' },
+});
+
+async function readTwoFactorRow(userId) {
+    const [[row]] = await pdb.query(
+        'SELECT id, username, password_hash, totp_secret, totp_enabled, backup_codes FROM admin_users WHERE id = ?', [userId]);
+    return row;
+}
+
+async function assertPasswordMatches(userId, password) {
+    const row = await readTwoFactorRow(userId);
+    if (typeof password !== 'string' || !bcrypt.compareSync(password, row.password_hash)) {
+        throw new HttpError(400, 'รหัสผ่านไม่ถูกต้อง');
+    }
+    return row;
+}
+
+app.get('/api/admin/2fa/status', requireAnyUser, asyncRoute(async (req, res) => {
+    const row = await readTwoFactorRow(req.user.id);
+    res.json({
+        enabled: Boolean(row.totp_enabled),
+        backup_codes_remaining: row.totp_enabled ? parseBackupHashes(row.backup_codes).length : 0,
+        backup_codes_total: BACKUP_CODE_COUNT,
+        enforced: securitySettings.require_2fa,
+    });
+}));
+
+// ขั้นที่ 1: สร้างความลับชั่วคราว + QR code (ยังไม่เปิดใช้จนกว่าจะยืนยันรหัสจากแอปในขั้นที่ 2)
+app.post('/api/admin/2fa/setup', requireAnyUser, asyncRoute(async (req, res) => {
+    const row = await readTwoFactorRow(req.user.id);
+    if (row.totp_enabled) throw new HttpError(400, 'บัญชีนี้เปิดใช้งาน 2FA อยู่แล้ว');
+    const secret = base32Encode(crypto.randomBytes(20));
+    req.session.pending2faSetup = secret;
+    const label = encodeURIComponent(`${TWO_FACTOR_ISSUER}:${req.user.username}`);
+    const otpauthUrl = `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(TWO_FACTOR_ISSUER)}&algorithm=SHA1&digits=6&period=30`;
+    res.json({ secret, otpauth_url: otpauthUrl, qr: await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 224 }) });
+}));
+
+// ขั้นที่ 2: ยืนยันรหัส 6 หลักจากแอป แล้วเปิดใช้งานพร้อมออกรหัสสำรอง (แสดงครั้งเดียวเท่านั้น)
+app.post('/api/admin/2fa/enable', requireAnyUser, twoFactorLimiter, asyncRoute(async (req, res) => {
+    const secret = req.session.pending2faSetup;
+    if (!secret) throw new HttpError(400, 'กรุณากดเริ่มตั้งค่า 2FA ใหม่อีกครั้ง');
+    const step = verifyTotp(secret, req.body?.code);
+    if (step === null) throw new HttpError(400, 'รหัสไม่ถูกต้องหรือหมดอายุ ตรวจสอบเวลาในโทรศัพท์แล้วลองใหม่');
+    const backup = await generateBackupCodes();
+    await pdb.query(
+        'UPDATE admin_users SET totp_secret = ?, totp_enabled = 1, totp_last_step = ?, backup_codes = ? WHERE id = ?',
+        [secret, step, JSON.stringify(backup.hashes), req.user.id]);
+    delete req.session.pending2faSetup;
+    logActivity(req, { action: 'update', entity: 'admin', detail: `เปิดใช้งาน 2FA ของ ${req.user.username}` });
+    res.json({ message: 'เปิดใช้งาน 2FA สำเร็จ!', backup_codes: backup.plain });
+}));
+
+app.post('/api/admin/2fa/disable', requireAnyUser, changePasswordLimiter, asyncRoute(async (req, res) => {
+    if (securitySettings.require_2fa) throw new HttpError(400, 'ระบบบังคับใช้ 2FA กับทุกบัญชี จึงปิดการใช้งานไม่ได้');
+    await assertPasswordMatches(req.user.id, req.body?.password);
+    await pdb.query('UPDATE admin_users SET totp_enabled = 0, totp_secret = NULL, totp_last_step = NULL, backup_codes = NULL WHERE id = ?', [req.user.id]);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `ปิดใช้งาน 2FA ของ ${req.user.username}` });
+    res.json({ message: 'ปิดใช้งาน 2FA แล้ว' });
+}));
+
+app.post('/api/admin/2fa/backup-codes', requireAnyUser, changePasswordLimiter, asyncRoute(async (req, res) => {
+    const row = await assertPasswordMatches(req.user.id, req.body?.password);
+    if (!row.totp_enabled) throw new HttpError(400, 'ต้องเปิดใช้งาน 2FA ก่อน');
+    const backup = await generateBackupCodes();
+    await pdb.query('UPDATE admin_users SET backup_codes = ? WHERE id = ?', [JSON.stringify(backup.hashes), req.user.id]);
+    logActivity(req, { action: 'update', entity: 'admin', detail: `สร้างรหัสสำรอง 2FA ชุดใหม่ของ ${req.user.username}` });
+    res.json({ message: 'สร้างรหัสสำรองชุดใหม่แล้ว (ชุดเก่าใช้ไม่ได้อีก)', backup_codes: backup.plain });
 }));
 
 // ==========================================
@@ -415,10 +767,10 @@ function readProfileFields(body) {
     return fields;
 }
 
-const USER_COLUMNS = 'id, username, role, status, full_name, email, phone, department, avatar, last_login_at, last_login_ip, created_at';
+const USER_COLUMNS = 'id, username, role, status, full_name, email, phone, department, avatar, last_login_at, last_login_ip, created_at, totp_enabled, password_changed_at, locked_until';
 
 function publicUser(row) {
-    return { ...row, role_label: roleLabelTh(row.role)};
+    return { ...row, totp_enabled: Boolean(row.totp_enabled), role_label: roleLabelTh(row.role) };
 }
 
 async function readUser(id) {
@@ -567,8 +919,8 @@ app.post('/api/admin/users', requireUserAdmin, asyncRoute(async (req, res) => {
     let insertId;
     try {
         const [result] = await pdb.query(
-            `INSERT INTO admin_users (username, password_hash, role, full_name, email, phone, department)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO admin_users (username, password_hash, role, full_name, email, phone, department, password_changed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
             [username, await bcrypt.hash(body.password, 10), body.role, fields.full_name, fields.email, fields.phone, fields.department]);
         insertId = result.insertId;
     } catch (err) {
@@ -610,7 +962,7 @@ app.post('/api/admin/users/:id/reset-password', requireUserAdmin, asyncRoute(asy
     const target = await readUser(id);
     if (!target) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้นี้');
     assertValidNewPassword(req.body?.new_password);
-    await pdb.query('UPDATE admin_users SET password_hash = ? WHERE id = ?', [await bcrypt.hash(req.body.new_password, 10), id]);
+    await pdb.query('UPDATE admin_users SET password_hash = ?, password_changed_at = NOW() WHERE id = ?', [await bcrypt.hash(req.body.new_password, 10), id]);
     logActivity(req, { action: 'change_password', entity: 'admin', entityId: id, detail: `รีเซ็ตรหัสผ่านของ ${target.username}` });
     res.json({ message: `รีเซ็ตรหัสผ่านของ ${target.username} แล้ว` });
 }));
@@ -623,6 +975,104 @@ app.delete('/api/admin/users/:id', requireUserAdmin, asyncRoute(async (req, res)
     await pdb.query('DELETE FROM admin_users WHERE id = ?', [id]);
     logActivity(req, { action: 'delete', entity: 'admin', entityId: id, detail: `ลบบัญชีผู้ดูแล ${target.username}` });
     res.json({ message: `ลบบัญชี ${target.username} แล้ว` });
+}));
+
+// ==========================================
+// 🌟 ตั้งค่านโยบายความปลอดภัย / ตรวจสอบความปลอดภัย (เฉพาะผู้จัดการระบบ) 🌟
+// ==========================================
+app.post('/api/admin/users/:id/reset-2fa', requireUserAdmin, asyncRoute(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const target = await readUser(id);
+    if (!target) throw new HttpError(404, 'ไม่พบบัญชีผู้ใช้นี้');
+    await pdb.query('UPDATE admin_users SET totp_enabled = 0, totp_secret = NULL, totp_last_step = NULL, backup_codes = NULL WHERE id = ?', [id]);
+    logActivity(req, { action: 'update', entity: 'admin', entityId: id, detail: `รีเซ็ต 2FA ของ ${target.username}` });
+    res.json({ message: `รีเซ็ต 2FA ของ ${target.username} แล้ว (ผู้ใช้ตั้งค่าใหม่ได้เมื่อเข้าสู่ระบบ)` });
+}));
+
+app.get('/api/admin/security/settings', requireUserAdmin, asyncRoute(async (req, res) => {
+    res.json({ settings: securitySettings, client_ip: normalizeIp(req.ip), choices: SECURITY_CHOICES });
+}));
+
+app.put('/api/admin/security/settings', requireUserAdmin, asyncRoute(async (req, res) => {
+    const body = req.body || {};
+    if (Array.isArray(body.ip_allowlist)) {
+        for (const item of body.ip_allowlist) {
+            if (parseAllowEntry(item?.cidr) === null) {
+                throw new HttpError(400, `รูปแบบ IP ไม่ถูกต้อง: "${String(item?.cidr || '').slice(0, 50)}" (ใช้เช่น 158.108.0.0/16 หรือ 203.0.113.5)`);
+            }
+        }
+    }
+    const next = sanitizeSecuritySettings({ ...securitySettings, ...body }, securitySettings);
+    if (next.ip_allowlist_enabled && !isIpAllowed(req.ip, next.ip_allowlist)) {
+        throw new HttpError(400, `IP ปัจจุบันของคุณ (${normalizeIp(req.ip)}) ไม่อยู่ในรายการ ถ้าเปิดใช้งานจะล็อกตัวเองออกจากระบบ กรุณาเพิ่ม IP นี้ก่อน`);
+    }
+    if (next.ip_allowlist_enabled && next.ip_allowlist.length === 0) {
+        throw new HttpError(400, 'ต้องมี IP อย่างน้อยหนึ่งรายการก่อนเปิดใช้การจำกัด IP');
+    }
+    await pdb.query(
+        `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [SECURITY_SETTING_KEY, JSON.stringify(next)]);
+    const changed = Object.keys(next).filter(key => JSON.stringify(next[key]) !== JSON.stringify(securitySettings[key]));
+    securitySettings = next;
+    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขนโยบายความปลอดภัย${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
+    res.json({ message: 'บันทึกการตั้งค่าความปลอดภัยสำเร็จ!', settings: securitySettings });
+}));
+
+// นับ session ที่ยังใช้งานได้จริงของผู้ดูแล (MemoryStore เก็บในหน่วยความจำ เริ่มระบบใหม่แล้วทุกคนต้องล็อกอินใหม่)
+function countActiveSessions() {
+    return new Promise((resolve) => {
+        sessionStore.all((err, sessions) => {
+            if (err || !sessions) return resolve(0);
+            resolve(Object.values(sessions).filter(item => item && item.userId).length);
+        });
+    });
+}
+
+app.get('/api/admin/security/audit', requireUserAdmin, asyncRoute(async (req, res) => {
+    const [users] = await pdb.query('SELECT id, username, password_hash, status, totp_enabled FROM admin_users');
+    const activeUsers = users.filter(user => user.status === 'active');
+    const twoFactorCount = activeUsers.filter(user => user.totp_enabled).length;
+
+    // บัญชีที่ยังใช้รหัสผ่านเริ่มต้น (ค่าตั้งต้นในระบบ/docker-compose หรือรหัสเท่ากับชื่อผู้ใช้)
+    const defaultCandidates = new Set(['admin1234', 'editor1234', process.env.ADMIN_PASSWORD, process.env.EDITOR_PASSWORD].filter(Boolean));
+    const weakAccounts = [];
+    for (const user of activeUsers) {
+        const candidates = [...defaultCandidates, user.username];
+        for (const candidate of candidates) {
+            if (await bcrypt.compare(candidate, user.password_hash)) { weakAccounts.push(user.username); break; }
+        }
+    }
+    const [[failed]] = await pdb.query(
+        "SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
+    const sessions = await countActiveSessions();
+    const https = req.secure;
+    const s = securitySettings;
+    const ratio = activeUsers.length === 0 ? 1 : twoFactorCount / activeUsers.length;
+    const checks = [
+        { key: 'two_factor', label: 'เปิด 2FA ครบทุกบัญชีที่ใช้งาน', weight: 25, score: ratio, ok: ratio === 1, detail: `${twoFactorCount} จาก ${activeUsers.length} บัญชี`, fix: 'ให้แต่ละบัญชีเปิด 2FA ที่แท็บ ความปลอดภัย หรือเปิด "บังคับใช้ 2FA"' },
+        { key: 'default_passwords', label: 'ไม่มีบัญชีที่ใช้รหัสผ่านเริ่มต้น', weight: 25, score: weakAccounts.length === 0 ? 1 : 0, ok: weakAccounts.length === 0, detail: weakAccounts.length === 0 ? 'ไม่พบ' : `พบ: ${weakAccounts.join(', ')}`, fix: 'รีเซ็ตหรือเปลี่ยนรหัสผ่านของบัญชีเหล่านี้ทันที' },
+        { key: 'enforce_2fa', label: 'บังคับใช้ 2FA กับทุกบัญชี', weight: 10, score: s.require_2fa ? 1 : 0, ok: s.require_2fa, detail: s.require_2fa ? 'เปิดอยู่' : 'ปิดอยู่', fix: 'เปิดสวิตช์บังคับใช้ 2FA' },
+        { key: 'password_policy', label: 'นโยบายรหัสผ่านเข้มแข็ง (ยาว ≥ 10 และซับซ้อน)', weight: 10, score: (s.password_min_length >= 10 ? 0.5 : 0) + (s.password_complexity ? 0.5 : 0), ok: s.password_min_length >= 10 && s.password_complexity, detail: `ขั้นต่ำ ${s.password_min_length} ตัว • ความซับซ้อน ${s.password_complexity ? 'เปิด' : 'ปิด'}`, fix: 'เพิ่มความยาวขั้นต่ำเป็น 10 ขึ้นไปและเปิดความซับซ้อน' },
+        { key: 'session_timeout', label: 'เซสชันหมดอายุเมื่อไม่ใช้งาน ≤ 1 ชั่วโมง', weight: 10, score: s.session_timeout_minutes <= 60 ? 1 : 0, ok: s.session_timeout_minutes <= 60, detail: `${s.session_timeout_minutes} นาที`, fix: 'ลดเวลาเซสชันเหลือ 60 นาทีหรือน้อยกว่า' },
+        { key: 'lockout', label: 'ล็อกบัญชีอัตโนมัติเมื่อใส่รหัสผิด', weight: 5, score: s.account_lockout ? 1 : 0, ok: s.account_lockout, detail: s.account_lockout ? `ล็อก ${LOCKOUT_MINUTES} นาที เมื่อผิด ${LOCKOUT_MAX_ATTEMPTS} ครั้ง` : 'ปิดอยู่', fix: 'เปิดการล็อกบัญชีอัตโนมัติ' },
+        { key: 'password_expiry', label: 'กำหนดอายุรหัสผ่าน', weight: 5, score: s.password_expiry_days > 0 ? 1 : 0, ok: s.password_expiry_days > 0, detail: s.password_expiry_days > 0 ? `ทุก ${s.password_expiry_days} วัน` : 'ไม่หมดอายุ', fix: 'ตั้งให้เปลี่ยนรหัสผ่านทุก 90 วัน' },
+        { key: 'ip_allowlist', label: 'จำกัด IP ที่เข้าระบบจัดการได้', weight: 5, score: s.ip_allowlist_enabled ? 1 : 0, ok: s.ip_allowlist_enabled, detail: s.ip_allowlist_enabled ? `${s.ip_allowlist.length} รายการ` : 'ปิดอยู่', fix: 'เพิ่มช่วง IP ของหน่วยงานแล้วเปิดใช้งาน (ถ้ามี IP คงที่)' },
+        { key: 'https', label: 'เชื่อมต่อผ่าน HTTPS', weight: 5, score: https ? 1 : 0, ok: https, detail: https ? 'ใช่' : 'ยังเป็น HTTP (ปกติบนเครื่องพัฒนา)', fix: 'ใช้ HTTPS บนโฮสต์จริง' },
+    ];
+    const totalWeight = checks.reduce((sum, item) => sum + item.weight, 0);
+    const score = Math.round(checks.reduce((sum, item) => sum + item.weight * item.score, 0) / totalWeight * 100);
+    res.json({
+        score, checks,
+        metrics: { users_active: activeUsers.length, two_factor_enabled: twoFactorCount, failed_logins_24h: failed.total, active_sessions: sessions, https },
+    });
+}));
+
+app.get('/api/admin/security/events', requireUserAdmin, asyncRoute(async (req, res) => {
+    const [rows] = await pdb.query(
+        `SELECT id, action, entity, detail, username, ip, created_at FROM activity_logs
+         WHERE entity IN ('session', 'admin') ORDER BY id DESC LIMIT 8`);
+    res.json({ rows });
 }));
 
 // ==========================================
@@ -2416,6 +2866,17 @@ async function ensureDashboardSchema(attempt = 1) {
         for (const statement of DASHBOARD_TABLES) {
             await pdb.query(statement);
         }
+        // คอลัมน์ 2FA / ล็อกบัญชี / อายุรหัสผ่าน เพิ่มให้ตาราง admin_users ที่สร้างไว้ก่อนมีฟีเจอร์ความปลอดภัย
+        const USER_SECURITY_COLUMNS = [
+            ['totp_secret', 'VARCHAR(64) DEFAULT NULL'], ['totp_enabled', 'TINYINT(1) NOT NULL DEFAULT 0'],
+            ['totp_last_step', 'BIGINT DEFAULT NULL'], ['backup_codes', 'TEXT DEFAULT NULL'],
+            ['failed_attempts', 'INT NOT NULL DEFAULT 0'], ['locked_until', 'TIMESTAMP NULL DEFAULT NULL'],
+            ['password_changed_at', 'TIMESTAMP NULL DEFAULT NULL'],
+        ];
+        for (const [column, definition] of USER_SECURITY_COLUMNS) {
+            const [found] = await pdb.query('SHOW COLUMNS FROM admin_users LIKE ?', [column]);
+            if (found.length === 0) await pdb.query(`ALTER TABLE admin_users ADD COLUMN ${column} ${definition}`);
+        }
         // คอลัมน์รูปปกอาคาร เพิ่มให้ฐานข้อมูลเดิมที่สร้างก่อนมีฟีเจอร์นี้
         const [coverColumn] = await pdb.query("SHOW COLUMNS FROM buildings LIKE 'cover_image'");
         if (coverColumn.length === 0) {
@@ -2423,6 +2884,8 @@ async function ensureDashboardSchema(attempt = 1) {
         }
         await seedAdminRoles();
         await seedAdminUsers();
+        await pdb.query('UPDATE admin_users SET password_changed_at = NOW() WHERE password_changed_at IS NULL');
+        await reloadSecuritySettings();
         if (floorPlansIsNew) {
             for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
                 await pdb.query(

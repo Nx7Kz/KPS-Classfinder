@@ -195,6 +195,13 @@ CREATE TABLE `admin_users` (
   `last_login_at` timestamp NULL DEFAULT NULL,
   `last_login_ip` varchar(64) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `totp_secret` varchar(64) DEFAULT NULL,
+  `totp_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `totp_last_step` bigint DEFAULT NULL,
+  `backup_codes` text,
+  `failed_attempts` int NOT NULL DEFAULT '0',
+  `locked_until` timestamp NULL DEFAULT NULL,
+  `password_changed_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_admin_users_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
