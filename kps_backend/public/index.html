@@ -62,14 +62,14 @@
             'headline-sm': ['Plus Jakarta Sans', 'Prompt', 'sans-serif'], 'display-lg': ['Plus Jakarta Sans', 'Prompt', 'sans-serif'],
           },
           fontSize: {
-            'body-sm': ['12px', { lineHeight: '18px', fontWeight: '400' }],
-            'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }],
-            'label-md': ['13px', { lineHeight: '18px', fontWeight: '500' }],
-            'label-sm': ['11px', { lineHeight: '16px', letterSpacing: '0.02em', fontWeight: '600' }],
-            'headline-sm': ['16px', { lineHeight: '24px', fontWeight: '600' }],
-            'headline-md': ['20px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '600' }],
-            'headline-lg': ['24px', { lineHeight: '32px', letterSpacing: '-0.015em', fontWeight: '600' }],
-            'display-lg': ['32px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '700' }],
+            'body-sm': ['0.75rem', { lineHeight: '1.125rem', fontWeight: '400' }],
+            'body-md': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+            'label-md': ['0.8125rem', { lineHeight: '1.125rem', fontWeight: '500' }],
+            'label-sm': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.02em', fontWeight: '600' }],
+            'headline-sm': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],
+            'headline-md': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em', fontWeight: '600' }],
+            'headline-lg': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.015em', fontWeight: '600' }],
+            'display-lg': ['2rem', { lineHeight: '2.5rem', letterSpacing: '-0.02em', fontWeight: '700' }],
           },
         },
       },
@@ -157,6 +157,8 @@
        (ค่านี้คูณกับทุก rem ในไฟล์ ทำให้ทุกอย่างใหญ่ขึ้นตามสัดส่วนเดียวกันโดยไม่ต้องไล่แก้ทีละจุด) */
     html { font-size: 17px; }
     @media (min-width: 1600px) { html { font-size: 18px; } }
+    /* จอกว้างมาก (เช่น 2560px หรือเบราว์เซอร์ซูมออก) ขยายทุกอย่างตามสัดส่วนให้เต็มตา ไม่ให้เนื้อหาดูเล็กและโล่ง */
+    @media (min-width: 2200px) { html { font-size: 22px; } }
     body {
       font-family: 'Prompt', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
       background: #F8FAFC;
@@ -295,31 +297,31 @@
         </div>
         <nav aria-label="Main Navigation" class="sidebar-nav tw-flex tw-flex-col tw-gap-1.5">
           <button type="button" data-page="overview" onclick="showPage('overview')" class="role-admin-only tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-colors tw-cursor-pointer">
-            <span class="material-symbols-outlined tw-text-[20px]">bar_chart</span><span>Overview</span>
+            <span class="material-symbols-outlined tw-text-[1.25rem]">bar_chart</span><span>Overview</span>
           </button>
           <button type="button" data-page="buildings-rooms" onclick="showPage('buildings-rooms')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
-            <span class="material-symbols-outlined tw-text-[20px]">apartment</span><span>Buildings &amp; Rooms</span>
+            <span class="material-symbols-outlined tw-text-[1.25rem]">apartment</span><span>Buildings &amp; Rooms</span>
           </button>
           <button type="button" data-page="floor-plans" onclick="showPage('floor-plans')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
-            <span class="material-symbols-outlined tw-text-[20px]">map</span><span>Floor Plans</span>
+            <span class="material-symbols-outlined tw-text-[1.25rem]">map</span><span>Floor Plans</span>
           </button>
           <button type="button" data-page="panoramas" onclick="showPage('panoramas')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
-            <span class="material-symbols-outlined tw-text-[20px]">photo_camera</span><span>360 Panorama Editor</span>
+            <span class="material-symbols-outlined tw-text-[1.25rem]">photo_camera</span><span>360 Panorama Editor</span>
           </button>
           <!-- ซ่อนเมนู Virtual Tour ไว้ก่อน (ยังไม่พร้อมเปิดให้ใช้จริง) หน้า page-tour และ tour/admin.js ยังอยู่ครบ
                เปิดกลับมาได้ทันทีด้วยการเอาคอมเมนต์นี้ออก -->
-          <!-- <button type="button" data-page="tour" onclick="showPage('tour')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer"><span class="material-symbols-outlined tw-text-[20px]">signpost</span><span>Virtual Tour</span></button> -->
+          <!-- <button type="button" data-page="tour" onclick="showPage('tour')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer"><span class="material-symbols-outlined tw-text-[1.25rem]">signpost</span><span>Virtual Tour</span></button> -->
           <button type="button" data-page="logs" onclick="showPage('logs')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
-            <span class="material-symbols-outlined tw-text-[20px]">schedule</span><span>System Logs</span>
+            <span class="material-symbols-outlined tw-text-[1.25rem]">schedule</span><span>System Logs</span>
           </button>
           <button type="button" data-page="settings" onclick="showPage('settings')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
-            <span class="material-symbols-outlined tw-text-[20px]">settings</span><span>Settings</span>
+            <span class="material-symbols-outlined tw-text-[1.25rem]">settings</span><span>Settings</span>
           </button>
         </nav>
       </div>
       <div class="sidebar-footer tw-pt-4 tw-border-t tw-border-outline-variant/20">
         <button id="logoutButton" type="button" onclick="logout()" class="tw-appearance-none tw-bg-transparent tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-border tw-border-outline-variant/30 tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-error-container/30 hover:tw-text-error tw-transition-colors tw-cursor-pointer">
-          <span class="material-symbols-outlined tw-text-[20px]">logout</span><span>ออกจากระบบ</span>
+          <span class="material-symbols-outlined tw-text-[1.25rem]">logout</span><span>ออกจากระบบ</span>
         </button>
       </div>
     </aside>
@@ -337,10 +339,10 @@
           </div>
           <div class="tw-flex tw-items-center tw-gap-1">
             <button type="button" id="themeToggle" onclick="toggleTheme()" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface tw-rounded-full tw-p-2 tw-transition-colors active:tw-scale-95" title="สลับโหมดการแสดงผล" aria-label="สลับโหมดมืด/สว่าง">
-              <span class="material-symbols-outlined tw-text-[20px]">dark_mode</span>
+              <span class="material-symbols-outlined tw-text-[1.25rem]">dark_mode</span>
             </button>
             <button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface tw-rounded-full tw-p-2 tw-transition-colors active:tw-scale-95 tw-relative" title="การแจ้งเตือน (ล็อกอินไม่สำเร็จใน 24 ชั่วโมงล่าสุด)" aria-label="การแจ้งเตือน">
-              <span class="material-symbols-outlined tw-text-[20px]">notifications</span>
+              <span class="material-symbols-outlined tw-text-[1.25rem]">notifications</span>
               <span id="bellDot" class="tw-hidden tw-absolute tw-top-2 tw-right-2 tw-w-2 tw-h-2 tw-bg-error tw-rounded-full"></span>
             </button>
           </div>
@@ -365,13 +367,13 @@
             </div>
             <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-2.5">
               <button type="button" onclick="quickAddBuilding()" class="tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-surface-container-low tw-text-on-surface tw-text-label-md tw-font-label-md tw-border tw-border-outline-variant/40 hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">
-                <span class="material-symbols-outlined tw-text-[18px]">apartment</span><span>+ เพิ่มอาคารใหม่</span>
+                <span class="material-symbols-outlined tw-text-[1.125rem]">apartment</span><span>+ เพิ่มอาคารใหม่</span>
               </button>
               <button type="button" onclick="quickAddRoom()" class="tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-border-0 hover:tw-bg-primary tw-transition-colors active:tw-scale-95 tw-shadow-sm">
-                <span class="material-symbols-outlined tw-text-[18px]">meeting_room</span><span>+ เพิ่มห้องเรียน</span>
+                <span class="material-symbols-outlined tw-text-[1.125rem]">meeting_room</span><span>+ เพิ่มห้องเรียน</span>
               </button>
               <button type="button" onclick="showPage('floor-plans')" class="tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-surface-container-low tw-text-on-surface tw-text-label-md tw-font-label-md tw-border tw-border-outline-variant/40 hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">
-                <span class="material-symbols-outlined tw-text-[18px]">pin_drop</span><span>ตรวจสอบพิกัดหมุด</span>
+                <span class="material-symbols-outlined tw-text-[1.125rem]">pin_drop</span><span>ตรวจสอบพิกัดหมุด</span>
               </button>
             </div>
           </section>
@@ -380,7 +382,7 @@
             <article class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-duration-200">
               <div class="tw-flex tw-items-center tw-justify-between tw-text-on-surface-variant tw-mb-3">
                 <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline">อาคารทั้งหมด</span>
-                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary-fixed/30 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[20px]">domain</span></div>
+                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary-fixed/30 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">domain</span></div>
               </div>
               <div class="tw-flex tw-items-baseline tw-gap-2 tw-mb-2">
                 <span id="statBuildingCount" class="tw-text-display-lg tw-font-display-lg tw-text-on-surface tw-font-bold tw-tracking-tight">-</span>
@@ -394,7 +396,7 @@
             <article class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-duration-200">
               <div class="tw-flex tw-items-center tw-justify-between tw-text-on-surface-variant tw-mb-3">
                 <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline">ห้องเรียนในระบบ</span>
-                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-secondary-container/40 tw-text-on-secondary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[20px]">class</span></div>
+                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-secondary-container/40 tw-text-on-secondary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">class</span></div>
               </div>
               <div class="tw-flex tw-items-baseline tw-gap-2 tw-mb-2">
                 <span id="statRoomCount" class="tw-text-display-lg tw-font-display-lg tw-text-on-surface tw-font-bold tw-tracking-tight">-</span>
@@ -409,7 +411,7 @@
             <article class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-duration-200">
               <div class="tw-flex tw-items-center tw-justify-between tw-text-on-surface-variant tw-mb-3">
                 <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline">ห้องที่มีภาพพาโนรามา 360°</span>
-                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary-fixed/30 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[20px]">view_in_ar</span></div>
+                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary-fixed/30 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">view_in_ar</span></div>
               </div>
               <div class="tw-flex tw-items-baseline tw-gap-2 tw-mb-2">
                 <span id="statPanoramaCount" class="tw-text-display-lg tw-font-display-lg tw-text-on-surface tw-font-bold tw-tracking-tight">-</span>
@@ -426,7 +428,7 @@
             <article class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-duration-200">
               <div class="tw-flex tw-items-center tw-justify-between tw-text-on-surface-variant tw-mb-3">
                 <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline">ห้องที่ปักหมุดบนแผนที่แล้ว</span>
-                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-secondary-container/40 tw-text-on-secondary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[20px]">location_on</span></div>
+                <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-secondary-container/40 tw-text-on-secondary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">location_on</span></div>
               </div>
               <div class="tw-flex tw-items-baseline tw-gap-2 tw-mb-2">
                 <span id="statPinnedCount" class="tw-text-display-lg tw-font-display-lg tw-text-on-surface tw-font-bold tw-tracking-tight">-</span>
@@ -454,7 +456,7 @@
                     <button type="button" data-filter="edit" onclick="filterRecentActivity('edit')" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded-md tw-bg-transparent tw-transition-colors">การแก้ไข</button>
                   </div>
                   <button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1 tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant/40 tw-text-on-surface tw-text-label-md tw-font-label-md hover:tw-bg-surface-container tw-transition-colors">
-                    <span>ดูทั้งหมด</span><span class="material-symbols-outlined tw-text-[16px]">chevron_right</span>
+                    <span>ดูทั้งหมด</span><span class="material-symbols-outlined tw-text-[1rem]">chevron_right</span>
                   </button>
                 </div>
               </div>
@@ -1497,7 +1499,7 @@
             </td>
             <td class="tw-py-3.5 tw-px-5">
               <div class="tw-flex tw-items-center tw-gap-2">
-                <div class="tw-w-6 tw-h-6 tw-rounded-full ${style.avatar} tw-flex tw-items-center tw-justify-center tw-font-bold tw-text-[10px]">${escapeHtml(username.slice(0, 2).toUpperCase())}</div>
+                <div class="tw-w-6 tw-h-6 tw-rounded-full ${style.avatar} tw-flex tw-items-center tw-justify-center tw-font-bold tw-text-[0.625rem]">${escapeHtml(username.slice(0, 2).toUpperCase())}</div>
                 <span class="tw-text-on-surface tw-font-medium tw-text-body-sm">${escapeHtml(username)}</span>
               </div>
             </td>
@@ -1521,7 +1523,7 @@
           <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-flex tw-items-center tw-justify-between">
             <div class="tw-flex tw-items-center tw-gap-3">
               <div class="tw-w-9 tw-h-9 tw-rounded-lg tw-bg-primary-fixed tw-flex tw-items-center tw-justify-center tw-text-primary tw-flex-shrink-0">
-                <span class="material-symbols-outlined tw-text-[20px]">corporate_fare</span>
+                <span class="material-symbols-outlined tw-text-[1.25rem]">corporate_fare</span>
               </div>
               <div>
                 <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">${escapeHtml(building.name)}</h4>
@@ -1536,7 +1538,7 @@
     function pendingTaskRow(icon, iconClass, title, subtitle, actionLabel, onClick) {
       return `
         <div class="tw-flex tw-items-start tw-gap-3 tw-p-2.5 tw-rounded-lg hover:tw-bg-surface-container tw-transition-colors">
-          <span class="material-symbols-outlined ${iconClass} tw-mt-0.5 tw-text-[20px]">${icon}</span>
+          <span class="material-symbols-outlined ${iconClass} tw-mt-0.5 tw-text-[1.25rem]">${icon}</span>
           <div class="tw-flex-1">
             <p class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-on-surface tw-m-0">${escapeHtml(title)}</p>
             <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">${escapeHtml(subtitle)}</p>
@@ -1559,7 +1561,7 @@
       ];
       list.innerHTML = rows.length === 0
         ? `<div class="tw-flex tw-items-center tw-gap-2 tw-text-body-sm tw-text-outline">
-            <span class="material-symbols-outlined tw-text-primary tw-text-[20px]">check_circle</span>ไม่มีรายการค้างดำเนินการ</div>`
+            <span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem]">check_circle</span>ไม่มีรายการค้างดำเนินการ</div>`
         : rows.join('');
     }
 
@@ -1584,7 +1586,7 @@
 
       const complete = totalRooms > 0 && pinnedPercent === 100;
       document.getElementById('statPinnedPercent').innerHTML = complete
-        ? `<span class="material-symbols-outlined tw-text-[16px]">check_circle</span> 100% ครบถ้วนทุกห้อง`
+        ? `<span class="material-symbols-outlined tw-text-[1rem]">check_circle</span> 100% ครบถ้วนทุกห้อง`
         : `${pinnedPercent}% ของห้องทั้งหมด`;
       const badge = document.getElementById('statPinnedBadge');
       badge.textContent = complete ? 'สมบูรณ์' : `เหลือ ${totalRooms - Number(stats.pinned_room_count)} ห้อง`;
@@ -1595,8 +1597,8 @@
       const element = document.getElementById('storageHealth');
       element.className = `${health.ok ? 'tw-text-primary' : 'tw-text-error'} tw-font-semibold tw-flex tw-items-center tw-gap-1`;
       element.innerHTML = health.ok
-        ? '<span class="material-symbols-outlined tw-text-[16px]">cloud_done</span> ทำงานปกติ'
-        : '<span class="material-symbols-outlined tw-text-[16px]">cloud_off</span> มีปัญหา';
+        ? '<span class="material-symbols-outlined tw-text-[1rem]">cloud_done</span> ทำงานปกติ'
+        : '<span class="material-symbols-outlined tw-text-[1rem]">cloud_off</span> มีปัญหา';
     }
 
     async function loadOverview() {
