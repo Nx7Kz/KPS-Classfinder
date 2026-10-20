@@ -623,21 +623,95 @@
           </section>
         </section>
 
-        <!-- ============ PAGE: Floor Plans ============ -->
-        <section id="page-floor-plans" class="page-section d-none">
-          <section class="toolbar p-3 p-md-4 mb-4">
-            <div class="row g-3 align-items-end">
-              <div class="col-12 col-md-5">
-                <label for="fpBuildingSelect" class="form-label fw-semibold">อาคาร</label>
-                <select id="fpBuildingSelect" class="form-select" onchange="loadFloorPlans()"></select>
+        <!-- ============ PAGE: Floor Plans (Tailwind ตามดีไซน์ code.html) ============ -->
+        <section id="page-floor-plans" class="page-section d-none tw-flex tw-flex-col tw-gap-6">
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-6 tw-border tw-border-outline-variant/30 tw-shadow-sm tw-flex tw-flex-col md:tw-flex-row tw-items-start md:tw-items-center tw-justify-between tw-gap-4">
+            <div class="tw-w-full md:tw-w-auto tw-flex-1 tw-max-w-md">
+              <label class="tw-block tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-1.5" for="fpBuildingSelect">เลือกอาคารที่ต้องการจัดการแผนผัง</label>
+              <div class="tw-relative">
+                <select id="fpBuildingSelect" onchange="loadFloorPlans()" class="tw-w-full tw-appearance-none tw-bg-surface-container-lowest tw-border tw-border-outline-variant/60 tw-rounded-lg tw-py-2.5 tw-pl-4 tw-pr-10 tw-text-body-md tw-font-body-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer"></select>
+                <div class="tw-pointer-events-none tw-absolute tw-inset-y-0 tw-right-0 tw-flex tw-items-center tw-px-3 tw-text-on-surface-variant"><span class="material-symbols-outlined tw-text-[1.25rem]">expand_more</span></div>
               </div>
-              <div class="col-12 col-md-7 d-flex justify-content-md-end">
-                <button class="btn btn-primary" type="button" id="fpAddButton" onclick="openFloorPlanModal()">+ เพิ่มแผนผังชั้น</button>
+            </div>
+            <div class="tw-flex tw-items-center tw-gap-3 tw-w-full md:tw-w-auto tw-justify-end">
+              <button id="fpAddButton" type="button" onclick="openFloorPlanModal()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                <span class="material-symbols-outlined tw-text-[1.25rem]">add</span><span>เพิ่มแผนผังชั้นใหม่</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4">
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-4 tw-border tw-border-outline-variant/30 tw-flex tw-items-center tw-gap-3.5">
+              <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">layers</span></div>
+              <div>
+                <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">แผนผังในอาคารนี้</p>
+                <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0"><span id="fpKpiPlans">-</span> <span id="fpKpiPlansNote" class="tw-text-body-sm tw-font-normal tw-text-outline"></span></h4>
+              </div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-4 tw-border tw-border-outline-variant/30 tw-flex tw-items-center tw-gap-3.5">
+              <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-secondary-container/40 tw-text-secondary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">location_on</span></div>
+              <div>
+                <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">ห้องที่ปักหมุดแล้ว</p>
+                <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0"><span id="fpKpiPinned">-</span> <span id="fpKpiPinnedPct" class="tw-text-label-sm tw-font-semibold tw-text-primary tw-ml-1"></span></h4>
+              </div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-4 tw-border tw-border-outline-variant/30 tw-flex tw-items-center tw-gap-3.5">
+              <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-surface-container tw-text-on-surface tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">aspect_ratio</span></div>
+              <div>
+                <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">ความละเอียดแผนผังล่าสุด</p>
+                <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0" id="fpKpiRes">-</h4>
+              </div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-4 tw-border tw-border-outline-variant/30 tw-flex tw-items-center tw-gap-3.5">
+              <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">update</span></div>
+              <div>
+                <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">อัปเดตแผนผังล่าสุด</p>
+                <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-primary tw-m-0" id="fpKpiUpdated">-</h4>
               </div>
             </div>
           </section>
-          <p class="text-secondary small">แผนผังชั้นใช้ทั้งตอนปักหมุดห้อง (เมนู Buildings &amp; Rooms) และแสดงเป็นแผนที่ในแอปมือถือ ชื่อ "ชั้น" ต้องตรงกับค่าชั้นของห้อง เช่น 1, 2, 3</p>
-          <div id="floorPlanGrid" class="row g-3"></div>
+
+          <div class="tw-flex tw-items-start tw-gap-3 tw-p-4 tw-rounded-xl tw-bg-surface-container-low tw-border tw-border-outline-variant/40 tw-text-on-surface-variant">
+            <span class="material-symbols-outlined tw-text-primary tw-text-[1.375rem] tw-shrink-0 tw-mt-0.5" style="font-variation-settings:'FILL' 1;">info</span>
+            <div class="tw-text-body-sm tw-font-body-sm tw-space-y-1">
+              <p class="tw-font-semibold tw-text-on-surface tw-m-0">คำแนะนำการใช้งานแผนผังชั้น</p>
+              <p class="tw-m-0">แผนผังชั้นใช้ทั้งตอนปักหมุดห้อง (เมนู <strong>Buildings &amp; Rooms</strong>) และแสดงเป็นแผนที่อาคารในแอปมือถือ ชื่อ "ชั้น" ต้องตรงกับค่าชั้นของห้อง เช่น <em>1, 2, 3</em> เพื่อให้ระบบจับคู่พิกัดห้องได้ถูกต้อง</p>
+            </div>
+          </div>
+
+          <section id="floorPlanGrid" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-3 tw-gap-6"></section>
+
+          <section class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-3 tw-gap-6 tw-pt-2">
+            <div class="lg:tw-col-span-2 tw-bg-surface-container-lowest tw-rounded-xl tw-p-6 tw-border tw-border-outline-variant/30 tw-space-y-4">
+              <div class="tw-flex tw-items-center tw-gap-2 tw-text-primary">
+                <span class="material-symbols-outlined tw-text-2xl">verified</span>
+                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">ข้อกำหนดและแนวทางปฏิบัติสำหรับไฟล์แผนผัง (Guidelines)</h3>
+              </div>
+              <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-4 tw-pt-1">
+                <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-space-y-1.5">
+                  <div class="tw-flex tw-items-center tw-gap-2 tw-text-on-surface tw-font-semibold tw-text-label-md"><span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem]">aspect_ratio</span><span>อัตราส่วนภาพ</span></div>
+                  <p class="tw-text-[0.75rem] tw-text-outline tw-m-0">แนะนำสัดส่วนที่ใกล้เคียงกับหน้าจอมือถือ เพื่อให้แสดงผลเต็มจอโดยไม่ต้องเลื่อนซ้ายขวา</p>
+                </div>
+                <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-space-y-1.5">
+                  <div class="tw-flex tw-items-center tw-gap-2 tw-text-on-surface tw-font-semibold tw-text-label-md"><span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem]">contrast</span><span>ความคมชัดของเส้น</span></div>
+                  <p class="tw-text-[0.75rem] tw-text-outline tw-m-0">ใช้ภาพที่เส้นผนังชัดเจน พื้นหลังสะอาด ไม่ควรมีตัวหนังสือรกซ้อนทับกัน</p>
+                </div>
+                <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-space-y-1.5">
+                  <div class="tw-flex tw-items-center tw-gap-2 tw-text-on-surface tw-font-semibold tw-text-label-md"><span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem]">my_location</span><span>ระบบพิกัดสัมพัทธ์</span></div>
+                  <p class="tw-text-[0.75rem] tw-text-outline tw-m-0">หมุดห้องบันทึกเป็นเปอร์เซ็นต์ของรูป ถ้าเปลี่ยนรูปที่สัดส่วนต่างจากเดิม ควรตรวจหมุดอีกครั้ง</p>
+                </div>
+              </div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-6 tw-border tw-border-outline-variant/30 tw-flex tw-flex-col tw-justify-between">
+              <div id="fpMatchCard"></div>
+              <div class="role-admin-only tw-mt-4 tw-pt-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-justify-between tw-items-center tw-text-body-sm">
+                <span class="tw-text-outline">ต้องการปักหมุดห้อง?</span>
+                <a href="#" onclick="managePins(); return false;" class="tw-text-primary tw-font-semibold hover:tw-underline tw-flex tw-items-center tw-gap-1 tw-text-label-md tw-no-underline">
+                  <span>ไปที่ Buildings &amp; Rooms</span><span class="material-symbols-outlined tw-text-[1rem]">chevron_right</span>
+                </a>
+              </div>
+            </div>
+          </section>
         </section>
 
         <!-- ============ PAGE: 360 Panorama Editor ============ -->
@@ -1673,6 +1747,10 @@
         buildings = await response.json();
         renderBuildings();
         renderBuildingSelect();
+        if (pendingBuildingName) {
+          document.getElementById('buildingSelect').value = pendingBuildingName;
+          pendingBuildingName = null;
+        }
         if (currentBuilding()) fetchRooms();
         else showRoomsEmptyState();
       } catch (error) {
@@ -2428,14 +2506,30 @@
       return buildings.find(building => Number(building.id) === id) || null;
     }
 
+    let fpBuildingRooms = [];
+    let pendingBuildingName = null;
+
+    // พาไปหน้า Buildings & Rooms พร้อมเลือกอาคารเดิมไว้ให้ (การปักหมุดทำจากหน้าต่างแก้ไขห้องที่นั่น)
+    function managePins() {
+      const building = selectedFloorPlanBuilding();
+      pendingBuildingName = building ? building.name : null;
+      showPage('buildings-rooms');
+    }
+
     async function loadFloorPlansPage() {
       try {
         await refreshBuildingList();
-        fillSelect(document.getElementById('fpBuildingSelect'), buildings.map(building => ({ value: building.id, label: building.name })));
+        fillSelect(document.getElementById('fpBuildingSelect'), buildings.map(building => ({
+          value: building.id, label: `${building.name} (${building.code}) — ${Number(building.floor_count)} ชั้น`,
+        })));
         await loadFloorPlans();
       } catch (error) {
         reportError(error);
       }
+    }
+
+    function fpSkeleton() {
+      return Array.from({ length: 3 }, () => '<div class="skeleton" style="height:380px; border-radius:12px;"></div>').join('');
     }
 
     async function loadFloorPlans() {
@@ -2445,48 +2539,134 @@
 
       if (!building) {
         floorPlans = [];
-        grid.innerHTML = '<div class="col-12"><div class="empty-state text-center"><i class="bi bi-building"></i>ยังไม่มีอาคารในระบบ กรุณาเพิ่มอาคารก่อน</div></div>';
+        fpBuildingRooms = [];
+        renderFloorPlanSummary();
+        grid.innerHTML = '<div class="tw-col-span-full empty-state text-center"><i class="bi bi-building"></i>ยังไม่มีอาคารในระบบ กรุณาเพิ่มอาคารก่อน</div>';
         return;
       }
 
-      grid.innerHTML = skeletonCards(3);
+      grid.innerHTML = fpSkeleton();
       try {
-        const plans = await api(`/api/admin/floorplans?building_id=${building.id}`);
+        const [plans, buildingRooms] = await Promise.all([
+          api(`/api/admin/floorplans?building_id=${building.id}`),
+          api(`/api/building/${encodeURIComponent(building.name)}`),
+        ]);
         floorPlans = plans.sort((first, second) => floorSort(first.floor, second.floor));
+        fpBuildingRooms = buildingRooms;
         renderFloorPlans();
       } catch (error) {
         floorPlans = [];
+        fpBuildingRooms = [];
         grid.innerHTML = '';
+        renderFloorPlanSummary();
         reportError(error);
       }
     }
 
+    function renderFloorPlanSummary() {
+      const building = selectedFloorPlanBuilding();
+      const totalRooms = fpBuildingRooms.length;
+      const unpinned = fpBuildingRooms.filter(room => room.pin_x === null || room.pin_x === undefined);
+      const pinned = totalRooms - unpinned.length;
+      const pinnedPercent = totalRooms > 0 ? Math.round((pinned / totalRooms) * 100) : 0;
+      const latest = [...floorPlans].sort((first, second) => new Date(second.updated_at) - new Date(first.updated_at))[0];
+
+      document.getElementById('fpKpiPlans').textContent = `${floorPlans.length} ชั้น`;
+      document.getElementById('fpKpiPlansNote').textContent = building ? `/ ${Number(building.floor_count)} ชั้นที่มีห้อง` : '';
+      document.getElementById('fpKpiPinned').textContent = `${pinned} / ${totalRooms} ห้อง`;
+      document.getElementById('fpKpiPinnedPct').textContent = totalRooms > 0 ? `(${pinnedPercent}%)` : '';
+      document.getElementById('fpKpiRes').textContent = latest ? `${Number(latest.width)} × ${Number(latest.height)} px` : '-';
+      document.getElementById('fpKpiUpdated').textContent = latest ? formatDateTime(latest.updated_at) : '-';
+
+      const complete = totalRooms > 0 && unpinned.length === 0;
+      const listItems = unpinned.slice(0, 4).map(room => `<li class="tw-text-body-sm tw-text-on-surface-variant">${escapeHtml(room.room_code)} <span class="tw-text-outline">(ชั้น ${escapeHtml(room.floor)})</span></li>`).join('');
+      document.getElementById('fpMatchCard').innerHTML = `
+        <div class="tw-flex tw-items-center tw-justify-between tw-mb-3">
+          <h3 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">สถานะการจับคู่ห้อง</h3>
+          <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${complete || totalRooms === 0 ? 'tw-bg-primary/10 tw-text-primary' : 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed'}">${totalRooms === 0 ? 'ยังไม่มีห้อง' : complete ? 'ครบถ้วน' : `เหลือ ${unpinned.length} ห้อง`}</span>
+        </div>
+        <p class="tw-text-body-sm tw-text-outline tw-mb-4">${complete ? 'ห้องทั้งหมดในอาคารนี้มีหมุดพิกัดบนแผนผังแล้ว' : totalRooms === 0 ? 'อาคารนี้ยังไม่มีห้องเรียนในระบบ' : 'ห้องเหล่านี้ยังไม่ได้ปักหมุดบนแผนผัง'}</p>
+        <div class="tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-flex tw-items-center tw-gap-3">
+          <div class="tw-w-8 tw-h-8 tw-rounded-full tw-bg-primary/20 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0">
+            <span class="material-symbols-outlined tw-text-[1.25rem]" style="font-variation-settings:'FILL' 1;">${complete ? 'check_circle' : 'pin_drop'}</span>
+          </div>
+          <div>
+            <p class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">${pinned} จาก ${totalRooms} ห้องเรียน</p>
+            ${listItems ? `<ul class="tw-m-0 tw-pl-4">${listItems}</ul>${unpinned.length > 4 ? `<p class="tw-text-[0.6875rem] tw-text-outline tw-m-0">และอีก ${unpinned.length - 4} ห้อง</p>` : ''}` : ''}
+          </div>
+        </div>`;
+    }
+
+    function planFileName(url) {
+      try { return decodeURIComponent(String(url).split('/').pop()); } catch (_) { return String(url).split('/').pop(); }
+    }
+
     function renderFloorPlans() {
       const grid = document.getElementById('floorPlanGrid');
-      if (floorPlans.length === 0) {
-        grid.innerHTML = '<div class="col-12"><div class="card building-card"><div class="empty-state text-center"><i class="bi bi-map"></i>อาคารนี้ยังไม่มีแผนผังชั้น กด "+ เพิ่มแผนผังชั้น" เพื่ออัปโหลด</div></div></div>';
-        return;
-      }
-      grid.innerHTML = floorPlans.map(plan => `
-        <div class="col-12 col-md-6 col-xl-4">
-          <div class="card building-card h-100">
-            <div class="bg-light p-2" style="height:200px;">
-              <img src="${escapeHtml(plan.image_url)}" alt="แผนผังชั้น ${escapeHtml(plan.floor)}" style="width:100%; height:100%; object-fit:contain;">
+      renderFloorPlanSummary();
+
+      const cards = floorPlans.map(plan => {
+        const complete = Number(plan.room_count) > 0 && Number(plan.pinned_count) === Number(plan.room_count);
+        const badgeClass = complete || Number(plan.room_count) === 0
+          ? 'tw-bg-primary/10 tw-text-primary tw-border-primary/20'
+          : 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed tw-border-tertiary/20';
+        return `
+        <article class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden tw-shadow-sm tw-flex tw-flex-col tw-justify-between hover:tw-border-primary/40 tw-transition-colors">
+          <div>
+            <div class="tw-relative tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-p-6 tw-flex tw-items-center tw-justify-center tw-min-h-[220px]">
+              <img src="${escapeHtml(plan.image_url)}" alt="แผนผังชั้น ${escapeHtml(plan.floor)}" class="tw-max-h-44 tw-object-contain tw-transition-transform tw-duration-200 hover:tw-scale-105">
+              <div class="tw-absolute tw-top-3 tw-right-3 tw-bg-surface-container-lowest/90 tw-px-2.5 tw-py-1 tw-rounded-md tw-border tw-border-outline-variant/40 tw-text-[0.6875rem] tw-font-semibold tw-text-on-surface-variant">${Number(plan.width)} × ${Number(plan.height)} px</div>
+              <a href="${escapeHtml(plan.image_url)}" target="_blank" rel="noopener" class="tw-absolute tw-bottom-3 tw-right-3 tw-w-8 tw-h-8 tw-rounded-full tw-bg-surface-container-lowest/90 tw-border tw-border-outline-variant/40 tw-text-on-surface tw-flex tw-items-center tw-justify-center hover:tw-bg-surface-container tw-transition-colors tw-no-underline" title="ขยายแผนผังเพื่อดูรายละเอียด">
+                <span class="material-symbols-outlined tw-text-[1.125rem]">zoom_in</span>
+              </a>
             </div>
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <h3 class="h6 mb-0">ชั้น ${escapeHtml(plan.floor)}</h3>
-                <span class="badge text-bg-light border">${Number(plan.width)}×${Number(plan.height)} px</span>
+            <div class="tw-p-5 tw-space-y-3">
+              <div class="tw-flex tw-items-center tw-justify-between tw-gap-2">
+                <div>
+                  <h3 class="tw-text-headline-md tw-font-headline-md tw-font-bold tw-text-on-surface tw-m-0">ชั้น ${escapeHtml(plan.floor)}</h3>
+                  <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">${escapeHtml(plan.building_name || '')}</p>
+                </div>
+                <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-font-medium tw-border ${badgeClass} tw-whitespace-nowrap">
+                  <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-current"></span>${Number(plan.room_count)} ห้อง • ปักหมุดแล้ว ${Number(plan.pinned_count)} ห้อง
+                </span>
               </div>
-              <p class="small text-secondary mb-3">${Number(plan.room_count)} ห้องในชั้นนี้ • ปักหมุดแล้ว ${Number(plan.pinned_count)} ห้อง</p>
-              <div class="d-flex gap-2 flex-wrap">
-                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openFloorPlanModal(${Number(plan.id)})">เปลี่ยนรูป</button>
-                <a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(plan.image_url)}" target="_blank" rel="noopener">ดูรูปเต็ม</a>
-                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteFloorPlan(${Number(plan.id)})">ลบ</button>
+              <div class="tw-text-[0.75rem] tw-text-outline tw-pt-2 tw-border-t tw-border-outline-variant/20 tw-flex tw-flex-col tw-gap-0.5">
+                <p class="tw-m-0 tw-truncate"><strong>ไฟล์:</strong> ${escapeHtml(planFileName(plan.image_url))}</p>
+                <p class="tw-m-0"><strong>อัปเดตเมื่อ:</strong> ${escapeHtml(formatDateTime(plan.updated_at))}</p>
               </div>
             </div>
           </div>
-        </div>`).join('');
+          <div class="tw-p-4 tw-pt-0">
+            <div class="tw-flex tw-items-center tw-justify-between tw-gap-2 tw-border-t tw-border-outline-variant/20 tw-pt-3">
+              <div class="tw-flex tw-items-center tw-gap-1.5">
+                <button type="button" onclick="openFloorPlanModal(${Number(plan.id)})" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors active:tw-scale-95">เปลี่ยนรูป</button>
+                <a href="${escapeHtml(plan.image_url)}" target="_blank" rel="noopener" class="tw-px-2.5 tw-py-1.5 tw-rounded-md tw-border tw-border-outline-variant/60 tw-text-on-surface tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container tw-transition-colors tw-no-underline">ดูรูปเต็ม</a>
+              </div>
+              <div class="tw-flex tw-items-center tw-gap-2">
+                <button type="button" onclick="deleteFloorPlan(${Number(plan.id)})" title="ลบแผนผังชั้น ${escapeHtml(plan.floor)}" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-p-1.5 tw-rounded-md tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors active:tw-scale-95 tw-flex tw-items-center">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">delete</span>
+                </button>
+                <button type="button" onclick="managePins()" class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-1 tw-px-3 tw-py-1.5 tw-rounded-md tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity active:tw-scale-95">
+                  <span class="material-symbols-outlined tw-text-[1rem]">pin_drop</span><span>จัดการหมุด</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>`;
+      });
+
+      const addCard = `
+        <article onclick="openFloorPlanModal()" class="tw-border-2 tw-border-dashed tw-border-outline-variant/60 hover:tw-border-primary tw-rounded-xl tw-bg-surface-container-low/30 hover:tw-bg-surface-container-low/60 tw-transition-all tw-p-6 tw-flex tw-flex-col tw-items-center tw-justify-center tw-text-center tw-group tw-cursor-pointer tw-min-h-[380px]">
+          <div class="tw-w-16 tw-h-16 tw-rounded-full tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-mb-4 group-hover:tw-scale-110 tw-transition-transform">
+            <span class="material-symbols-outlined tw-text-3xl">cloud_upload</span>
+          </div>
+          <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-mb-1">${floorPlans.length === 0 ? 'อัปโหลดแผนผังชั้นแรก' : 'อัปโหลดแผนผังชั้นถัดไป'}</h4>
+          <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-max-w-xs tw-mb-5">คลิกเพื่อเพิ่มแผนผังชั้นของอาคารนี้ รองรับไฟล์ PNG, JPG, WebP ไม่เกิน 10 MB</p>
+          <span class="tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-surface-container-lowest tw-border tw-border-outline-variant tw-text-on-surface tw-font-label-md tw-text-label-md tw-font-semibold group-hover:tw-border-primary group-hover:tw-text-primary tw-transition-colors">
+            <span class="material-symbols-outlined tw-text-[1.125rem]">file_upload</span><span>เลือกไฟล์แผนผัง</span>
+          </span>
+        </article>`;
+      grid.innerHTML = cards.join('') + addCard;
     }
 
     async function openFloorPlanModal(id) {
