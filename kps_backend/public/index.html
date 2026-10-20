@@ -714,36 +714,121 @@
           </section>
         </section>
 
-        <!-- ============ PAGE: 360 Panorama Editor ============ -->
-        <section id="page-panoramas" class="page-section d-none">
-          <section class="toolbar p-3 p-md-4 mb-4">
-            <div class="row g-3 align-items-end">
-              <div class="col-12 col-md-4">
-                <label for="panoBuildingSelect" class="form-label fw-semibold">อาคาร</label>
-                <select id="panoBuildingSelect" class="form-select" onchange="loadPanoRooms()"></select>
-              </div>
-              <div class="col-12 col-md-5">
-                <label for="panoRoomSelect" class="form-label fw-semibold">ห้อง</label>
-                <select id="panoRoomSelect" class="form-select" onchange="loadPanoramas()"></select>
-              </div>
-              <div class="col-12 col-md-3 d-grid">
-                <button class="btn btn-primary" type="button" id="panoUploadButton" onclick="openPanoUploadModal()" disabled>+ เพิ่มภาพ 360°</button>
-              </div>
-            </div>
-          </section>
-
-          <section class="card room-card">
-            <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
+        <!-- ============ PAGE: 360 Panorama Editor (Tailwind ตามดีไซน์ code.html) ============ -->
+        <section id="page-panoramas" class="page-section d-none tw-flex tw-flex-col tw-gap-6">
+          <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 xl:tw-grid-cols-4 tw-gap-4">
+            <div class="tw-bg-surface-container-lowest tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-center tw-justify-between">
               <div>
-                <h1 class="h5 mb-1">ภาพพาโนรามา 360°</h1>
-                <p class="text-secondary mb-0 small" id="panoRoomSummary">เลือกห้องเพื่อจัดการภาพ</p>
+                <span class="tw-text-label-sm tw-font-label-sm tw-text-outline">ภาพ 360° ในห้องนี้</span>
+                <div class="tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-mt-1" id="panoKpiRoomImages">-</div>
+                <span class="tw-text-label-sm tw-text-primary tw-flex tw-items-center tw-gap-1 tw-mt-0.5 tw-font-medium" id="panoKpiRoomNote">-</span>
               </div>
-              <span id="panoCount" class="badge text-bg-light border">0 ภาพ</span>
+              <div class="tw-w-12 tw-h-12 tw-rounded-xl tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">panorama</span></div>
             </div>
-            <div class="card-body">
-              <div id="panoGrid" class="row g-3"></div>
+            <div class="tw-bg-surface-container-lowest tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-center tw-justify-between">
+              <div>
+                <span class="tw-text-label-sm tw-font-label-sm tw-text-outline">จุดเชื่อมต่อ (Hotspots) ในห้องนี้</span>
+                <div class="tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-mt-1" id="panoKpiHotspots">-</div>
+                <span class="tw-text-label-sm tw-text-primary tw-flex tw-items-center tw-gap-1 tw-mt-0.5 tw-font-medium" id="panoKpiHotspotNote">-</span>
+              </div>
+              <div class="tw-w-12 tw-h-12 tw-rounded-xl tw-bg-secondary-container/30 tw-text-secondary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">touch_app</span></div>
             </div>
-          </section>
+            <div class="tw-bg-surface-container-lowest tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-center tw-justify-between">
+              <div>
+                <span class="tw-text-label-sm tw-font-label-sm tw-text-outline">ห้องในอาคารที่มีภาพ 360°</span>
+                <div class="tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-mt-1" id="panoKpiCoverage">-</div>
+                <span class="tw-text-label-sm tw-text-outline tw-flex tw-items-center tw-gap-1 tw-mt-0.5" id="panoKpiCoverageNote">-</span>
+              </div>
+              <div class="tw-w-12 tw-h-12 tw-rounded-xl tw-bg-tertiary-fixed/40 tw-text-tertiary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">polyline</span></div>
+            </div>
+            <div class="tw-bg-surface-container-lowest tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-items-center tw-justify-between">
+              <div>
+                <span class="tw-text-label-sm tw-font-label-sm tw-text-outline">ภาพ 360° ทั้งอาคาร</span>
+                <div class="tw-text-headline-md tw-font-headline-md tw-text-on-surface tw-mt-1" id="panoKpiTotal">-</div>
+                <span class="tw-text-label-sm tw-text-outline tw-flex tw-items-center tw-gap-1 tw-mt-0.5" id="panoKpiTotalNote">-</span>
+              </div>
+              <div class="tw-w-12 tw-h-12 tw-rounded-xl tw-bg-surface-container tw-text-on-surface-variant tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.5rem]">collections</span></div>
+            </div>
+          </div>
+
+          <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+            <div class="tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-end tw-justify-between tw-gap-4">
+              <div class="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 lg:tw-grid-cols-3 tw-gap-4 tw-flex-1">
+                <div class="tw-flex tw-flex-col tw-gap-1.5">
+                  <label for="panoBuildingSelect" class="tw-text-label-sm tw-font-label-sm tw-text-on-surface-variant tw-font-medium tw-flex tw-items-center tw-gap-1.5"><span class="material-symbols-outlined tw-text-[1rem] tw-text-primary">domain</span>อาคาร</label>
+                  <div class="tw-relative">
+                    <select id="panoBuildingSelect" onchange="loadPanoRooms()" class="tw-w-full tw-bg-surface-container-lowest tw-border tw-border-outline-variant tw-rounded-lg tw-px-3.5 tw-py-2 tw-text-body-md tw-text-on-surface tw-font-body-md focus:tw-outline-none focus:tw-border-primary-container focus:tw-ring-2 focus:tw-ring-primary-container/20 tw-transition tw-appearance-none tw-cursor-pointer tw-pr-10"></select>
+                    <span class="material-symbols-outlined tw-absolute tw-right-3 tw-top-1/2 -tw-translate-y-1/2 tw-pointer-events-none tw-text-outline tw-text-[1.25rem]">expand_more</span>
+                  </div>
+                </div>
+                <div class="tw-flex tw-flex-col tw-gap-1.5">
+                  <label for="panoRoomSelect" class="tw-text-label-sm tw-font-label-sm tw-text-on-surface-variant tw-font-medium tw-flex tw-items-center tw-gap-1.5"><span class="material-symbols-outlined tw-text-[1rem] tw-text-primary">meeting_room</span>ห้อง / จุดที่ตั้ง</label>
+                  <div class="tw-relative">
+                    <select id="panoRoomSelect" onchange="loadPanoramas()" class="tw-w-full tw-bg-surface-container-lowest tw-border tw-border-outline-variant tw-rounded-lg tw-px-3.5 tw-py-2 tw-text-body-md tw-text-on-surface tw-font-body-md focus:tw-outline-none focus:tw-border-primary-container focus:tw-ring-2 focus:tw-ring-primary-container/20 tw-transition tw-appearance-none tw-cursor-pointer tw-pr-10"></select>
+                    <span class="material-symbols-outlined tw-absolute tw-right-3 tw-top-1/2 -tw-translate-y-1/2 tw-pointer-events-none tw-text-outline tw-text-[1.25rem]">expand_more</span>
+                  </div>
+                </div>
+                <div class="tw-flex tw-flex-col tw-gap-1.5">
+                  <span class="tw-text-label-sm tw-font-label-sm tw-text-on-surface-variant tw-font-medium tw-flex tw-items-center tw-gap-1.5"><span class="material-symbols-outlined tw-text-[1rem] tw-text-primary">layers</span>ระดับชั้น</span>
+                  <div id="panoFloorTabs" class="tw-flex tw-items-center tw-gap-1 tw-bg-surface-container/60 tw-p-1 tw-rounded-lg tw-border tw-border-outline-variant/30 tw-overflow-x-auto"></div>
+                </div>
+              </div>
+              <div class="tw-flex tw-items-center tw-gap-2.5 tw-pt-2 lg:tw-pt-0">
+                <button id="panoUploadButton" type="button" onclick="openPanoUploadModal()" disabled class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary hover:tw-bg-primary tw-transition-colors tw-text-label-md tw-font-label-md tw-font-semibold tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">add_circle</span><span>+ เพิ่มภาพ 360°</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tw-grid tw-grid-cols-1 xl:tw-grid-cols-12 tw-gap-6 tw-items-start">
+            <section class="xl:tw-col-span-8 tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden">
+              <div class="tw-px-6 tw-py-4 tw-border-b tw-border-outline-variant/30 tw-flex tw-flex-wrap tw-items-center tw-justify-between tw-gap-3">
+                <div class="tw-flex tw-items-center tw-gap-3 tw-flex-wrap">
+                  <h3 class="tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-text-on-surface tw-m-0">ภาพพาโนรามา 360°</h3>
+                  <span id="panoCount" class="tw-px-2.5 tw-py-0.5 tw-rounded-full tw-bg-surface-container tw-text-outline tw-text-label-sm tw-font-label-sm tw-font-medium tw-border tw-border-outline-variant/30">0 ภาพ</span>
+                </div>
+                <span id="panoRoomSummary" class="tw-text-label-sm tw-text-outline">เลือกห้องเพื่อจัดการภาพ</span>
+              </div>
+              <div id="panoGrid" class="tw-p-6 tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-5"></div>
+              <div class="tw-px-6 tw-py-3.5 tw-border-t tw-border-outline-variant/30 tw-text-body-sm tw-text-outline tw-bg-surface-container-low">
+                <span id="panoFooter">-</span>
+              </div>
+            </section>
+
+            <aside class="xl:tw-col-span-4 tw-space-y-6">
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <div class="tw-flex tw-items-center tw-justify-between tw-pb-3 tw-border-b tw-border-outline-variant/30">
+                  <div class="tw-flex tw-items-center tw-gap-2">
+                    <span class="material-symbols-outlined tw-text-primary tw-text-[1.375rem]">hub</span>
+                    <h3 class="tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-text-on-surface tw-m-0">ผังการเชื่อมโยงภาพ</h3>
+                  </div>
+                  <span id="panoLinkStatus" class="tw-px-2 tw-py-0.5 tw-rounded-full tw-bg-primary/10 tw-text-primary tw-text-label-sm tw-font-label-sm tw-font-semibold">-</span>
+                </div>
+                <div id="panoLinkMap" class="tw-my-4 tw-p-4 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-flex tw-flex-col tw-gap-3"></div>
+                <button id="panoEditorButton" type="button" onclick="openFirstHotspotEditor()" disabled class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-py-2.5 tw-px-4 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold hover:tw-bg-primary tw-transition tw-flex tw-items-center tw-justify-center tw-gap-2 tw-shadow-sm active:tw-scale-95 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">open_in_full</span>เปิดตัวแก้ไขจุดเชื่อม
+                </button>
+              </div>
+
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <div class="tw-flex tw-items-center tw-gap-2 tw-text-tertiary tw-pb-2">
+                  <span class="material-symbols-outlined tw-text-[1.25rem]">lightbulb</span>
+                  <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-uppercase tw-tracking-wider tw-text-on-surface tw-m-0">คู่มือการถ่ายภาพพาโนรามา</h4>
+                </div>
+                <ul class="tw-mt-2 tw-space-y-2.5 tw-text-body-sm tw-text-on-surface-variant tw-list-none tw-p-0 tw-mb-0">
+                  <li class="tw-flex tw-items-start tw-gap-2"><span class="material-symbols-outlined tw-text-[1rem] tw-text-primary tw-shrink-0 tw-mt-0.5">check</span><span>ตั้งกล้องที่ความสูงระดับสายตา (ประมาณ 140 - 150 ซม.) เพื่อป้องกันภาพบิดเบี้ยว</span></li>
+                  <li class="tw-flex tw-items-start tw-gap-2"><span class="material-symbols-outlined tw-text-[1rem] tw-text-primary tw-shrink-0 tw-mt-0.5">check</span><span>ภาพต้องเป็นแบบ equirectangular (กว้าง:สูง = 2:1) และไม่เกิน 20 MB ต่อภาพ</span></li>
+                  <li class="tw-flex tw-items-start tw-gap-2"><span class="material-symbols-outlined tw-text-[1rem] tw-text-primary tw-shrink-0 tw-mt-0.5">check</span><span>จุดเชื่อมข้ามภาพควรเชื่อมแบบไป-กลับ (ระบบจะเตือนในผังด้านบนถ้ามีทางเดียว)</span></li>
+                </ul>
+              </div>
+
+              <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-3 tw-flex tw-items-center tw-gap-2 tw-mt-0"><span class="material-symbols-outlined tw-text-[1.125rem] tw-text-outline">history</span>ประวัติการแก้ไขล่าสุด</h4>
+                <div id="panoLog" class="tw-space-y-3"><div class="tw-text-body-sm tw-text-outline">กำลังโหลด...</div></div>
+              </div>
+            </aside>
+          </div>
         </section>
 
         <!-- ============ PAGE: Virtual Tour ============ -->
@@ -2761,6 +2846,8 @@
 
     const HOTSPOT_ICONS = { arrow: '➜', door: '🚪', stairs: '🪜', info: 'ℹ️' };
 
+    let panoFloor = '';
+
     function selectedPanoRoom() {
       const id = document.getElementById('panoRoomSelect').value;
       return panoRooms.find(room => String(room.id) === String(id)) || null;
@@ -2776,24 +2863,77 @@
       }
     }
 
+    function fillPanoRoomSelect() {
+      const rooms = panoRooms.filter(room => !panoFloor || String(room.floor) === panoFloor);
+      fillSelect(document.getElementById('panoRoomSelect'),
+        rooms.map(room => ({ value: room.id, label: `${room.room_code} (ชั้น ${room.floor || '-'})` })));
+    }
+
+    const FLOOR_TAB_ACTIVE = ['tw-bg-surface-container-lowest', 'tw-text-primary', 'tw-font-semibold', 'tw-shadow-sm', 'tw-border', 'tw-border-outline-variant/20'];
+    const FLOOR_TAB_IDLE = ['tw-bg-transparent', 'tw-text-outline', 'tw-font-medium', 'tw-border-0'];
+
+    function renderPanoFloorTabs() {
+      const floors = [...new Set(panoRooms.map(room => String(room.floor)).filter(floor => floor && floor !== '-'))].sort(floorSort);
+      const tabs = [['', 'ทั้งหมด'], ...floors.map(floor => [floor, `ชั้น ${floor}`])];
+      document.getElementById('panoFloorTabs').innerHTML = tabs.map(([value, label]) => `
+        <button type="button" data-floor="${escapeHtml(value)}" onclick="selectPanoFloor('${escapeHtml(value)}')"
+          class="tw-appearance-none tw-cursor-pointer tw-flex-1 tw-whitespace-nowrap tw-py-1 tw-px-2.5 tw-rounded tw-text-label-sm tw-font-label-sm tw-transition ${(value === panoFloor ? FLOOR_TAB_ACTIVE : FLOOR_TAB_IDLE).join(' ')}">${escapeHtml(label)}</button>`).join('');
+    }
+
+    function selectPanoFloor(floor) {
+      panoFloor = floor;
+      renderPanoFloorTabs();
+      fillPanoRoomSelect();
+      loadPanoramas();
+    }
+
+    // สถิติระดับอาคาร: ห้องที่มีภาพ 360° และจำนวนภาพทั้งหมด (panorama_count มากับรายการห้องอยู่แล้ว)
+    function renderPanoBuildingKpis() {
+      const total = panoRooms.length;
+      const covered = panoRooms.filter(room => Number(room.panorama_count) > 0).length;
+      const images = panoRooms.reduce((sum, room) => sum + (Number(room.panorama_count) || 0), 0);
+      document.getElementById('panoKpiCoverage').textContent = total > 0 ? `${covered} / ${total} ห้อง` : '-';
+      document.getElementById('panoKpiCoverageNote').textContent = total === 0 ? 'ยังไม่มีห้องในอาคารนี้'
+        : covered === total ? 'ครบทุกห้อง' : `ยังไม่มีภาพอีก ${total - covered} ห้อง`;
+      document.getElementById('panoKpiTotal').textContent = `${images} ภาพ`;
+      document.getElementById('panoKpiTotalNote').textContent = covered > 0 ? `เฉลี่ย ${(images / covered).toFixed(1)} ภาพ/ห้อง` : 'ยังไม่มีภาพ';
+    }
+
     async function loadPanoRooms() {
       const buildingName = document.getElementById('panoBuildingSelect').value;
       const select = document.getElementById('panoRoomSelect');
+      panoFloor = '';
       if (!buildingName) {
         panoRooms = [];
         select.innerHTML = '';
+        renderPanoFloorTabs();
+        renderPanoBuildingKpis();
         await loadPanoramas();
         return;
       }
       try {
         panoRooms = (await api(`/api/building/${encodeURIComponent(buildingName)}`)).sort(roomSort);
-        fillSelect(select, panoRooms.map(room => ({ value: room.id, label: `${room.room_code} (ชั้น ${room.floor || '-'})` })));
+        renderPanoFloorTabs();
+        fillPanoRoomSelect();
       } catch (error) {
         panoRooms = [];
         select.innerHTML = '';
+        renderPanoFloorTabs();
         reportError(error);
       }
+      renderPanoBuildingKpis();
       await loadPanoramas();
+    }
+
+    function resetPanoPanels() {
+      document.getElementById('panoKpiRoomImages').textContent = '-';
+      document.getElementById('panoKpiRoomNote').textContent = 'ยังไม่ได้เลือกห้อง';
+      document.getElementById('panoKpiHotspots').textContent = '-';
+      document.getElementById('panoKpiHotspotNote').textContent = '-';
+      document.getElementById('panoFooter').textContent = '-';
+      document.getElementById('panoLinkStatus').textContent = '-';
+      document.getElementById('panoLinkMap').innerHTML = '<div class="tw-text-body-sm tw-text-outline">เลือกห้องเพื่อดูผังการเชื่อมโยง</div>';
+      document.getElementById('panoEditorButton').disabled = true;
     }
 
     async function loadPanoramas() {
@@ -2805,12 +2945,13 @@
         panoramas = [];
         document.getElementById('panoRoomSummary').textContent = 'เลือกห้องเพื่อจัดการภาพ';
         document.getElementById('panoCount').textContent = '0 ภาพ';
-        grid.innerHTML = '<div class="col-12 empty-state text-center"><i class="bi bi-door-closed"></i>ยังไม่มีห้องในอาคารนี้</div>';
+        resetPanoPanels();
+        grid.innerHTML = '<div class="tw-col-span-full empty-state text-center"><i class="bi bi-door-closed"></i>ไม่พบห้องให้เลือก</div>';
         return;
       }
 
       document.getElementById('panoRoomSummary').textContent = `${room.room_code} • ${room.building_name} ชั้น ${room.floor || '-'}`;
-      grid.innerHTML = skeletonCards(3);
+      grid.innerHTML = Array.from({ length: 2 }, () => '<div class="skeleton" style="height:340px; border-radius:12px;"></div>').join('');
       const requestId = ++panoRequestId;
       try {
         const list = await api(`/api/rooms/${room.id}/panoramas`);
@@ -2821,31 +2962,164 @@
         panoramas = [];
         reportError(error);
       }
+      room.panorama_count = panoramas.length;
+      renderPanoBuildingKpis();
       renderPanoramas();
+      loadPanoLog();
+    }
+
+    // ทางเชื่อมที่มีแค่ทางเดียว (A ชี้ไป B แต่ B ไม่ชี้กลับ A) นับเป็นจุดที่ควรตรวจ
+    function oneWayLinks() {
+      const links = [];
+      for (const pano of panoramas) {
+        for (const hotspot of pano.hotspots) {
+          if (!hotspot.target_panorama_id) continue;
+          const target = panoramas.find(item => Number(item.id) === Number(hotspot.target_panorama_id));
+          if (target && !target.hotspots.some(back => Number(back.target_panorama_id) === Number(pano.id))) {
+            links.push({ from: pano, to: target });
+          }
+        }
+      }
+      return links;
+    }
+
+    function renderPanoLinkMap() {
+      const map = document.getElementById('panoLinkMap');
+      const status = document.getElementById('panoLinkStatus');
+      const editorButton = document.getElementById('panoEditorButton');
+      editorButton.disabled = panoramas.length === 0;
+      if (panoramas.length === 0) {
+        status.textContent = 'ยังไม่มีภาพ';
+        status.className = 'tw-px-2 tw-py-0.5 tw-rounded-full tw-bg-surface-container tw-text-outline tw-text-label-sm tw-font-label-sm tw-font-semibold';
+        map.innerHTML = '<div class="tw-text-body-sm tw-text-outline">ห้องนี้ยังไม่มีภาพ 360° ให้เชื่อมโยง</div>';
+        return;
+      }
+      const oneWay = oneWayLinks();
+      status.textContent = oneWay.length === 0 ? 'พร้อมใช้งาน' : `ทางเดียว ${oneWay.length} จุด`;
+      status.className = `tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-font-semibold ${oneWay.length === 0 ? 'tw-bg-primary/10 tw-text-primary' : 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed'}`;
+      const nodes = panoramas.map(pano => `
+        <div class="tw-relative tw-flex tw-items-center tw-justify-between tw-gap-2">
+          <span class="tw-absolute -tw-left-6 tw-top-1 tw-w-2.5 tw-h-2.5 tw-rounded-full ${pano.hotspots.length > 0 ? 'tw-bg-primary' : 'tw-bg-outline'} tw-border-2 tw-border-surface-container-lowest"></span>
+          <span class="tw-text-label-md tw-font-semibold tw-text-on-surface tw-truncate">${escapeHtml(panoramaName(pano))}</span>
+          <span class="tw-text-label-sm tw-text-outline tw-whitespace-nowrap">${pano.hotspots.length} จุดเชื่อม</span>
+        </div>`).join('');
+      const warnings = oneWay.slice(0, 3).map(link => `
+        <div class="tw-flex tw-items-start tw-gap-1.5 tw-text-label-sm tw-text-tertiary">
+          <span class="material-symbols-outlined tw-text-[0.875rem] tw-mt-0.5">warning</span>
+          <span>${escapeHtml(panoramaName(link.from))} → ${escapeHtml(panoramaName(link.to))} ยังไม่มีทางกลับ</span>
+        </div>`).join('');
+      map.innerHTML = `
+        <div class="tw-flex tw-items-center tw-justify-between tw-text-label-sm tw-text-outline">
+          <span>ภาพทั้งหมดในห้องนี้</span><span class="tw-font-semibold tw-text-primary">${panoramas.length} ภาพ</span>
+        </div>
+        <div class="tw-relative tw-pl-6 tw-space-y-3.5" style="border-left:2px solid rgb(var(--m3-primary) / .3); margin-left:.5rem;">${nodes}</div>
+        ${warnings}`;
     }
 
     function renderPanoramas() {
       const grid = document.getElementById('panoGrid');
+      const room = selectedPanoRoom();
       document.getElementById('panoCount').textContent = `${panoramas.length} ภาพ`;
-      if (panoramas.length === 0) {
-        grid.innerHTML = '<div class="col-12 empty-state text-center"><i class="bi bi-images"></i>ห้องนี้ยังไม่มีภาพ 360° กด "+ เพิ่มภาพ 360°" เพื่ออัปโหลด</div>';
-        return;
-      }
-      grid.innerHTML = panoramas.map(pano => `
-        <div class="col-12 col-md-6 col-xl-4">
-          <div class="card h-100">
-            <img src="${escapeHtml(pano.image_url)}" class="card-img-top" style="height:160px; object-fit:cover;" alt="ภาพ 360°">
-            <div class="card-body">
-              <h3 class="h6 mb-1">${escapeHtml(pano.position_label || `ภาพ #${pano.id}`)}</h3>
-              <p class="text-secondary small mb-3">ลำดับ ${Number(pano.sort_order)} • ${pano.hotspots.length} จุดเชื่อม</p>
-              <div class="d-flex gap-2 flex-wrap">
-                <button type="button" class="btn btn-sm btn-outline-primary role-admin-only" onclick="openHotspotEditor(${Number(pano.id)})">จัดการจุดเชื่อม</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary role-admin-only" onclick="openPanoUploadModal(${Number(pano.id)})">แก้ไข</button>
-                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deletePanorama(${Number(pano.id)})">ลบ</button>
+
+      const hotspotTotal = panoramas.reduce((sum, pano) => sum + pano.hotspots.length, 0);
+      const linked = panoramas.reduce((sum, pano) => sum + pano.hotspots.filter(item => item.target_panorama_id).length, 0);
+      document.getElementById('panoKpiRoomImages').textContent = `${panoramas.length} ภาพ`;
+      document.getElementById('panoKpiRoomNote').textContent = room ? `ห้อง ${room.room_code}` : '-';
+      document.getElementById('panoKpiHotspots').textContent = `${hotspotTotal} จุด`;
+      document.getElementById('panoKpiHotspotNote').textContent = hotspotTotal === 0 ? 'ยังไม่มีจุดเชื่อม' : `เชื่อมไปยังภาพอื่น ${linked} จุด`;
+      document.getElementById('panoFooter').textContent = `แสดงทั้งหมด ${panoramas.length} ภาพในห้องนี้`;
+      renderPanoLinkMap();
+
+      const uploadCard = `
+        <div onclick="openPanoUploadModal()" class="tw-border-2 tw-border-dashed tw-border-outline-variant/70 hover:tw-border-primary-container tw-bg-surface-container-low/40 hover:tw-bg-primary-container/5 tw-rounded-xl tw-flex tw-flex-col tw-items-center tw-justify-center tw-p-8 tw-text-center tw-transition-all tw-cursor-pointer tw-group tw-min-h-[300px]">
+          <div class="tw-w-16 tw-h-16 tw-rounded-full tw-bg-surface-container tw-flex tw-items-center tw-justify-center tw-text-primary group-hover:tw-scale-110 tw-transition-all tw-shadow-sm">
+            <span class="material-symbols-outlined tw-text-[2rem]">add_a_photo</span>
+          </div>
+          <h4 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-font-semibold tw-mt-4 tw-mb-0">คลิกเพื่ออัปโหลดภาพพาโนรามา 360°</h4>
+          <p class="tw-text-body-sm tw-text-outline tw-mt-1.5 tw-mb-0 tw-max-w-[260px]">รองรับไฟล์ PNG, JPG, WebP ไม่เกิน 20 MB ต่อภาพ</p>
+        </div>`;
+
+      const cards = panoramas.map((pano, index) => {
+        const name = panoramaName(pano);
+        const targets = pano.hotspots
+          .map(hotspot => panoramas.find(item => Number(item.id) === Number(hotspot.target_panorama_id)))
+          .filter(Boolean);
+        const targetTags = targets.length === 0
+          ? '<span class="tw-text-[0.6875rem] tw-text-outline">ยังไม่มีจุดเชื่อมไปยังภาพอื่น</span>'
+          : targets.map(target => `<span class="tw-px-2 tw-py-0.5 tw-rounded tw-bg-surface-container tw-text-on-surface-variant tw-text-[0.6875rem] tw-font-medium tw-flex tw-items-center tw-gap-1 tw-border tw-border-outline-variant/30">
+              <span class="material-symbols-outlined tw-text-[0.75rem] tw-text-primary">arrow_forward</span>${escapeHtml(panoramaName(target))}</span>`).join('');
+        return `
+        <div class="tw-bg-surface-container-lowest tw-rounded-xl ${index === 0 ? 'tw-border-2 tw-border-primary/40 tw-shadow-md' : 'tw-border tw-border-outline-variant/40 tw-shadow-sm'} tw-flex tw-flex-col tw-overflow-hidden tw-group hover:tw-border-primary/60 tw-transition-all tw-duration-200">
+          <a href="${escapeHtml(pano.image_url)}" target="_blank" rel="noopener" class="tw-relative tw-aspect-[16/9] tw-w-full tw-bg-slate-900 tw-overflow-hidden tw-block" title="เปิดดูภาพเต็ม">
+            <img src="${escapeHtml(pano.image_url)}" alt="${escapeHtml(name)}" class="tw-w-full tw-h-full tw-object-cover group-hover:tw-scale-105 tw-transition-transform tw-duration-500 tw-ease-out">
+            <div class="tw-absolute tw-inset-0 tw-bg-gradient-to-t tw-from-black/80 tw-via-black/20 tw-to-black/30 tw-pointer-events-none"></div>
+            <div class="tw-absolute tw-top-3 tw-left-3 tw-flex tw-flex-wrap tw-gap-1.5">
+              <span class="tw-px-2 tw-py-0.5 tw-rounded-md tw-bg-primary-container tw-text-on-primary tw-text-label-sm tw-font-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1 tw-shadow-sm">
+                <span class="material-symbols-outlined tw-text-[0.875rem]">view_in_ar</span>360°</span>
+              <span class="tw-px-2 tw-py-0.5 tw-rounded-md tw-bg-black/60 tw-text-white tw-text-label-sm tw-font-label-sm tw-font-medium tw-border tw-border-white/20">ภาพ #${Number(pano.id)}</span>
+            </div>
+            <div class="tw-absolute tw-top-3 tw-right-3">
+              <span class="tw-px-2 tw-py-0.5 tw-rounded-full ${pano.hotspots.length > 0 ? 'tw-bg-emerald-600/90' : 'tw-bg-slate-600/90'} tw-text-white tw-text-label-sm tw-font-label-sm tw-font-medium tw-shadow-sm">จุดเชื่อม: ${pano.hotspots.length} จุด</span>
+            </div>
+            <div class="tw-absolute tw-bottom-2.5 tw-left-3 tw-right-3 tw-text-white tw-text-label-sm tw-font-medium tw-truncate">${escapeHtml(name)}</div>
+          </a>
+          <div class="tw-p-4 tw-flex tw-flex-col tw-flex-1 tw-justify-between tw-gap-3">
+            <div>
+              <div class="tw-flex tw-items-center tw-justify-between">
+                <h4 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-font-bold tw-m-0 tw-truncate">${escapeHtml(name)}</h4>
+                <span class="tw-text-label-sm tw-text-outline tw-whitespace-nowrap">ลำดับ: ${Number(pano.sort_order)}</span>
+              </div>
+              <p class="tw-text-body-sm tw-text-outline tw-mt-0.5 tw-mb-0">${room ? `${escapeHtml(room.room_code)} • ${escapeHtml(room.building_name)} ชั้น ${escapeHtml(room.floor || '-')}` : ''}</p>
+              <div class="tw-mt-2.5 tw-pt-2.5 tw-border-t tw-border-outline-variant/20 tw-flex tw-flex-col tw-gap-1.5">
+                <span class="tw-text-[0.6875rem] tw-font-semibold tw-text-outline tw-uppercase tw-tracking-wider">เชื่อมโยงไปยัง:</span>
+                <div class="tw-flex tw-flex-wrap tw-gap-1">${targetTags}</div>
               </div>
             </div>
+            <div class="tw-flex tw-items-center tw-justify-between tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-mt-1">
+              <div class="tw-flex tw-items-center tw-gap-1.5">
+                <button type="button" onclick="openHotspotEditor(${Number(pano.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1.5 tw-rounded-lg tw-border tw-border-primary-container tw-text-primary-container hover:tw-bg-primary-container/10 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1.5 active:tw-scale-95">
+                  <span class="material-symbols-outlined tw-text-[1rem]">point_scan</span>จัดการจุดเชื่อม</button>
+                <button type="button" onclick="openPanoUploadModal(${Number(pano.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-outline-variant tw-text-on-surface-variant hover:tw-bg-surface-container tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">แก้ไข</button>
+              </div>
+              <button type="button" onclick="deletePanorama(${Number(pano.id)})" title="ลบภาพนี้" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1.5 tw-rounded-lg tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/40 tw-transition-colors tw-text-label-sm tw-font-label-sm tw-font-medium active:tw-scale-95">ลบ</button>
+            </div>
           </div>
-        </div>`).join('');
+        </div>`;
+      });
+      grid.innerHTML = cards.join('') + uploadCard;
+    }
+
+    function openFirstHotspotEditor() {
+      if (panoramas.length > 0) openHotspotEditor(panoramas[0].id);
+    }
+
+    // ประวัติล่าสุดของภาพ 360°/จุดเชื่อม (editor เห็นเฉพาะของตัวเอง ตามสิทธิ์ของ /api/admin/logs)
+    async function loadPanoLog() {
+      const box = document.getElementById('panoLog');
+      try {
+        const [panoLogs, hotspotLogs] = await Promise.all([
+          api('/api/admin/logs?entity=panorama&limit=5'), api('/api/admin/logs?entity=hotspot&limit=5'),
+        ]);
+        const rows = [...panoLogs.rows, ...hotspotLogs.rows].sort((a, b) => b.id - a.id).slice(0, 5);
+        box.innerHTML = rows.length === 0
+          ? '<div class="tw-text-body-sm tw-text-outline">ยังไม่มีประวัติการแก้ไข</div>'
+          : rows.map(row => {
+            const style = activityStyle(row.action);
+            const icon = { upload: 'cloud_upload', delete: 'delete', create: 'add_circle' }[row.action] || 'edit';
+            return `
+            <div class="tw-flex tw-items-start tw-gap-2.5 tw-text-body-sm">
+              <div class="tw-w-6 tw-h-6 tw-rounded-full ${style.avatar} tw-flex tw-items-center tw-justify-center tw-shrink-0 tw-mt-0.5">
+                <span class="material-symbols-outlined tw-text-[0.875rem]">${icon}</span>
+              </div>
+              <div>
+                <p class="tw-text-on-surface tw-font-medium tw-leading-tight tw-m-0">${escapeHtml(row.detail || '-')}</p>
+                <span class="tw-text-label-sm tw-text-outline">โดย ${escapeHtml(row.username || '-')} • ${escapeHtml(formatDateTime(row.created_at))}</span>
+              </div>
+            </div>`;
+          }).join('');
+      } catch (error) {
+        if (!(error instanceof SessionExpiredError)) box.innerHTML = '<div class="tw-text-body-sm tw-text-outline">โหลดประวัติไม่สำเร็จ</div>';
+      }
     }
 
     // ใช้ modal เดียวกันทั้งอัปโหลดภาพใหม่ และแก้ไขป้ายชื่อ/ลำดับของภาพเดิม (ไม่ต้องเลือกไฟล์)
