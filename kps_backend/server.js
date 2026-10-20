@@ -494,9 +494,10 @@ function findBuildingIdByName(buildingName, callback) {
 }
 
 // ตรวจสอบว่ามีห้องรหัสเดียวกันในอาคารเดียวกันอยู่แล้วหรือไม่ (excludeId ใช้ตอนแก้ไขเพื่อไม่ชนกับตัวเอง)
-function findDuplicateRoom(roomCode, buildingId, excludeId, callback) {
-    let sql = 'SELECT id FROM rooms WHERE room_code = ? AND building_id = ?';
-    const params = [roomCode, buildingId];
+// ชื่อ/รหัสห้องต้องไม่ซ้ำกัน แต่เฉพาะภายในชั้นเดียวกัน (ชื่อซ้ำกันคนละชั้นได้ เช่น "ลิฟต์"/"ห้องน้ำ" ที่มีทุกชั้น)
+function findDuplicateRoom(roomCode, buildingId, floor, excludeId, callback) {
+    let sql = 'SELECT id FROM rooms WHERE room_code = ? AND building_id = ? AND floor = ?';
+    const params = [roomCode, buildingId, floor];
 
     if (excludeId !== null) {
         sql += ' AND id != ?';
@@ -528,10 +529,10 @@ app.post('/api/rooms', requireAdmin, (req, res) => {
             return res.status(400).json({ error: 'ไม่พบอาคารนี้ในระบบ กรุณาเพิ่มอาคารก่อน' });
         }
 
-        findDuplicateRoom(trimmedCode, buildingId, null, (err, isDuplicate) => {
+        findDuplicateRoom(trimmedCode, buildingId, trimmedFloor, null, (err, isDuplicate) => {
             if (err) return res.status(500).json({ error: err.message });
             if (isDuplicate) {
-                return res.status(409).json({ error: 'มีห้องนี้ในอาคารเดียวกันอยู่แล้ว' });
+                return res.status(409).json({ error: 'มีห้องนี้ในชั้นเดียวกันของอาคารนี้อยู่แล้ว' });
             }
 
             const sql = `
@@ -575,10 +576,10 @@ app.put('/api/rooms/:id', requireAdmin, (req, res) => {
             return res.status(400).json({ error: 'ไม่พบอาคารนี้ในระบบ กรุณาเพิ่มอาคารก่อน' });
         }
 
-        findDuplicateRoom(trimmedCode, buildingId, roomId, (err, isDuplicate) => {
+        findDuplicateRoom(trimmedCode, buildingId, trimmedFloor, roomId, (err, isDuplicate) => {
             if (err) return res.status(500).json({ error: err.message });
             if (isDuplicate) {
-                return res.status(409).json({ error: 'มีห้องนี้ในอาคารเดียวกันอยู่แล้ว' });
+                return res.status(409).json({ error: 'มีห้องนี้ในชั้นเดียวกันของอาคารนี้อยู่แล้ว' });
             }
 
             const sql = `
@@ -1561,7 +1562,7 @@ function buildImportItem(record, rowNumber, { buildingColumn, has, buildingByKey
     if (validationError) errors.push(validationError);
     if (!building || validationError) return item;
 
-    const key = `${building.id}|${record.room_code.trim().toLowerCase()}`;
+    const key = `${building.id}|${record.floor.trim()}|${record.room_code.trim().toLowerCase()}`;
     if (seenKeys.has(key)) {
         errors.push(`ซ้ำกับแถวที่ ${seenKeys.get(key)} ในไฟล์เดียวกัน`);
     } else {
@@ -1589,8 +1590,8 @@ async function planRoomImport(text) {
     const has = (column) => headerCols.includes(column);
     const [buildings] = await pdb.query('SELECT id, code, name FROM buildings');
     const buildingByKey = buildBuildingIndex(buildings);
-    const [existingRooms] = await pdb.query('SELECT id, building_id, room_code FROM rooms');
-    const existingByKey = new Map(existingRooms.map(room => [`${room.building_id}|${room.room_code.toLowerCase()}`, room.id]));
+    const [existingRooms] = await pdb.query('SELECT id, building_id, floor, room_code FROM rooms');
+    const existingByKey = new Map(existingRooms.map(room => [`${room.building_id}|${room.floor}|${room.room_code.toLowerCase()}`, room.id]));
     const seenKeys = new Map();
 
     const context = { buildingColumn, has, buildingByKey, existingByKey, seenKeys };
