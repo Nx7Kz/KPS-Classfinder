@@ -82,6 +82,10 @@
     .btn-check:checked + .btn-outline-primary { background-color: var(--brand); border-color: var(--brand); }
     a { color: var(--brand); }
 
+    /* จอคอมส่วนใหญ่กว้างกว่า 1366px มาก ขนาดเริ่มต้นของ Bootstrap (16px) เลยดูเล็ก/โล่งเกินไป ขยับฐานขึ้นหน่อย
+       (ค่านี้คูณกับทุก rem ในไฟล์ ทำให้ทุกอย่างใหญ่ขึ้นตามสัดส่วนเดียวกันโดยไม่ต้องไล่แก้ทีละจุด) */
+    html { font-size: 17px; }
+    @media (min-width: 1600px) { html { font-size: 18px; } }
     body {
       font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
       background: #f5f6fa;
@@ -91,44 +95,49 @@
 
     .app-shell { display: flex; min-height: 100vh; }
     .sidebar {
-      width: 240px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--bs-border-color);
-      display: flex; flex-direction: column; padding: 1.25rem 1rem;
+      width: 272px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--bs-border-color);
+      display: flex; flex-direction: column; padding: 1.5rem 1.1rem;
     }
-    .sidebar-brand { font-weight: 700; color: var(--brand); font-size: 1.05rem; padding: .5rem .75rem 1.25rem; display: flex; align-items: center; gap: .5rem; }
-    .sidebar-brand .bi { font-size: 1.3rem; }
+    .sidebar-brand { font-weight: 700; color: var(--brand); font-size: 1.3rem; padding: .5rem .75rem 1.5rem; display: flex; align-items: center; gap: .6rem; }
+    .sidebar-brand .bi { font-size: 1.6rem; }
     .sidebar-nav .nav-link {
-      color: var(--bs-secondary-color); border-radius: 10px; padding: .6rem .75rem; font-weight: 500; font-size: .92rem;
-      display: flex; align-items: center; gap: .65rem; cursor: pointer;
+      color: var(--bs-secondary-color); border-radius: 10px; padding: .8rem 1rem; font-weight: 500; font-size: 1.05rem;
+      display: flex; align-items: center; gap: .75rem; cursor: pointer;
       /* เป็น <button> ไม่ใช่ <a> (กด Tab/Enter ได้ตามมาตรฐานปุ่ม) จึงต้องล้างสไตล์ปุ่มเริ่มต้นของเบราว์เซอร์ */
       border: 0; background: transparent; width: 100%; text-align: left; font-family: inherit;
     }
-    .sidebar-nav .nav-link .bi { font-size: 1.05rem; width: 1.1rem; text-align: center; flex-shrink: 0; }
+    .sidebar-nav .nav-link .bi { font-size: 1.3rem; width: 1.3rem; text-align: center; flex-shrink: 0; }
     .sidebar-nav .nav-link:hover { background: var(--bs-tertiary-bg); }
     .sidebar-nav .nav-link.active { background: var(--brand); color: #fff; }
     [data-bs-theme="dark"] .sidebar-nav .nav-link.active { color: #052e16; }
     .sidebar-nav .nav-link.disabled { color: #9ca3af; cursor: default; pointer-events: none; }
     .main-content { flex: 1; min-width: 0; }
     .content-topbar {
-      background: var(--surface); border-bottom: 1px solid var(--bs-border-color); padding: .9rem 1.5rem;
+      background: var(--surface); border-bottom: 1px solid var(--bs-border-color); padding: 1.25rem 2rem;
       display: flex; justify-content: space-between; align-items: center;
     }
-    .content-body { padding: 1.5rem; }
+    .content-topbar h1 { font-size: 1.6rem; }
+    .content-body { padding: 2rem; max-width: 1500px; }
     .theme-toggle {
-      width: 2.25rem; height: 2.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
-      border: 1px solid var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); font-size: 1.05rem;
+      width: 2.75rem; height: 2.75rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); font-size: 1.3rem;
     }
     .theme-toggle:hover { background: var(--bs-tertiary-bg); }
 
     .stat-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .06); }
     [data-bs-theme="dark"] .stat-card { box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
-    .stat-value { font-size: 1.9rem; font-weight: 700; }
-    .stat-label { color: var(--bs-secondary-color); font-size: .85rem; }
+    .stat-card .card-body { padding: 1.5rem 1.75rem; }
+    .stat-value { font-size: 2.5rem; font-weight: 700; }
+    .stat-label { color: var(--bs-secondary-color); font-size: .95rem; }
 
     .toolbar, .room-card, .building-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
     [data-bs-theme="dark"] .toolbar, [data-bs-theme="dark"] .room-card, [data-bs-theme="dark"] .building-card { box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
     .toolbar, .room-card, .building-card, .stat-card { background: var(--surface); }
-    .room-card .card-header, .building-card .card-header { background: var(--surface); border-bottom: 1px solid var(--bs-border-color); }
-    .table > :not(caption) > * > * { padding: .85rem .75rem; }
+    .toolbar { padding: 1.5rem 1.75rem !important; }
+    .room-card .card-header, .building-card .card-header { background: var(--surface); border-bottom: 1px solid var(--bs-border-color); padding: 1.25rem 1.75rem; }
+    .room-card .card-body, .building-card .card-body { padding: 1.5rem 1.75rem; }
+    .table { font-size: 1rem; }
+    .table > :not(caption) > * > * { padding: 1rem .9rem; }
     .room-name { font-weight: 600; }
     .floor-badge { background: #e9efff; color: #2454c6; font-weight: 600; }
     [data-bs-theme="dark"] .floor-badge { background: #1b2a4a; color: #9db4f0; }
