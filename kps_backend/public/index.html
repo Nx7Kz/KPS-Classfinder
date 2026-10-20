@@ -80,6 +80,10 @@
       font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       display: inline-block; vertical-align: middle; line-height: 1;
     }
+    /* ปิด preflight ของ Tailwind ไว้ ช่องกรอก/ปุ่มเลยได้ border-style เริ่มต้นของเบราว์เซอร์ (inset/outset)
+       ทำให้เส้นขอบดูนูนจมและขอบขวาจาง จึงบังคับเป็นเส้นเรียบเหมือนที่ preflight จะตั้งให้ */
+    input:not([type="checkbox"]):not([type="radio"])[class*="tw-"],
+    textarea[class*="tw-"], select[class*="tw-"], button[class*="tw-"] { border-style: solid; }
   </style>
   <!-- อ่านโหมดมืด/สว่างที่จำไว้ก่อนวาดหน้าจอ กันไม่ให้กะพริบสีตอนโหลด (เหมือนแอปมือถือ) -->
   <script>
