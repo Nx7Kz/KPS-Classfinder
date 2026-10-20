@@ -10,6 +10,25 @@
         integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap">
+  <!-- Tailwind ใช้เฉพาะหน้า Overview (ทดลองดีไซน์ใหม่) ส่วนหน้าอื่นยังเป็น Bootstrap เดิม
+       ปิด preflight ไว้ไม่ให้ไป reset สไตล์พื้นฐาน (h1, button, ul ฯลฯ) ของ Bootstrap ทั้งหน้าเอกสาร -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['selector', '[data-bs-theme="dark"]'],
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          colors: { brand: 'var(--brand)', 'brand-tint': 'var(--brand-tint)', surface: 'var(--surface)' },
+          fontFamily: { sans: ["'IBM Plex Sans Thai'", 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+  </style>
   <!-- อ่านโหมดมืด/สว่างที่จำไว้ก่อนวาดหน้าจอ กันไม่ให้กะพริบสีตอนโหลด (เหมือนแอปมือถือ) -->
   <script>
     try {
@@ -263,111 +282,123 @@
       </div>
 
       <div class="content-body">
-        <!-- ============ PAGE: Overview ============ -->
-        <section id="page-overview" class="page-section">
+        <!-- ============ PAGE: Overview (ดีไซน์ Tailwind — หน้าอื่นยังเป็น Bootstrap เดิม) ============ -->
+        <section id="page-overview" class="page-section font-sans" style="font-family:'IBM Plex Sans Thai',system-ui,sans-serif;">
           <!-- แถบต้อนรับ + ทางลัดงานที่ทำบ่อย -->
-          <div class="card building-card mb-4">
-            <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-              <div>
-                <h2 class="h5 mb-1" id="overviewGreeting">สวัสดี 👋</h2>
-                <p class="text-secondary small mb-0">ยินดีต้อนรับสู่ระบบจัดการอาคารและห้องเรียน</p>
-              </div>
-              <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="quickAddBuilding()"><i class="bi bi-building"></i> เพิ่มอาคารใหม่</button>
-                <button class="btn btn-primary btn-sm" type="button" onclick="quickAddRoom()"><i class="bi bi-door-closed"></i> เพิ่มห้องเรียน</button>
-                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="showPage('floor-plans')"><i class="bi bi-pin-map"></i> ตรวจสอบพิกัดหมุด</button>
-              </div>
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface p-6 rounded-xl border border-black/10 dark:border-white/10 shadow-sm mb-5">
+            <div>
+              <h2 class="text-xl font-semibold" id="overviewGreeting">สวัสดี 👋</h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">ยินดีต้อนรับสู่ระบบจัดการอาคารและห้องเรียน มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตกำแพงแสน</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <button class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface text-inherit text-sm font-medium border border-black/15 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 transition-colors" type="button" onclick="quickAddBuilding()">
+                <span class="material-symbols-outlined text-[18px]">apartment</span><span>+ เพิ่มอาคารใหม่</span>
+              </button>
+              <button class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:opacity-90 transition-opacity shadow-sm" type="button" onclick="quickAddRoom()">
+                <span class="material-symbols-outlined text-[18px]">meeting_room</span><span>+ เพิ่มห้องเรียน</span>
+              </button>
+              <button class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface text-inherit text-sm font-medium border border-black/15 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 transition-colors" type="button" onclick="showPage('floor-plans')">
+                <span class="material-symbols-outlined text-[18px]">pin_drop</span><span>ตรวจสอบพิกัดหมุด</span>
+              </button>
             </div>
           </div>
 
-          <div class="row g-3 mb-4">
-            <div class="col-6 col-lg-3">
-              <div class="card stat-card h-100">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="stat-label mb-0">อาคารทั้งหมด</div>
-                    <span class="stat-icon"><i class="bi bi-buildings"></i></span>
-                  </div>
-                  <div class="stat-value" id="statBuildingCount">-</div>
-                  <div class="text-secondary small">อาคาร</div>
+          <!-- การ์ด KPI -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+            <article class="bg-surface p-5 rounded-xl border border-black/10 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-3">
+                <span class="text-xs font-medium uppercase tracking-wide">อาคารทั้งหมด</span>
+                <div class="w-8 h-8 rounded-lg bg-brand-tint text-brand flex items-center justify-center">
+                  <span class="material-symbols-outlined text-[20px]">domain</span>
                 </div>
               </div>
-            </div>
-            <div class="col-6 col-lg-3">
-              <div class="card stat-card h-100">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="stat-label mb-0">ห้องเรียนในระบบ</div>
-                    <span class="stat-icon"><i class="bi bi-door-open"></i></span>
-                  </div>
-                  <div class="stat-value" id="statRoomCount">-</div>
-                  <div class="text-secondary small" id="statRoomSplit">-</div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold tracking-tight" id="statBuildingCount">-</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">อาคาร</span>
+              </div>
+            </article>
+            <article class="bg-surface p-5 rounded-xl border border-black/10 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-3">
+                <span class="text-xs font-medium uppercase tracking-wide">ห้องเรียนในระบบ</span>
+                <div class="w-8 h-8 rounded-lg bg-brand-tint text-brand flex items-center justify-center">
+                  <span class="material-symbols-outlined text-[20px]">meeting_room</span>
                 </div>
               </div>
-            </div>
-            <div class="col-6 col-lg-3">
-              <div class="card stat-card h-100">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="stat-label mb-0">ห้องที่มีภาพพาโนรามา 360°</div>
-                    <span class="stat-icon"><i class="bi bi-camera"></i></span>
-                  </div>
-                  <div class="stat-value" id="statPanoramaCount">-</div>
-                  <div class="text-secondary small mb-2" id="statPanoramaPercent">-</div>
-                  <div class="progress" style="height:6px;"><div class="progress-bar" id="statPanoramaBar" style="width:0%; background:var(--brand);"></div></div>
+              <div class="flex items-baseline gap-2 mb-1">
+                <span class="text-3xl font-bold tracking-tight" id="statRoomCount">-</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">ห้อง</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400" id="statRoomSplit">-</div>
+            </article>
+            <article class="bg-surface p-5 rounded-xl border border-black/10 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-3">
+                <span class="text-xs font-medium uppercase tracking-wide">ห้องที่มีภาพพาโนรามา 360°</span>
+                <div class="w-8 h-8 rounded-lg bg-brand-tint text-brand flex items-center justify-center">
+                  <span class="material-symbols-outlined text-[20px]">view_in_ar</span>
                 </div>
               </div>
-            </div>
-            <div class="col-6 col-lg-3">
-              <div class="card stat-card h-100">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="stat-label mb-0">ห้องที่ปักหมุดบนแผนที่แล้ว</div>
-                    <span class="stat-icon"><i class="bi bi-geo-alt-fill"></i></span>
-                  </div>
-                  <div class="stat-value" id="statPinnedCount">-</div>
-                  <div class="text-secondary small" id="statPinnedPercent">-</div>
+              <div class="flex items-baseline gap-2 mb-2">
+                <span class="text-3xl font-bold tracking-tight" id="statPanoramaCount">-</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">ห้อง</span>
+              </div>
+              <div class="text-xs text-brand font-medium mb-1.5" id="statPanoramaPercent">-</div>
+              <div class="w-full bg-black/5 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-brand h-full rounded-full transition-all" id="statPanoramaBar" style="width:0%;"></div>
+              </div>
+            </article>
+            <article class="bg-surface p-5 rounded-xl border border-black/10 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-3">
+                <span class="text-xs font-medium uppercase tracking-wide">ห้องที่ปักหมุดบนแผนที่แล้ว</span>
+                <div class="w-8 h-8 rounded-lg bg-brand-tint text-brand flex items-center justify-center">
+                  <span class="material-symbols-outlined text-[20px]">location_on</span>
                 </div>
               </div>
-            </div>
+              <div class="flex items-baseline gap-2 mb-1">
+                <span class="text-3xl font-bold tracking-tight" id="statPinnedCount">-</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">ห้อง</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400" id="statPinnedPercent">-</div>
+            </article>
           </div>
 
-          <div class="row g-3">
-            <div class="col-12 col-xl-8">
-              <div class="card building-card h-100">
-                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
-                  <h2 class="h6 mb-0">กิจกรรมล่าสุด</h2>
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="btn-group btn-group-sm" role="group" id="activityFilterGroup">
-                      <button type="button" class="btn btn-outline-secondary active" data-filter="all" onclick="filterRecentActivity('all')">ทั้งหมด</button>
-                      <button type="button" class="btn btn-outline-secondary" data-filter="login" onclick="filterRecentActivity('login')">การเข้าสู่ระบบ</button>
-                      <button type="button" class="btn btn-outline-secondary" data-filter="edit" onclick="filterRecentActivity('edit')">การแก้ไข</button>
-                    </div>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="showPage('logs')">ดูทั้งหมด</button>
-                  </div>
+          <!-- กิจกรรมล่าสุด + สถานะรายอาคาร + สิ่งที่ต้องดำเนินการ -->
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <div class="xl:col-span-2 bg-surface rounded-xl border border-black/10 dark:border-white/10 shadow-sm flex flex-col">
+              <div class="p-4 border-b border-black/10 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-brand text-xl">history</span>
+                  <h2 class="text-base font-semibold">กิจกรรมล่าสุด</h2>
                 </div>
-                <ul class="list-group list-group-flush" id="recentActivityList">
-                  <li class="list-group-item text-secondary small">กำลังโหลด...</li>
-                </ul>
+                <div class="flex items-center gap-2">
+                  <div class="flex bg-black/5 dark:bg-white/10 p-0.5 rounded-lg text-xs font-medium" id="activityFilterGroup">
+                    <button type="button" class="appearance-none bg-transparent border-0 px-2.5 py-1 rounded-md transition-colors" data-filter="all" onclick="filterRecentActivity('all')">ทั้งหมด</button>
+                    <button type="button" class="appearance-none bg-transparent border-0 px-2.5 py-1 rounded-md transition-colors" data-filter="login" onclick="filterRecentActivity('login')">การเข้าสู่ระบบ</button>
+                    <button type="button" class="appearance-none bg-transparent border-0 px-2.5 py-1 rounded-md transition-colors" data-filter="edit" onclick="filterRecentActivity('edit')">การแก้ไข</button>
+                  </div>
+                  <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-black/15 dark:border-white/15 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors" type="button" onclick="showPage('logs')">
+                    <span>ดูทั้งหมด</span><span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+              <div id="recentActivityList" class="divide-y divide-black/10 dark:divide-white/10 text-sm">
+                <div class="p-4 text-slate-500 text-sm">กำลังโหลด...</div>
               </div>
             </div>
-            <div class="col-12 col-xl-4 d-flex flex-column gap-3">
-              <div class="card building-card">
-                <div class="card-header d-flex justify-content-between align-items-center p-3">
-                  <h2 class="h6 mb-0">สถานะรายอาคาร</h2>
-                  <a href="#" class="small" onclick="showPage('buildings-rooms'); return false;">จัดการอาคาร</a>
+            <div class="flex flex-col gap-5">
+              <div class="bg-surface p-5 rounded-xl border border-black/10 dark:border-white/10 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                  <h2 class="text-base font-semibold">สถานะรายอาคาร</h2>
+                  <a href="#" class="text-xs text-brand font-medium hover:underline" onclick="showPage('buildings-rooms'); return false;">จัดการอาคาร</a>
                 </div>
-                <ul class="list-group list-group-flush" id="buildingStatusList">
-                  <li class="list-group-item text-secondary small">กำลังโหลด...</li>
-                </ul>
+                <div class="flex flex-col gap-2.5" id="buildingStatusList">
+                  <div class="text-slate-500 text-sm">กำลังโหลด...</div>
+                </div>
               </div>
-              <div class="card building-card">
-                <div class="card-header p-3">
-                  <h2 class="h6 mb-0">สิ่งที่ต้องดำเนินการ</h2>
+              <div class="bg-surface p-5 rounded-xl border border-black/10 dark:border-white/10 shadow-sm">
+                <h2 class="text-base font-semibold mb-3">สิ่งที่ต้องดำเนินการ</h2>
+                <div class="flex flex-col gap-1" id="pendingTasksList">
+                  <div class="text-slate-500 text-sm">กำลังโหลด...</div>
                 </div>
-                <ul class="list-group list-group-flush" id="pendingTasksList">
-                  <li class="list-group-item text-secondary small">กำลังโหลด...</li>
-                </ul>
               </div>
             </div>
           </div>
@@ -1284,9 +1315,30 @@
 
     function filterRecentActivity(filter) {
       document.querySelectorAll('#activityFilterGroup [data-filter]').forEach(button => {
-        button.classList.toggle('active', button.dataset.filter === filter);
+        const isActive = button.dataset.filter === filter;
+        button.classList.toggle('bg-surface', isActive);
+        button.classList.toggle('bg-transparent', !isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('font-semibold', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('dark:text-slate-400', !isActive);
       });
       renderRecentActivity(filter);
+    }
+
+    // ป้ายกำกับประเภทกิจกรรม (จุดสี + ข้อความ) สไตล์ Tailwind ใช้แทน actionBadge() ของ Bootstrap เฉพาะหน้า Overview
+    const ACTIVITY_PILLS = {
+      login: { label: 'เข้าสู่ระบบ', dot: 'bg-brand', bg: 'bg-brand-tint text-brand' },
+      login_failed: { label: 'เข้าสู่ระบบไม่สำเร็จ', dot: 'bg-amber-500', bg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+      logout: { label: 'ออกจากระบบ', dot: 'bg-slate-400', bg: 'bg-black/5 dark:bg-white/10 text-slate-500 dark:text-slate-400' },
+      delete: { label: 'ลบ', dot: 'bg-red-500', bg: 'bg-red-500/15 text-red-600 dark:text-red-400' },
+    };
+    const DEFAULT_ACTIVITY_PILL = { label: 'แก้ไข', dot: 'bg-sky-500', bg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400' };
+
+    function activityPill(action) {
+      const pill = ACTIVITY_PILLS[action] || { ...DEFAULT_ACTIVITY_PILL, label: ACTION_LABELS[action] || action };
+      return `<span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-semibold ${pill.bg}">
+        <span class="w-1.5 h-1.5 rounded-full ${pill.dot}"></span>${escapeHtml(pill.label)}</span>`;
     }
 
     function renderRecentActivity(filter = 'all') {
@@ -1297,64 +1349,66 @@
       });
       const list = document.getElementById('recentActivityList');
       list.innerHTML = items.length === 0
-        ? '<li class="list-group-item text-secondary small">ไม่มีกิจกรรมในหมวดนี้</li>'
+        ? '<div class="p-4 text-slate-500 text-sm">ไม่มีกิจกรรมในหมวดนี้</div>'
         : items.map(item => `
-          <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
-            ${actionBadge(item.action)}
-            <span class="flex-grow-1">${escapeHtml(item.detail || '-')}</span>
-            <span class="text-secondary small">${escapeHtml(item.username || '-')} • ${escapeHtml(formatDateTime(item.created_at))}</span>
-          </li>`).join('');
+          <div class="p-3.5 px-4 flex items-center gap-2.5 flex-wrap hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+            ${activityPill(item.action)}
+            <span class="flex-grow">${escapeHtml(item.detail || '-')}</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400">${escapeHtml(item.username || '-')} • ${escapeHtml(formatDateTime(item.created_at))}</span>
+          </div>`).join('');
     }
 
     function renderBuildingStatus(buildingList) {
       const list = document.getElementById('buildingStatusList');
       list.innerHTML = buildingList.length === 0
-        ? '<li class="list-group-item text-secondary small">ยังไม่มีอาคารในระบบ</li>'
+        ? '<div class="text-slate-500 text-sm">ยังไม่มีอาคารในระบบ</div>'
         : buildingList.map(building => {
           const maintenanceCount = Number(building.maintenance_count) || 0;
-          const dotColor = maintenanceCount > 0 ? '#f59e0b' : 'var(--brand)';
+          const dotClass = maintenanceCount > 0 ? 'bg-amber-500' : 'bg-brand';
           const dotTitle = maintenanceCount > 0 ? `${maintenanceCount} ห้องปิดปรับปรุง` : 'ไม่มีห้องปิดปรับปรุง';
           return `
-          <li class="list-group-item d-flex align-items-center justify-content-between gap-2">
-            <div>
-              <div class="fw-semibold">${escapeHtml(building.name)}</div>
-              <div class="text-secondary small">${Number(building.room_count)} ห้องเรียน • ${Number(building.floor_count)} ชั้น</div>
+          <div class="p-3 rounded-lg bg-black/[0.03] dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-brand-tint text-brand flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-[20px]">corporate_fare</span>
+              </div>
+              <div>
+                <div class="text-sm font-semibold">${escapeHtml(building.name)}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">${Number(building.room_count)} ห้องเรียน • ${Number(building.floor_count)} ชั้น</div>
+              </div>
             </div>
-            <span class="building-status-dot" style="background:${dotColor};" title="${escapeHtml(dotTitle)}"></span>
-          </li>`;
+            <span class="w-2.5 h-2.5 rounded-full ${dotClass} flex-shrink-0" title="${escapeHtml(dotTitle)}"></span>
+          </div>`;
         }).join('');
     }
 
-    function pendingTaskRow(icon, iconColor, title, subtitle, actionLabel, onClick) {
+    function pendingTaskRow(icon, title, subtitle, actionLabel, onClick) {
       return `
-        <li class="list-group-item d-flex align-items-start gap-2">
-          <i class="bi ${icon} fs-5 flex-shrink-0 mt-1" style="color:${iconColor};"></i>
-          <div class="flex-grow-1">
-            <div class="fw-semibold">${escapeHtml(title)}</div>
-            <div class="text-secondary small">${escapeHtml(subtitle)}</div>
+        <div class="flex items-start gap-3 p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+          <span class="material-symbols-outlined text-amber-500 mt-0.5 text-[20px] flex-shrink-0">${icon}</span>
+          <div class="flex-1">
+            <p class="text-sm font-medium">${escapeHtml(title)}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${escapeHtml(subtitle)}</p>
           </div>
-          <button type="button" class="btn btn-sm btn-link p-0 text-nowrap" onclick="${onClick}">${escapeHtml(actionLabel)}</button>
-        </li>`;
+          <button type="button" class="appearance-none bg-transparent border-0 p-0 text-xs text-brand font-semibold hover:underline" onclick="${onClick}">${escapeHtml(actionLabel)}</button>
+        </div>`;
     }
 
     function renderPendingTasks(stats) {
       const list = document.getElementById('pendingTasksList');
       const rows = [
         ...stats.rooms_without_panorama.map(room => pendingTaskRow(
-          'bi-camera', '#f59e0b',
-          `ห้อง ${room.room_code} ยังไม่มีภาพ 360°`,
-          `${room.building_name} ชั้น ${room.floor}`,
-          'อัปโหลด', "showPage('panoramas')"
+          'photo_camera', `ห้อง ${room.room_code} ยังไม่มีภาพ 360°`,
+          `${room.building_name} ชั้น ${room.floor}`, 'อัปโหลด', "showPage('panoramas')"
         )),
         ...stats.maintenance_rooms.map(room => pendingTaskRow(
-          'bi-cone-striped', '#f59e0b',
-          `ห้อง ${room.room_code} ปิดปรับปรุงอยู่`,
-          `${room.building_name} ชั้น ${room.floor}`,
-          'ตรวจดู', "showPage('buildings-rooms')"
+          'construction', `ห้อง ${room.room_code} ปิดปรับปรุงอยู่`,
+          `${room.building_name} ชั้น ${room.floor}`, 'ตรวจดู', "showPage('buildings-rooms')"
         )),
       ];
       list.innerHTML = rows.length === 0
-        ? '<li class="list-group-item text-secondary small d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill" style="color:var(--brand);"></i> ไม่มีรายการค้างดำเนินการ</li>'
+        ? `<div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            <span class="material-symbols-outlined text-brand text-[20px]">check_circle</span>ไม่มีรายการค้างดำเนินการ</div>`
         : rows.join('');
     }
 
