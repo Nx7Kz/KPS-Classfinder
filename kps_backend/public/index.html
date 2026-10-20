@@ -145,6 +145,20 @@
     .empty-state .bi { font-size: 2.2rem; display: block; margin-bottom: .5rem; opacity: .5; }
     .table-head th { background: var(--bs-tertiary-bg); }
 
+    /* โครงหลอดกะพริบระหว่างโหลดข้อมูล (แทนข้อความ "กำลังโหลดข้อมูล...") */
+    .skeleton {
+      display: block; border-radius: 6px; background: var(--bs-tertiary-bg);
+      background-image: linear-gradient(90deg, transparent, rgba(var(--bs-emphasis-color-rgb), .06), transparent);
+      background-size: 200% 100%; animation: skeleton-shimmer 1.3s ease-in-out infinite;
+    }
+    @keyframes skeleton-shimmer { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+    @media (prefers-reduced-motion: reduce) { .skeleton { animation-duration: 3s; } }
+
+    /* แจ้งเตือนแบบลอยมุมจอ แทน alert แถบยาวบนสุด */
+    #statusMessageWrap { position: fixed; bottom: 0; right: 0; padding: 1rem; z-index: 2000; max-width: 380px; }
+    .toast-alert { border-radius: 12px; animation: toast-in .22s ease-out; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
     /* หน้าเดินชม 360° */
     .tour-plan { position: relative; user-select: none; background: #f8faf9; border-radius: 12px; overflow: hidden; }
     .tour-plan img { display: block; width: 100%; height: auto; }
@@ -166,16 +180,34 @@
       background: rgba(245, 158, 11, .9); z-index: 120; pointer-events: none; }
 
     @media (max-width: 767.98px) {
+      html { font-size: 16px; }
       .app-shell { flex-direction: column; }
-      .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: .75rem; }
+      .sidebar {
+        width: 100%; flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        padding: .6rem; gap: .4rem;
+      }
       .sidebar-brand { display: none; }
-      .sidebar-nav { display: flex; gap: .4rem; }
-      .sidebar-nav .nav-link { white-space: nowrap; }
+      .sidebar-nav { display: flex; gap: .4rem; flex-grow: 0; }
+      .sidebar-nav .nav-link { white-space: nowrap; font-size: .92rem; padding: .55rem .75rem; gap: .4rem; }
+      .sidebar-nav .nav-link .bi { font-size: 1.05rem; width: auto; }
+      #logoutButton { flex-shrink: 0; margin: 0 0 0 .25rem !important; white-space: nowrap; }
+      .content-topbar { padding: .85rem 1.1rem; }
+      .content-topbar h1 { font-size: 1.2rem; }
+      .content-body { padding: 1.1rem; }
+      .toolbar { padding: 1.1rem !important; }
+      .room-card .card-header, .building-card .card-header, .room-card .card-body, .building-card .card-body {
+        padding: 1.1rem;
+      }
+      .stat-card .card-body { padding: 1.1rem 1.25rem; }
+      .stat-value { font-size: 1.9rem; }
+      /* ปุ่มเต็มความกว้างในแถวเครื่องมือ กดง่ายขึ้นด้วยนิ้วบนจอแคบ */
+      .toolbar .d-flex.flex-wrap > .btn, .toolbar .d-flex.flex-wrap > .btn-group { flex: 1 1 auto; }
+      #statusMessageWrap { max-width: calc(100% - 1.5rem); left: 0; margin: 0 auto; }
     }
   </style>
 </head>
 <body>
-  <div id="statusMessageWrap" class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index:2000; min-width:320px;">
+  <div id="statusMessageWrap">
     <div id="statusMessage"></div>
   </div>
 
@@ -1042,13 +1074,15 @@
     }
 
     let statusTimer = null;
+    const STATUS_ICONS = { success: 'bi-check-circle-fill', danger: 'bi-exclamation-octagon-fill', warning: 'bi-exclamation-triangle-fill' };
 
-    // ข้อความแจ้งเตือนหายเองหลังไม่กี่วินาที (ข้อผิดพลาดค้างนานกว่า) เพื่อไม่ให้ข้อความเก่าค้างอยู่บนจอ
+    // ข้อความแจ้งเตือนลอยมุมขวาล่าง หายเองหลังไม่กี่วินาที (ข้อผิดพลาดค้างนานกว่า) เพื่อไม่ให้ข้อความเก่าค้างอยู่บนจอ
     function showStatus(message, type = 'success') {
       document.getElementById('statusMessage').innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show shadow-sm" role="alert">
-          ${escapeHtml(message)}
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="ปิด"></button>
+        <div class="toast-alert alert alert-${type} shadow-lg d-flex align-items-start gap-2 mb-0" role="alert">
+          <i class="bi ${STATUS_ICONS[type] || STATUS_ICONS.success} fs-5 flex-shrink-0 mt-1"></i>
+          <div class="flex-grow-1">${escapeHtml(message)}</div>
+          <button type="button" class="btn-close flex-shrink-0" onclick="clearStatus()" aria-label="ปิด"></button>
         </div>`;
       clearTimeout(statusTimer);
       statusTimer = setTimeout(clearStatus, type === 'danger' ? 7000 : 4000);
@@ -1057,6 +1091,29 @@
     function clearStatus() {
       clearTimeout(statusTimer);
       document.getElementById('statusMessage').innerHTML = '';
+    }
+
+    // ============ โครงหลอดกะพริบระหว่างโหลด (แทนข้อความ "กำลังโหลดข้อมูล...") ============
+    function skeletonBar(width, height = '14px') {
+      return `<span class="skeleton" style="height:${height}; width:${width};"></span>`;
+    }
+
+    function skeletonTableRows(colCount, rowCount = 4) {
+      const row = `<tr>${Array.from({ length: colCount }, () => `<td>${skeletonBar(`${55 + Math.random() * 35}%`)}</td>`).join('')}</tr>`;
+      return row.repeat(rowCount);
+    }
+
+    function skeletonCards(count = 3) {
+      return Array.from({ length: count }, () => `
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="card building-card h-100">
+            <div class="skeleton" style="height:180px; border-radius:16px 16px 0 0;"></div>
+            <div class="card-body d-flex flex-column gap-2">
+              ${skeletonBar('60%', '18px')}
+              ${skeletonBar('40%')}
+            </div>
+          </div>
+        </div>`).join('');
     }
 
     function showDashboard() {
@@ -1159,6 +1216,7 @@
 
     // ============ Buildings ============
     async function loadBuildings() {
+      document.getElementById('buildingTableBody').innerHTML = skeletonTableRows(5, 2);
       try {
         const response = await fetch('/api/buildings');
         if (!response.ok) throw new Error('โหลดข้อมูลอาคารไม่สำเร็จ');
@@ -1175,7 +1233,7 @@
     function renderBuildings() {
       const tbody = document.getElementById('buildingTableBody');
       if (buildings.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-state">ยังไม่มีอาคารในระบบ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-state"><i class="bi bi-building"></i>ยังไม่มีอาคารในระบบ</td></tr>';
         return;
       }
       tbody.innerHTML = buildings.map(building => `
@@ -1361,7 +1419,7 @@
       document.getElementById('buildingSummary').textContent = '';
       document.getElementById('roomCount').textContent = '0 ห้อง';
       document.getElementById('roomTableBody').innerHTML =
-        '<tr><td colspan="7" class="text-center empty-state">เลือกอาคารด้านบนเพื่อดูรายการห้องเรียน</td></tr>';
+        '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-building"></i>เลือกอาคารด้านบนเพื่อดูรายการห้องเรียน</td></tr>';
     }
 
     async function fetchRooms() {
@@ -1369,7 +1427,7 @@
       if (!building) return showRoomsEmptyState();
       document.getElementById('addRoomButton').disabled = false;
       document.getElementById('buildingSummary').textContent = building;
-      document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
+      document.getElementById('roomTableBody').innerHTML = skeletonTableRows(7, 5);
 
       try {
         const response = await fetch(`/api/building/${encodeURIComponent(building)}`);
@@ -1401,7 +1459,7 @@
       updateBulkBar(visibleRooms.length);
 
       if (visibleRooms.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-state">ไม่พบห้องเรียนที่ค้นหา</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-search"></i>ไม่พบห้องเรียนที่ค้นหา</td></tr>';
         return;
       }
 
@@ -1870,11 +1928,11 @@
 
       if (!building) {
         floorPlans = [];
-        grid.innerHTML = '<div class="col-12"><div class="empty-state text-center">ยังไม่มีอาคารในระบบ กรุณาเพิ่มอาคารก่อน</div></div>';
+        grid.innerHTML = '<div class="col-12"><div class="empty-state text-center"><i class="bi bi-building"></i>ยังไม่มีอาคารในระบบ กรุณาเพิ่มอาคารก่อน</div></div>';
         return;
       }
 
-      grid.innerHTML = '<div class="col-12 text-center text-secondary py-4">กำลังโหลดข้อมูล...</div>';
+      grid.innerHTML = skeletonCards(3);
       try {
         const plans = await api(`/api/admin/floorplans?building_id=${building.id}`);
         floorPlans = plans.sort((first, second) => floorSort(first.floor, second.floor));
@@ -1889,7 +1947,7 @@
     function renderFloorPlans() {
       const grid = document.getElementById('floorPlanGrid');
       if (floorPlans.length === 0) {
-        grid.innerHTML = '<div class="col-12"><div class="card building-card"><div class="empty-state text-center">อาคารนี้ยังไม่มีแผนผังชั้น กด "+ เพิ่มแผนผังชั้น" เพื่ออัปโหลด</div></div></div>';
+        grid.innerHTML = '<div class="col-12"><div class="card building-card"><div class="empty-state text-center"><i class="bi bi-map"></i>อาคารนี้ยังไม่มีแผนผังชั้น กด "+ เพิ่มแผนผังชั้น" เพื่ออัปโหลด</div></div></div>';
         return;
       }
       grid.innerHTML = floorPlans.map(plan => `
@@ -2050,12 +2108,12 @@
         panoramas = [];
         document.getElementById('panoRoomSummary').textContent = 'เลือกห้องเพื่อจัดการภาพ';
         document.getElementById('panoCount').textContent = '0 ภาพ';
-        grid.innerHTML = '<div class="col-12 empty-state text-center">ยังไม่มีห้องในอาคารนี้</div>';
+        grid.innerHTML = '<div class="col-12 empty-state text-center"><i class="bi bi-door-closed"></i>ยังไม่มีห้องในอาคารนี้</div>';
         return;
       }
 
       document.getElementById('panoRoomSummary').textContent = `${room.room_code} • ${room.building_name} ชั้น ${room.floor || '-'}`;
-      grid.innerHTML = '<div class="col-12 text-center text-secondary py-4">กำลังโหลดข้อมูล...</div>';
+      grid.innerHTML = skeletonCards(3);
       const requestId = ++panoRequestId;
       try {
         const list = await api(`/api/rooms/${room.id}/panoramas`);
@@ -2073,7 +2131,7 @@
       const grid = document.getElementById('panoGrid');
       document.getElementById('panoCount').textContent = `${panoramas.length} ภาพ`;
       if (panoramas.length === 0) {
-        grid.innerHTML = '<div class="col-12 empty-state text-center">ห้องนี้ยังไม่มีภาพ 360° กด "+ เพิ่มภาพ 360°" เพื่ออัปโหลด</div>';
+        grid.innerHTML = '<div class="col-12 empty-state text-center"><i class="bi bi-images"></i>ห้องนี้ยังไม่มีภาพ 360° กด "+ เพิ่มภาพ 360°" เพื่ออัปโหลด</div>';
         return;
       }
       grid.innerHTML = panoramas.map(pano => `
@@ -2369,12 +2427,13 @@
       }
 
       const requestId = ++logRequestId;
+      document.getElementById('logTableBody').innerHTML = skeletonTableRows(6, 6);
       try {
         const data = await api(`/api/admin/logs?${params}`);
         if (requestId !== logRequestId) return;
 
         document.getElementById('logTableBody').innerHTML = data.rows.length === 0
-          ? '<tr><td colspan="6" class="text-center empty-state">ไม่พบบันทึกกิจกรรม</td></tr>'
+          ? '<tr><td colspan="6" class="text-center empty-state"><i class="bi bi-clock-history"></i>ไม่พบบันทึกกิจกรรม</td></tr>'
           : data.rows.map(row => `
             <tr>
               <td class="text-nowrap small">${escapeHtml(formatDateTime(row.created_at))}</td>
