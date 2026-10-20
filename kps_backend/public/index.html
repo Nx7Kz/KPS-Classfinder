@@ -223,7 +223,7 @@
                 <input id="roomFilter" class="form-control" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง" oninput="renderRooms()">
               </div>
               <div class="col-12 col-md-5 d-flex flex-wrap gap-2 justify-content-md-end">
-                <button class="btn btn-primary" type="button" onclick="openCreateModal()">+ เพิ่มห้องเรียน</button>
+                <button class="btn btn-primary" type="button" id="addRoomButton" onclick="openCreateModal()" disabled>+ เพิ่มห้องเรียน</button>
                 <button class="btn btn-outline-secondary" type="button" id="exportCsvButton" title="ส่งออกห้องเรียนของทุกอาคาร" onclick="exportRoomsCsv()">⬇ ส่งออก CSV</button>
                 <button class="btn btn-outline-secondary" type="button" onclick="openImportCsvModal()">⬆ นำเข้า CSV</button>
               </div>
@@ -1078,7 +1078,8 @@
         buildings = await response.json();
         renderBuildings();
         renderBuildingSelect();
-        if (!currentBuilding() && buildings.length > 0) fetchRooms();
+        if (currentBuilding()) fetchRooms();
+        else showRoomsEmptyState();
       } catch (error) {
         showStatus(error.message, 'danger');
       }
@@ -1106,7 +1107,9 @@
     function renderBuildingSelect() {
       const select = document.getElementById('buildingSelect');
       const previous = select.value;
-      select.innerHTML = buildings.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`).join('');
+      // ตัวเลือกว่างบนสุดเสมอ กันไม่ให้เบราว์เซอร์เลือกอาคารแรกให้อัตโนมัติ (ผู้ใช้มีหลายอาคารให้เลือก ต้องเห็นว่ามีตัวเลือกก่อนค่อยกด)
+      select.innerHTML = '<option value="">— เลือกอาคาร —</option>'
+        + buildings.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`).join('');
       if (buildings.some(b => b.name === previous)) select.value = previous;
     }
 
@@ -1265,9 +1268,19 @@
       return String(first.room_code).localeCompare(String(second.room_code), 'th');
     }
 
+    // แสดงตอนยังไม่ได้เลือกอาคาร (เพิ่งเข้าหน้า หรือกดเลือก "— เลือกอาคาร —" กลับไป)
+    function showRoomsEmptyState() {
+      document.getElementById('addRoomButton').disabled = true;
+      document.getElementById('buildingSummary').textContent = '';
+      document.getElementById('roomCount').textContent = '0 ห้อง';
+      document.getElementById('roomTableBody').innerHTML =
+        '<tr><td colspan="7" class="text-center empty-state">เลือกอาคารด้านบนเพื่อดูรายการห้องเรียน</td></tr>';
+    }
+
     async function fetchRooms() {
       const building = currentBuilding();
-      if (!building) return;
+      if (!building) return showRoomsEmptyState();
+      document.getElementById('addRoomButton').disabled = false;
       document.getElementById('buildingSummary').textContent = building;
       document.getElementById('roomTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">กำลังโหลดข้อมูล...</td></tr>';
 
