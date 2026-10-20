@@ -713,6 +713,7 @@ app.get('/api/buildings', (req, res) => {
                buildings.cover_image,
                COUNT(rooms.id) AS room_count,
                COUNT(DISTINCT rooms.floor) AS floor_count,
+               SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
                -- ภาพสำรองเมื่อยังไม่มีรูปปก: แผนผังชั้น 1 (ถ้าไม่มีใช้ชั้นแรกที่มี)
                (SELECT fp.image_url FROM floor_plans fp WHERE fp.building_id = buildings.id
                 ORDER BY fp.floor = '1' DESC, fp.floor LIMIT 1) AS floor_plan_image
@@ -1762,7 +1763,25 @@ app.get('/api/admin/overview', requireAdmin, asyncRoute(async (req, res) => {
     `);
     const [recentActivity] = await pdb.query(
         'SELECT id, action, entity, detail, username, created_at FROM activity_logs ORDER BY id DESC LIMIT 5');
-    res.json({ ...stats, recent_activity: recentActivity });
+
+    // "สิ่งที่ต้องดำเนินการ": ห้องที่ยังไม่มีภาพ 360° และห้องที่ปิดปรับปรุงอยู่ (อย่างละไม่เกิน 5 ห้อง)
+    const [roomsWithoutPanorama] = await pdb.query(`
+        SELECT rooms.id, rooms.room_code, rooms.floor, buildings.name AS building_name
+        FROM rooms JOIN buildings ON buildings.id = rooms.building_id
+        WHERE rooms.status = 'active'
+          AND NOT EXISTS (SELECT 1 FROM panoramas WHERE panoramas.room_id = rooms.id)
+        ORDER BY buildings.name, rooms.floor, rooms.room_code LIMIT 5
+    `);
+    const [maintenanceRooms] = await pdb.query(`
+        SELECT rooms.id, rooms.room_code, rooms.floor, buildings.name AS building_name
+        FROM rooms JOIN buildings ON buildings.id = rooms.building_id
+        WHERE rooms.status = 'maintenance'
+        ORDER BY buildings.name, rooms.floor, rooms.room_code LIMIT 5
+    `);
+    res.json({
+        ...stats, recent_activity: recentActivity,
+        rooms_without_panorama: roomsWithoutPanorama, maintenance_rooms: maintenanceRooms,
+    });
 }));
 
 // ข้อผิดพลาดที่ไม่ได้ดักไว้ (เช่น JSON เสียรูป, body ใหญ่เกิน) ให้ตอบเป็น JSON เสมอ

@@ -131,6 +131,12 @@
     .stat-card .card-body { padding: 1.5rem 1.75rem; }
     .stat-value { font-size: 2.5rem; font-weight: 700; }
     .stat-label { color: var(--bs-secondary-color); font-size: .95rem; }
+    .stat-icon {
+      width: 2rem; height: 2rem; border-radius: 8px; flex-shrink: 0;
+      background: var(--brand-tint); color: var(--brand);
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .building-status-dot { width: .6rem; height: .6rem; border-radius: 50%; flex-shrink: 0; }
 
     .toolbar, .room-card, .building-card { border: 0; border-radius: 16px; box-shadow: 0 4px 18px rgba(15, 23, 42, .07); }
     [data-bs-theme="dark"] .toolbar, [data-bs-theme="dark"] .room-card, [data-bs-theme="dark"] .building-card { box-shadow: 0 4px 18px rgba(0, 0, 0, .35); }
@@ -259,19 +265,41 @@
       <div class="content-body">
         <!-- ============ PAGE: Overview ============ -->
         <section id="page-overview" class="page-section">
+          <!-- แถบต้อนรับ + ทางลัดงานที่ทำบ่อย -->
+          <div class="card building-card mb-4">
+            <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+              <div>
+                <h2 class="h5 mb-1" id="overviewGreeting">สวัสดี 👋</h2>
+                <p class="text-secondary small mb-0">ยินดีต้อนรับสู่ระบบจัดการอาคารและห้องเรียน</p>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="quickAddBuilding()"><i class="bi bi-building"></i> เพิ่มอาคารใหม่</button>
+                <button class="btn btn-primary btn-sm" type="button" onclick="quickAddRoom()"><i class="bi bi-door-closed"></i> เพิ่มห้องเรียน</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="showPage('floor-plans')"><i class="bi bi-pin-map"></i> ตรวจสอบพิกัดหมุด</button>
+              </div>
+            </div>
+          </div>
+
           <div class="row g-3 mb-4">
             <div class="col-6 col-lg-3">
               <div class="card stat-card h-100">
                 <div class="card-body">
-                  <div class="stat-label">อาคารทั้งหมด</div>
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="stat-label mb-0">อาคารทั้งหมด</div>
+                    <span class="stat-icon"><i class="bi bi-buildings"></i></span>
+                  </div>
                   <div class="stat-value" id="statBuildingCount">-</div>
+                  <div class="text-secondary small">อาคาร</div>
                 </div>
               </div>
             </div>
             <div class="col-6 col-lg-3">
               <div class="card stat-card h-100">
                 <div class="card-body">
-                  <div class="stat-label">ห้องเรียนในระบบ</div>
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="stat-label mb-0">ห้องเรียนในระบบ</div>
+                    <span class="stat-icon"><i class="bi bi-door-open"></i></span>
+                  </div>
                   <div class="stat-value" id="statRoomCount">-</div>
                   <div class="text-secondary small" id="statRoomSplit">-</div>
                 </div>
@@ -280,16 +308,23 @@
             <div class="col-6 col-lg-3">
               <div class="card stat-card h-100">
                 <div class="card-body">
-                  <div class="stat-label">ห้องที่มีภาพพาโนรามา 360°</div>
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="stat-label mb-0">ห้องที่มีภาพพาโนรามา 360°</div>
+                    <span class="stat-icon"><i class="bi bi-camera"></i></span>
+                  </div>
                   <div class="stat-value" id="statPanoramaCount">-</div>
-                  <div class="text-secondary small" id="statPanoramaPercent">-</div>
+                  <div class="text-secondary small mb-2" id="statPanoramaPercent">-</div>
+                  <div class="progress" style="height:6px;"><div class="progress-bar" id="statPanoramaBar" style="width:0%; background:var(--brand);"></div></div>
                 </div>
               </div>
             </div>
             <div class="col-6 col-lg-3">
               <div class="card stat-card h-100">
                 <div class="card-body">
-                  <div class="stat-label">ห้องที่ปักหมุดบนแผนที่แล้ว</div>
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="stat-label mb-0">ห้องที่ปักหมุดบนแผนที่แล้ว</div>
+                    <span class="stat-icon"><i class="bi bi-geo-alt-fill"></i></span>
+                  </div>
                   <div class="stat-value" id="statPinnedCount">-</div>
                   <div class="text-secondary small" id="statPinnedPercent">-</div>
                 </div>
@@ -297,14 +332,44 @@
             </div>
           </div>
 
-          <div class="card building-card">
-            <div class="card-header d-flex justify-content-between align-items-center p-3">
-              <h2 class="h6 mb-0">กิจกรรมล่าสุด</h2>
-              <button class="btn btn-sm btn-outline-secondary" type="button" onclick="showPage('logs')">ดูทั้งหมด</button>
+          <div class="row g-3">
+            <div class="col-12 col-xl-8">
+              <div class="card building-card h-100">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
+                  <h2 class="h6 mb-0">กิจกรรมล่าสุด</h2>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm" role="group" id="activityFilterGroup">
+                      <button type="button" class="btn btn-outline-secondary active" data-filter="all" onclick="filterRecentActivity('all')">ทั้งหมด</button>
+                      <button type="button" class="btn btn-outline-secondary" data-filter="login" onclick="filterRecentActivity('login')">การเข้าสู่ระบบ</button>
+                      <button type="button" class="btn btn-outline-secondary" data-filter="edit" onclick="filterRecentActivity('edit')">การแก้ไข</button>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="showPage('logs')">ดูทั้งหมด</button>
+                  </div>
+                </div>
+                <ul class="list-group list-group-flush" id="recentActivityList">
+                  <li class="list-group-item text-secondary small">กำลังโหลด...</li>
+                </ul>
+              </div>
             </div>
-            <ul class="list-group list-group-flush" id="recentActivityList">
-              <li class="list-group-item text-secondary small">กำลังโหลด...</li>
-            </ul>
+            <div class="col-12 col-xl-4 d-flex flex-column gap-3">
+              <div class="card building-card">
+                <div class="card-header d-flex justify-content-between align-items-center p-3">
+                  <h2 class="h6 mb-0">สถานะรายอาคาร</h2>
+                  <a href="#" class="small" onclick="showPage('buildings-rooms'); return false;">จัดการอาคาร</a>
+                </div>
+                <ul class="list-group list-group-flush" id="buildingStatusList">
+                  <li class="list-group-item text-secondary small">กำลังโหลด...</li>
+                </ul>
+              </div>
+              <div class="card building-card">
+                <div class="card-header p-3">
+                  <h2 class="h6 mb-0">สิ่งที่ต้องดำเนินการ</h2>
+                </div>
+                <ul class="list-group list-group-flush" id="pendingTasksList">
+                  <li class="list-group-item text-secondary small">กำลังโหลด...</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1203,30 +1268,121 @@
     }
 
     // ============ Overview ============
+    // login/logout/login_failed ถือเป็นหมวด "การเข้าสู่ระบบ" ที่เหลือถือเป็น "การแก้ไข"
+    const LOGIN_ACTIONS = new Set(['login', 'logout', 'login_failed']);
+    let recentActivityCache = [];
+
+    function quickAddBuilding() {
+      showPage('buildings-rooms');
+      openCreateBuildingModal();
+    }
+
+    function quickAddRoom() {
+      showPage('buildings-rooms');
+      if (!currentBuilding()) showStatus('เลือกอาคารก่อน แล้วกด "+ เพิ่มห้องเรียน"', 'warning');
+    }
+
+    function filterRecentActivity(filter) {
+      document.querySelectorAll('#activityFilterGroup [data-filter]').forEach(button => {
+        button.classList.toggle('active', button.dataset.filter === filter);
+      });
+      renderRecentActivity(filter);
+    }
+
+    function renderRecentActivity(filter = 'all') {
+      const items = recentActivityCache.filter(item => {
+        if (filter === 'all') return true;
+        const isLogin = LOGIN_ACTIONS.has(item.action);
+        return filter === 'login' ? isLogin : !isLogin;
+      });
+      const list = document.getElementById('recentActivityList');
+      list.innerHTML = items.length === 0
+        ? '<li class="list-group-item text-secondary small">ไม่มีกิจกรรมในหมวดนี้</li>'
+        : items.map(item => `
+          <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
+            ${actionBadge(item.action)}
+            <span class="flex-grow-1">${escapeHtml(item.detail || '-')}</span>
+            <span class="text-secondary small">${escapeHtml(item.username || '-')} • ${escapeHtml(formatDateTime(item.created_at))}</span>
+          </li>`).join('');
+    }
+
+    function renderBuildingStatus(buildingList) {
+      const list = document.getElementById('buildingStatusList');
+      list.innerHTML = buildingList.length === 0
+        ? '<li class="list-group-item text-secondary small">ยังไม่มีอาคารในระบบ</li>'
+        : buildingList.map(building => {
+          const maintenanceCount = Number(building.maintenance_count) || 0;
+          const dotColor = maintenanceCount > 0 ? '#f59e0b' : 'var(--brand)';
+          const dotTitle = maintenanceCount > 0 ? `${maintenanceCount} ห้องปิดปรับปรุง` : 'ไม่มีห้องปิดปรับปรุง';
+          return `
+          <li class="list-group-item d-flex align-items-center justify-content-between gap-2">
+            <div>
+              <div class="fw-semibold">${escapeHtml(building.name)}</div>
+              <div class="text-secondary small">${Number(building.room_count)} ห้องเรียน • ${Number(building.floor_count)} ชั้น</div>
+            </div>
+            <span class="building-status-dot" style="background:${dotColor};" title="${escapeHtml(dotTitle)}"></span>
+          </li>`;
+        }).join('');
+    }
+
+    function pendingTaskRow(icon, iconColor, title, subtitle, actionLabel, onClick) {
+      return `
+        <li class="list-group-item d-flex align-items-start gap-2">
+          <i class="bi ${icon} fs-5 flex-shrink-0 mt-1" style="color:${iconColor};"></i>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${escapeHtml(title)}</div>
+            <div class="text-secondary small">${escapeHtml(subtitle)}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-link p-0 text-nowrap" onclick="${onClick}">${escapeHtml(actionLabel)}</button>
+        </li>`;
+    }
+
+    function renderPendingTasks(stats) {
+      const list = document.getElementById('pendingTasksList');
+      const rows = [
+        ...stats.rooms_without_panorama.map(room => pendingTaskRow(
+          'bi-camera', '#f59e0b',
+          `ห้อง ${room.room_code} ยังไม่มีภาพ 360°`,
+          `${room.building_name} ชั้น ${room.floor}`,
+          'อัปโหลด', "showPage('panoramas')"
+        )),
+        ...stats.maintenance_rooms.map(room => pendingTaskRow(
+          'bi-cone-striped', '#f59e0b',
+          `ห้อง ${room.room_code} ปิดปรับปรุงอยู่`,
+          `${room.building_name} ชั้น ${room.floor}`,
+          'ตรวจดู', "showPage('buildings-rooms')"
+        )),
+      ];
+      list.innerHTML = rows.length === 0
+        ? '<li class="list-group-item text-secondary small d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill" style="color:var(--brand);"></i> ไม่มีรายการค้างดำเนินการ</li>'
+        : rows.join('');
+    }
+
     async function loadOverview() {
+      document.getElementById('overviewGreeting').textContent =
+        `สวัสดี, ${ROLE_LABELS[currentRole] || ''} (${document.getElementById('settingsUsername').textContent}) 👋`;
       try {
-        const stats = await api('/api/admin/overview');
+        const [stats, buildingList] = await Promise.all([api('/api/admin/overview'), api('/api/buildings')]);
         const totalRooms = Number(stats.room_count) || 0;
-        const percentOfRooms = (count) => totalRooms > 0 ? `${Math.round((Number(count) / totalRooms) * 100)}% ของห้องทั้งหมด` : '-';
+        const percentOfRooms = (count) => totalRooms > 0 ? Math.round((Number(count) / totalRooms) * 100) : 0;
+        const panoramaPercent = percentOfRooms(stats.rooms_with_panorama_count);
 
         document.getElementById('statBuildingCount').textContent = stats.building_count;
         document.getElementById('statRoomCount').textContent = stats.room_count;
         document.getElementById('statRoomSplit').textContent =
           `เปิดใช้งาน ${stats.active_room_count} • ปิดปรับปรุง ${stats.maintenance_room_count}`;
         document.getElementById('statPanoramaCount').textContent = stats.rooms_with_panorama_count;
-        document.getElementById('statPanoramaPercent').textContent = percentOfRooms(stats.rooms_with_panorama_count);
+        document.getElementById('statPanoramaPercent').textContent =
+          totalRooms > 0 ? `${panoramaPercent}% ของห้องทั้งหมด` : '-';
+        document.getElementById('statPanoramaBar').style.width = `${panoramaPercent}%`;
         document.getElementById('statPinnedCount').textContent = stats.pinned_room_count;
-        document.getElementById('statPinnedPercent').textContent = percentOfRooms(stats.pinned_room_count);
+        document.getElementById('statPinnedPercent').textContent =
+          totalRooms > 0 ? `${percentOfRooms(stats.pinned_room_count)}% ของห้องทั้งหมด` : '-';
 
-        const list = document.getElementById('recentActivityList');
-        list.innerHTML = stats.recent_activity.length === 0
-          ? '<li class="list-group-item text-secondary small">ยังไม่มีกิจกรรม</li>'
-          : stats.recent_activity.map(item => `
-            <li class="list-group-item d-flex align-items-center gap-2 flex-wrap">
-              ${actionBadge(item.action)}
-              <span class="flex-grow-1">${escapeHtml(item.detail || '-')}</span>
-              <span class="text-secondary small">${escapeHtml(item.username || '-')} • ${escapeHtml(formatDateTime(item.created_at))}</span>
-            </li>`).join('');
+        recentActivityCache = stats.recent_activity;
+        filterRecentActivity(document.querySelector('#activityFilterGroup .active')?.dataset.filter || 'all');
+        renderBuildingStatus(buildingList);
+        renderPendingTasks(stats);
       } catch (error) {
         reportError(error);
       }
