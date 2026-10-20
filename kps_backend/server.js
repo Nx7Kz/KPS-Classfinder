@@ -1749,6 +1749,33 @@ app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
     res.json({ total: countRow.total, limit, offset, rows });
 }));
 
+// เช็กสุขภาพระบบจริง: ฐานข้อมูลตอบสนอง + โฟลเดอร์เก็บรูปเขียนไฟล์ได้ (ใช้แสดงสถานะบนแถบบนของแดชบอร์ด)
+app.get('/api/admin/health', requireStaff, asyncRoute(async (req, res) => {
+    let database = false;
+    try {
+        await pdb.query('SELECT 1');
+        database = true;
+    } catch (err) {
+        console.error('health check: ฐานข้อมูลไม่ตอบสนอง', err.message);
+    }
+    const storage = [FLOORPLAN_DIR, PANORAMA_DIR, COVER_DIR, TOUR_IMAGE_DIR].every((dir) => {
+        try {
+            fs.accessSync(dir, fs.constants.W_OK);
+            return true;
+        } catch (err) {
+            return false;
+        }
+    });
+    // จำนวนล็อกอินไม่สำเร็จใน 24 ชม. ล่าสุดใช้โชว์จุดแดงที่กระดิ่ง เห็นเฉพาะ admin (editor ไม่มีสิทธิ์ดู log ของคนอื่น)
+    let failedLogins24h = 0;
+    if (database && req.session.role === 'admin') {
+        const [[row]] = await pdb.query(
+            "SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
+        failedLogins24h = row.total;
+    }
+    res.json({ database, storage, ok: database && storage, failed_logins_24h: failedLogins24h });
+}));
+
 // สรุปสถิติภาพรวมสำหรับหน้า Overview ของ Admin Dashboard
 app.get('/api/admin/overview', requireAdmin, asyncRoute(async (req, res) => {
     const [[stats]] = await pdb.query(`
@@ -1759,10 +1786,14 @@ app.get('/api/admin/overview', requireAdmin, asyncRoute(async (req, res) => {
             (SELECT COUNT(*) FROM rooms WHERE status = 'maintenance') AS maintenance_room_count,
             (SELECT COUNT(DISTINCT room_id) FROM panoramas) AS rooms_with_panorama_count,
             (SELECT COUNT(*) FROM rooms WHERE pin_x IS NOT NULL AND pin_y IS NOT NULL) AS pinned_room_count,
-            (SELECT COUNT(*) FROM floor_plans) AS floor_plan_count
+            (SELECT COUNT(*) FROM floor_plans) AS floor_plan_count,
+            (SELECT COUNT(*) FROM buildings WHERE created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')) AS buildings_this_month,
+            (SELECT COUNT(*) FROM activity_logs) AS log_total,
+            (SELECT COUNT(*) FROM activity_logs WHERE action = 'login_failed'
+                AND created_at >= NOW() - INTERVAL 1 DAY) AS failed_logins_24h
     `);
     const [recentActivity] = await pdb.query(
-        'SELECT id, action, entity, detail, username, created_at FROM activity_logs ORDER BY id DESC LIMIT 5');
+        'SELECT id, action, entity, detail, username, ip, created_at FROM activity_logs ORDER BY id DESC LIMIT 5');
 
     // "สิ่งที่ต้องดำเนินการ": ห้องที่ยังไม่มีภาพ 360° และห้องที่ปิดปรับปรุงอยู่ (อย่างละไม่เกิน 5 ห้อง)
     const [roomsWithoutPanorama] = await pdb.query(`
