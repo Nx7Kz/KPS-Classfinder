@@ -500,81 +500,125 @@
           </div>
         </section>
 
-        <!-- ============ PAGE: Buildings & Rooms ============ -->
-        <section id="page-buildings-rooms" class="page-section d-none">
-          <div class="card building-card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center p-3">
-              <h2 class="h6 mb-0">อาคารทั้งหมด</h2>
-              <button class="btn btn-sm btn-primary role-admin-only" type="button" onclick="openCreateBuildingModal()">+ เพิ่มอาคาร</button>
+        <!-- ============ PAGE: Buildings & Rooms (Tailwind ตามดีไซน์ code.html) ============ -->
+        <section id="page-buildings-rooms" class="page-section d-none tw-flex tw-flex-col tw-gap-8">
+          <section class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
+            <div>
+              <h2 class="tw-text-headline-lg tw-font-headline-lg tw-text-on-surface tw-m-0">จัดการอาคารและห้องเรียน</h2>
+              <p class="tw-text-body-md tw-font-body-md tw-text-outline tw-mt-1 tw-mb-0">จัดการข้อมูลอาคาร ชั้น และห้องเรียนทั้งหมดในวิทยาเขตกำแพงแสน</p>
             </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                  <thead class="table-head">
-                    <tr>
-                      <th>รหัส</th>
-                      <th>ชื่ออาคาร</th>
-                      <th>จำนวนชั้น</th>
-                      <th>จำนวนห้อง</th>
-                      <th class="text-end">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody id="buildingTableBody"></tbody>
-                </table>
+            <div class="tw-flex tw-items-center tw-gap-4">
+              <div class="tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-px-4 tw-py-2 tw-rounded-xl tw-flex tw-items-center tw-gap-3">
+                <span class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-surface-container-low tw-flex tw-items-center tw-justify-center tw-text-primary"><span class="material-symbols-outlined tw-text-[1.25rem]">domain</span></span>
+                <div>
+                  <div class="tw-text-label-sm tw-font-label-sm tw-text-outline">อาคารทั้งหมด</div>
+                  <div class="tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-text-on-surface"><span id="kpiBuildings">-</span> อาคาร</div>
+                </div>
               </div>
-            </div>
-          </div>
-
-          <section class="toolbar p-3 p-md-4 mb-4">
-            <div class="row g-3 align-items-end">
-              <div class="col-12 col-md-3">
-                <label for="buildingSelect" class="form-label fw-semibold">อาคาร</label>
-                <select id="buildingSelect" class="form-select" onchange="fetchRooms()"></select>
-              </div>
-              <div class="col-12 col-md-4">
-                <label for="roomFilter" class="form-label fw-semibold">ค้นหาห้อง</label>
-                <input id="roomFilter" class="form-control" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง" oninput="renderRooms()">
-              </div>
-              <div class="col-12 col-md-5 d-flex flex-wrap gap-2 justify-content-md-end">
-                <button class="btn btn-primary role-admin-only" type="button" id="addRoomButton" onclick="openCreateModal()" disabled>+ เพิ่มห้องเรียน</button>
-                <button class="btn btn-outline-secondary role-admin-only" type="button" id="exportCsvButton" title="ส่งออกห้องเรียนของทุกอาคาร" onclick="exportRoomsCsv()">⬇ ส่งออก CSV</button>
-                <button class="btn btn-outline-secondary role-admin-only" type="button" onclick="openImportCsvModal()">⬆ นำเข้า CSV</button>
+              <div class="tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-px-4 tw-py-2 tw-rounded-xl tw-flex tw-items-center tw-gap-3">
+                <span class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-surface-container-low tw-flex tw-items-center tw-justify-center tw-text-secondary"><span class="material-symbols-outlined tw-text-[1.25rem]">meeting_room</span></span>
+                <div>
+                  <div class="tw-text-label-sm tw-font-label-sm tw-text-outline">ห้องเรียนในระบบ</div>
+                  <div class="tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-text-on-surface"><span id="kpiRooms">-</span> ห้อง</div>
+                </div>
               </div>
             </div>
           </section>
 
-          <section class="card room-card">
-            <div class="card-header d-flex justify-content-between align-items-center p-3 p-md-4">
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+            <div class="tw-px-6 tw-py-4 tw-flex tw-items-center tw-justify-between tw-border-b tw-border-outline-variant/20">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                <span class="material-symbols-outlined tw-text-primary tw-text-[1.375rem]">apartment</span>
+                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">อาคารทั้งหมด</h3>
+                <span id="buildingCountPill" class="tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-on-surface-variant tw-font-medium">-</span>
+              </div>
+              <button type="button" onclick="openCreateBuildingModal()" class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm">
+                <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มอาคาร</span>
+              </button>
+            </div>
+            <div class="tw-overflow-x-auto">
+              <table class="tw-w-full tw-text-left tw-border-collapse" style="margin:0;">
+                <thead>
+                  <tr class="tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-text-label-md tw-font-label-md tw-text-outline">
+                    <th class="tw-py-3 tw-px-6 tw-font-semibold tw-w-28" scope="col">รหัส</th>
+                    <th class="tw-py-3 tw-px-6 tw-font-semibold" scope="col">ชื่ออาคาร</th>
+                    <th class="tw-py-3 tw-px-6 tw-font-semibold tw-text-center tw-w-36" scope="col">จำนวนชั้น</th>
+                    <th class="tw-py-3 tw-px-6 tw-font-semibold tw-text-center tw-w-36" scope="col">จำนวนห้อง</th>
+                    <th class="tw-py-3 tw-px-6 tw-font-semibold tw-text-right tw-w-36" scope="col">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="buildingTableBody" class="tw-divide-y tw-divide-outline-variant/20 tw-text-body-md tw-font-body-md"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+            <div class="tw-p-6 tw-border-b tw-border-outline-variant/20 tw-flex tw-flex-col xl:tw-flex-row xl:tw-items-center tw-justify-between tw-gap-4">
+              <div class="tw-flex tw-flex-col sm:tw-flex-row tw-items-stretch sm:tw-items-center tw-gap-4 tw-flex-1">
+                <div class="tw-w-full sm:tw-w-64">
+                  <label class="tw-block tw-text-label-sm tw-font-label-sm tw-text-outline tw-mb-1 tw-font-medium" for="buildingSelect">อาคาร</label>
+                  <div class="tw-relative">
+                    <select id="buildingSelect" onchange="fetchRooms()" class="tw-w-full tw-pl-3.5 tw-pr-10 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-body-md tw-font-body-md tw-text-on-surface focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary/20 focus:tw-border-primary tw-appearance-none tw-cursor-pointer"></select>
+                    <div class="tw-pointer-events-none tw-absolute tw-inset-y-0 tw-right-0 tw-flex tw-items-center tw-px-2 tw-text-outline"><span class="material-symbols-outlined tw-text-[1.25rem]">keyboard_arrow_down</span></div>
+                  </div>
+                </div>
+                <div class="tw-flex-1 tw-max-w-md">
+                  <label class="tw-block tw-text-label-sm tw-font-label-sm tw-text-outline tw-mb-1 tw-font-medium" for="roomFilter">ค้นหาห้อง</label>
+                  <div class="tw-relative">
+                    <div class="tw-pointer-events-none tw-absolute tw-inset-y-0 tw-left-0 tw-flex tw-items-center tw-pl-3 tw-text-outline"><span class="material-symbols-outlined tw-text-[1.125rem]">search</span></div>
+                    <input id="roomFilter" type="search" placeholder="พิมพ์ชื่อหรือรหัสห้อง..." oninput="onRoomFilterInput()" class="tw-w-full tw-pl-9 tw-pr-3 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-body-md tw-font-body-md tw-text-on-surface placeholder:tw-text-outline/70 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary/20 focus:tw-border-primary">
+                  </div>
+                </div>
+              </div>
+              <div class="tw-flex tw-items-center tw-gap-2.5 tw-pt-2 xl:tw-pt-0 tw-self-end xl:tw-self-auto">
+                <button id="addRoomButton" type="button" onclick="openCreateModal()" disabled class="role-admin-only tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มห้องเรียน</span>
+                </button>
+                <button id="exportCsvButton" type="button" onclick="exportRoomsCsv()" title="ส่งออกห้องเรียนของทุกอาคาร" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">download</span><span>ส่งออก CSV</span>
+                </button>
+                <button type="button" onclick="openImportCsvModal()" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors active:tw-scale-[0.98]">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">upload</span><span>นำเข้า CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="tw-px-6 tw-py-3.5 tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-flex tw-items-center tw-justify-between">
               <div>
-                <h1 class="h5 mb-1">รายการห้องเรียน</h1>
-                <p class="text-secondary mb-0 small" id="buildingSummary"></p>
+                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">รายการห้องเรียน</h3>
+                <p id="buildingSummary" class="tw-text-label-sm tw-font-label-sm tw-text-outline tw-m-0"></p>
               </div>
-              <span id="roomCount" class="badge text-bg-light border">0 ห้อง</span>
+              <span id="roomCount" class="tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium tw-border tw-border-indigo-100 dark:tw-border-indigo-400/20">0 ห้อง</span>
             </div>
-            <div id="bulkBar" class="role-admin-only d-none justify-content-between align-items-center gap-2 flex-wrap px-3 px-md-4 py-2 bg-danger-subtle border-bottom">
-              <span class="small fw-semibold" id="bulkCount"></span>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearRoomSelection()">ยกเลิกการเลือก</button>
-                <button type="button" id="bulkDeleteButton" class="btn btn-sm btn-danger" onclick="deleteSelectedRooms()">ลบที่เลือก</button>
+
+            <div id="bulkBar" class="role-admin-only d-none tw-justify-between tw-items-center tw-gap-2 tw-flex-wrap tw-px-6 tw-py-2.5 tw-bg-error-container/40 tw-border-b tw-border-outline-variant/20">
+              <span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface" id="bulkCount"></span>
+              <div class="tw-flex tw-gap-2">
+                <button type="button" onclick="clearRoomSelection()" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-3 tw-py-1 tw-rounded-lg tw-border tw-border-outline-variant/50 tw-text-on-surface-variant tw-text-label-md tw-font-label-md hover:tw-bg-surface-container-high tw-transition-colors">ยกเลิกการเลือก</button>
+                <button type="button" id="bulkDeleteButton" onclick="deleteSelectedRooms()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-3 tw-py-1 tw-rounded-lg tw-bg-error tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-opacity-90 tw-transition-opacity">ลบที่เลือก</button>
               </div>
             </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                  <thead class="table-head">
-                    <tr>
-                      <th scope="col" style="width:44px;" class="role-admin-only"><input type="checkbox" class="form-check-input" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)"></th>
-                      <th scope="col">ชื่อ / รหัสห้อง</th>
-                      <th scope="col">ชั้น</th>
-                      <th scope="col">ประเภท / ความจุ</th>
-                      <th scope="col">สถานะ</th>
-                      <th scope="col">แผนที่</th>
-                      <th scope="col" class="text-end">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody id="roomTableBody"></tbody>
-                </table>
-              </div>
+
+            <div class="tw-overflow-x-auto">
+              <table class="tw-w-full tw-min-w-[720px] tw-text-left tw-border-collapse" style="margin:0;">
+                <thead>
+                  <tr class="tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-text-label-md tw-font-label-md tw-text-outline">
+                    <th scope="col" class="role-admin-only tw-py-3 tw-px-4 tw-w-10 tw-text-center"><input type="checkbox" id="selectAllRooms" aria-label="เลือกห้องทั้งหมด" onchange="toggleSelectAllRooms(this.checked)" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer"></th>
+                    <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold">ชื่อ / รหัสห้อง</th>
+                    <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold tw-text-center tw-w-28">ชั้น</th>
+                    <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold">ประเภท / ความจุ</th>
+                    <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold tw-text-center tw-w-36">สถานะ</th>
+                    <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold tw-text-center tw-w-36">แผนที่</th>
+                    <th scope="col" class="tw-py-3 tw-px-4 tw-font-semibold tw-text-right tw-w-32">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="roomTableBody" class="tw-divide-y tw-divide-outline-variant/20 tw-text-body-md tw-font-body-md"></tbody>
+              </table>
+            </div>
+
+            <div class="tw-px-6 tw-py-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-flex-col sm:tw-flex-row tw-items-center tw-justify-between tw-gap-3 tw-text-label-md tw-font-label-md tw-text-outline">
+              <div id="roomPageInfo">-</div>
+              <div id="roomPager" class="tw-flex tw-items-center tw-gap-1.5"></div>
             </div>
           </section>
         </section>
@@ -1638,19 +1682,32 @@
 
     function renderBuildings() {
       const tbody = document.getElementById('buildingTableBody');
+      const totalRooms = buildings.reduce((sum, building) => sum + (Number(building.room_count) || 0), 0);
+      document.getElementById('kpiBuildings').textContent = buildings.length;
+      document.getElementById('kpiRooms').textContent = totalRooms;
+      document.getElementById('buildingCountPill').textContent = `${buildings.length} อาคาร`;
+
       if (buildings.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-state"><i class="bi bi-building"></i>ยังไม่มีอาคารในระบบ</td></tr>';
         return;
       }
       tbody.innerHTML = buildings.map(building => `
-        <tr>
-          <td><span class="badge text-bg-light border">${escapeHtml(building.code)}</span></td>
-          <td>${escapeHtml(building.name)}${building.cover_image ? ' <span class="badge text-bg-success-subtle text-success-emphasis border ms-1">มีรูปปก</span>' : ''}</td>
-          <td>${Number(building.floor_count)}</td>
-          <td>${Number(building.room_count)}</td>
-          <td class="text-end text-nowrap">
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditBuildingModal(${Number(building.id)})">แก้ไข</button>
-            <button type="button" class="btn btn-sm btn-outline-danger ms-1 role-admin-only" onclick="deleteBuilding(${Number(building.id)})">ลบ</button>
+        <tr class="hover:tw-bg-surface-container-low tw-transition-colors">
+          <td class="tw-py-4 tw-px-6"><span class="tw-px-2.5 tw-py-1 tw-rounded tw-bg-surface-container tw-text-on-surface tw-font-semibold tw-text-label-md">${escapeHtml(building.code)}</span></td>
+          <td class="tw-py-4 tw-px-6">
+            <div class="tw-flex tw-items-center tw-gap-3">
+              <span class="tw-font-medium tw-text-on-surface">${escapeHtml(building.name)}</span>
+              ${building.cover_image ? `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2 tw-py-0.5 tw-rounded-md tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline">
+                <span class="material-symbols-outlined tw-text-[0.875rem]">image</span>มีรูปปก</span>` : ''}
+            </div>
+          </td>
+          <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.floor_count)} ชั้น</td>
+          <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.room_count)} ห้อง</td>
+          <td class="tw-py-4 tw-px-6 tw-text-right">
+            <div class="tw-inline-flex tw-items-center tw-gap-2">
+              <button type="button" onclick="openEditBuildingModal(${Number(building.id)})" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
+              <button type="button" onclick="deleteBuilding(${Number(building.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+            </div>
           </td>
         </tr>`).join('');
     }
@@ -1819,6 +1876,15 @@
       return String(first.room_code).localeCompare(String(second.room_code), 'th');
     }
 
+    const ROOM_PAGE_SIZE = 10;
+    let roomPage = 1;
+
+    function setRoomFooter(total, from, to) {
+      document.getElementById('roomPageInfo').textContent = total === 0
+        ? 'ไม่มีรายการ'
+        : `แสดง ${from} ถึง ${to} จากทั้งหมด ${total} รายการ`;
+    }
+
     // แสดงตอนยังไม่ได้เลือกอาคาร (เพิ่งเข้าหน้า หรือกดเลือก "— เลือกอาคาร —" กลับไป)
     function showRoomsEmptyState() {
       document.getElementById('addRoomButton').disabled = true;
@@ -1826,11 +1892,14 @@
       document.getElementById('roomCount').textContent = '0 ห้อง';
       document.getElementById('roomTableBody').innerHTML =
         '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-building"></i>เลือกอาคารด้านบนเพื่อดูรายการห้องเรียน</td></tr>';
+      setRoomFooter(0, 0, 0);
+      document.getElementById('roomPager').innerHTML = '';
     }
 
     async function fetchRooms() {
       const building = currentBuilding();
       if (!building) return showRoomsEmptyState();
+      roomPage = 1;
       document.getElementById('addRoomButton').disabled = false;
       document.getElementById('buildingSummary').textContent = building;
       document.getElementById('roomTableBody').innerHTML = skeletonTableRows(7, 5);
@@ -1854,6 +1923,34 @@
         .sort(roomSort);
     }
 
+    function onRoomFilterInput() {
+      roomPage = 1;
+      renderRooms();
+    }
+
+    function goToRoomPage(page) {
+      roomPage = page;
+      renderRooms();
+    }
+
+    const PAGER_BTN = 'tw-appearance-none tw-cursor-pointer tw-rounded tw-transition-colors';
+
+    function renderRoomPager(pageCount) {
+      const pager = document.getElementById('roomPager');
+      if (pageCount <= 1) {
+        pager.innerHTML = '';
+        return;
+      }
+      const arrow = (icon, target, disabled) => `
+        <button type="button" ${disabled ? 'disabled' : `onclick="goToRoomPage(${target})"`}
+          class="${PAGER_BTN} tw-bg-transparent tw-px-2.5 tw-py-1 tw-border tw-border-outline-variant/40 ${disabled ? 'tw-text-outline/50 tw-cursor-not-allowed' : 'tw-text-on-surface hover:tw-bg-surface-container'}">
+          <span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span></button>`;
+      const numbers = Array.from({ length: pageCount }, (_, index) => index + 1).map(page => `
+        <button type="button" onclick="goToRoomPage(${page})"
+          class="${PAGER_BTN} tw-border-0 tw-px-3 tw-py-1 ${page === roomPage ? 'tw-bg-primary tw-text-on-primary tw-font-semibold' : 'tw-bg-transparent tw-text-on-surface hover:tw-bg-surface-container'}">${page}</button>`);
+      pager.innerHTML = arrow('chevron_left', roomPage - 1, roomPage === 1) + numbers.join('') + arrow('chevron_right', roomPage + 1, roomPage === pageCount);
+    }
+
     function renderRooms() {
       const visibleRooms = getVisibleRooms();
       const tbody = document.getElementById('roomTableBody');
@@ -1864,32 +1961,46 @@
       selectedRoomIds = new Set([...selectedRoomIds].filter(id => visibleIds.has(id)));
       updateBulkBar(visibleRooms.length);
 
+      const pageCount = Math.max(Math.ceil(visibleRooms.length / ROOM_PAGE_SIZE), 1);
+      roomPage = Math.min(Math.max(roomPage, 1), pageCount);
+      const start = (roomPage - 1) * ROOM_PAGE_SIZE;
+      const pageRooms = visibleRooms.slice(start, start + ROOM_PAGE_SIZE);
+      setRoomFooter(visibleRooms.length, start + 1, start + pageRooms.length);
+      renderRoomPager(pageCount);
+
       if (visibleRooms.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-search"></i>ไม่พบห้องเรียนที่ค้นหา</td></tr>';
         return;
       }
 
-      tbody.innerHTML = visibleRooms.map(room => {
+      tbody.innerHTML = pageRooms.map(room => {
         const isPinned = room.pin_x !== null && room.pin_x !== undefined;
         const typeCapacity = [room.room_type, room.capacity ? `${room.capacity} ที่นั่ง` : null]
-          .filter(Boolean).join(' • ') || '<span class="text-secondary">-</span>';
+          .filter(Boolean).join(' • ') || '<span class="tw-text-outline">-</span>';
         const statusBadge = room.status === 'maintenance'
-          ? '<span class="badge text-bg-warning">ปิดปรับปรุง</span>'
-          : '<span class="badge text-bg-success">เปิดใช้งาน</span>';
+          ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-amber-100 tw-text-amber-800 dark:tw-bg-amber-500/15 dark:tw-text-amber-300 tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-amber-600 dark:tw-bg-amber-300"></span>ปิดปรับปรุง</span>`
+          : `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-green-100 tw-text-green-800 dark:tw-bg-green-500/15 dark:tw-text-green-300 tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-green-700 dark:tw-bg-green-300"></span>เปิดใช้งาน</span>`;
+        const pinBadge = isPinned
+          ? `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-primary/10 tw-text-primary tw-font-medium">
+              <span class="material-symbols-outlined tw-text-[0.875rem]">pin_drop</span>ปักหมุดแล้ว</span>`
+          : `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline tw-font-medium">
+              <span class="material-symbols-outlined tw-text-[0.875rem]">location_off</span>ยังไม่ปักหมุด</span>`;
         const isSelected = selectedRoomIds.has(Number(room.id));
         return `
-        <tr class="${isSelected ? 'table-active' : ''}">
-          <td class="role-admin-only"><input type="checkbox" class="form-check-input" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
-          <td class="room-name">${escapeHtml(room.room_code || '-')}</td>
-          <td><span class="badge rounded-pill floor-badge">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
-          <td>${typeCapacity}</td>
-          <td>${statusBadge}</td>
-          <td>${isPinned
-            ? '<span class="badge text-bg-primary">ปักหมุดแล้ว</span>'
-            : '<span class="badge text-bg-light border text-secondary">ยังไม่ปักหมุด</span>'}</td>
-          <td class="text-end text-nowrap">
-            <button type="button" class="btn btn-sm btn-outline-primary role-admin-only" onclick="openEditModal(${Number(room.id)})">แก้ไข</button>
-            <button type="button" class="btn btn-sm btn-outline-danger ms-1 role-admin-only" onclick="deleteRoom(${Number(room.id)})">ลบ</button>
+        <tr class="hover:tw-bg-surface-container-low tw-transition-colors ${isSelected ? 'tw-bg-primary/5' : ''}">
+          <td class="role-admin-only tw-py-3.5 tw-px-4 tw-text-center"><input type="checkbox" class="tw-h-4 tw-w-4 tw-accent-primary-container tw-cursor-pointer" aria-label="เลือกห้อง ${escapeHtml(room.room_code || '')}" ${isSelected ? 'checked' : ''} onchange="toggleRoomSelection(${Number(room.id)}, this.checked)"></td>
+          <td class="tw-py-3.5 tw-px-4 tw-font-semibold tw-text-on-surface">${escapeHtml(room.room_code || '-')}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-center"><span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-on-surface-variant">${typeCapacity}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-center">${pinBadge}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-right">
+            <div class="tw-inline-flex tw-items-center tw-gap-1.5">
+              <button type="button" onclick="openEditModal(${Number(room.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>
+              <button type="button" onclick="deleteRoom(${Number(room.id)})" class="role-admin-only tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+            </div>
           </td>
         </tr>`;
       }).join('');
