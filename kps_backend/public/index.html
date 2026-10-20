@@ -1048,35 +1048,141 @@
           </div>
         </section>
 
-        <!-- ============ PAGE: Settings ============ -->
+        <!-- ============ PAGE: Settings (Tailwind ตามดีไซน์ code.html) ============ -->
         <section id="page-settings" class="page-section d-none">
-          <div class="card building-card mb-4">
-            <div class="card-body p-4">
-              <h2 class="h6 mb-3">บัญชีผู้ดูแลระบบ</h2>
-              <p class="text-secondary small mb-0">ชื่อผู้ใช้ปัจจุบัน: <strong id="settingsUsername">-</strong>
-                <span class="badge text-bg-secondary ms-1" id="settingsRoleBadge">-</span></p>
+          <div class="tw-mb-6">
+            <h2 class="tw-text-display-lg tw-font-display-lg tw-text-on-surface tw-tracking-tight tw-m-0">Settings <span class="tw-text-headline-md tw-font-headline-md tw-text-outline tw-font-normal">(การตั้งค่าบัญชี)</span></h2>
+            <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0">จัดการบัญชีของคุณ ความปลอดภัย และตรวจสอบสถานะระบบ KPS ClassFinder</p>
+          </div>
+
+          <div class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-12 tw-gap-8">
+            <div class="lg:tw-col-span-7 tw-space-y-8">
+              <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <div class="tw-flex tw-items-center tw-justify-between tw-pb-4 tw-mb-5 tw-border-b tw-border-outline-variant/20">
+                  <div class="tw-flex tw-items-center tw-gap-2.5">
+                    <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">badge</span></div>
+                    <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">บัญชีของคุณ (Account)</h3>
+                  </div>
+                  <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-primary-container/15 tw-text-primary-container tw-font-medium">
+                    <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-primary-container"></span><span id="settingsRoleBadge">-</span>
+                  </span>
+                </div>
+                <div class="tw-flex tw-items-start tw-gap-5 tw-p-4 tw-rounded-xl tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-mb-6">
+                  <div id="settingsAvatar" class="tw-w-16 tw-h-16 tw-rounded-xl tw-bg-primary tw-text-on-primary tw-flex tw-items-center tw-justify-center tw-text-headline-md tw-font-bold tw-shrink-0">--</div>
+                  <div class="tw-flex-1">
+                    <div class="tw-flex tw-items-center tw-gap-2">
+                      <h4 id="settingsDisplayName" class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">-</h4>
+                      <span class="material-symbols-outlined tw-text-primary-container tw-text-[1.125rem]" style="font-variation-settings:'FILL' 1;">verified</span>
+                    </div>
+                    <p class="tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant tw-mt-0.5 tw-mb-0">ชื่อผู้ใช้ปัจจุบัน: <strong id="settingsUsername" class="tw-text-on-surface tw-font-mono">-</strong></p>
+                    <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-mt-1 tw-mb-0" id="settingsLastLogin">-</p>
+                  </div>
+                </div>
+                <div>
+                  <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-3 tw-mt-0">สิทธิ์การใช้งานของบัญชีนี้</h4>
+                  <ul id="settingsPermissions" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-2.5 tw-list-none tw-p-0 tw-m-0"></ul>
+                </div>
+              </section>
+
+              <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <div class="tw-flex tw-items-center tw-gap-2.5 tw-pb-4 tw-mb-5 tw-border-b tw-border-outline-variant/20">
+                  <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">password</span></div>
+                  <div>
+                    <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">เปลี่ยนรหัสผ่าน (Change Password)</h3>
+                    <p class="tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant tw-m-0">เปลี่ยนรหัสผ่านเป็นประจำเพื่อความปลอดภัยของข้อมูลห้องเรียน</p>
+                  </div>
+                </div>
+                <form id="passwordForm" onsubmit="changePassword(event)" class="tw-space-y-4">
+                  <div>
+                    <label for="currentPassword" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">รหัสผ่านปัจจุบัน</label>
+                    <div class="tw-relative">
+                      <input id="currentPassword" type="password" required autocomplete="current-password" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-pl-3.5 tw-pr-10 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                      <button type="button" onclick="togglePasswordVisibility('currentPassword', this)" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer tw-absolute tw-right-3 tw-top-2.5 tw-text-on-surface-variant hover:tw-text-on-surface"><span class="material-symbols-outlined tw-text-[1.125rem]">visibility_off</span></button>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="newPassword" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)</label>
+                    <div class="tw-relative">
+                      <input id="newPassword" type="password" required minlength="8" autocomplete="new-password" oninput="updatePasswordStrength()" placeholder="••••••••••••" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-pl-3.5 tw-pr-10 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                      <button type="button" onclick="togglePasswordVisibility('newPassword', this)" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer tw-absolute tw-right-3 tw-top-2.5 tw-text-on-surface-variant hover:tw-text-on-surface"><span class="material-symbols-outlined tw-text-[1.125rem]">visibility_off</span></button>
+                    </div>
+                    <div class="tw-mt-2 tw-p-2.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20">
+                      <div class="tw-flex tw-items-center tw-justify-between tw-text-label-sm tw-font-label-sm tw-mb-1.5">
+                        <span class="tw-text-on-surface-variant">ระดับความปลอดภัย: <strong id="pwStrengthLabel">-</strong></span>
+                        <span id="pwStrengthPct" class="tw-font-mono">0%</span>
+                      </div>
+                      <div id="pwStrengthBar" class="tw-w-full tw-flex tw-gap-1 tw-h-1.5"></div>
+                      <p id="pwChecklist" class="tw-text-[0.6875rem] tw-text-on-surface-variant tw-mt-1.5 tw-mb-0 tw-leading-relaxed"></p>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="confirmPassword" class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">ยืนยันรหัสผ่านใหม่</label>
+                    <div class="tw-relative">
+                      <input id="confirmPassword" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••••••" class="tw-w-full tw-rounded-lg tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-pl-3.5 tw-pr-10 tw-py-2 tw-text-body-md tw-font-body-md focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-text-on-surface tw-outline-none tw-transition-all">
+                      <button type="button" onclick="togglePasswordVisibility('confirmPassword', this)" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer tw-absolute tw-right-3 tw-top-2.5 tw-text-on-surface-variant hover:tw-text-on-surface"><span class="material-symbols-outlined tw-text-[1.125rem]">visibility_off</span></button>
+                    </div>
+                  </div>
+                  <div class="tw-pt-2 tw-flex tw-justify-end">
+                    <button id="passwordSaveButton" type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-5 tw-py-2.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-all tw-shadow-sm active:tw-scale-[0.98]">
+                      <span class="material-symbols-outlined tw-text-[1.125rem]">key</span><span>บันทึกรหัสผ่านใหม่</span>
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+
+            <div class="lg:tw-col-span-5 tw-space-y-8">
+              <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <div class="tw-flex tw-items-center tw-gap-2.5 tw-pb-4 tw-mb-5 tw-border-b tw-border-outline-variant/20">
+                  <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">shield</span></div>
+                  <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">การรักษาความปลอดภัย (Security)</h3>
+                </div>
+                <div class="tw-space-y-3 tw-pb-4 tw-border-b tw-border-outline-variant/20 tw-mb-4">
+                  <div class="tw-flex tw-items-start tw-gap-3"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem] tw-mt-0.5">timer</span>
+                    <div><h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">อายุเซสชัน 8 ชั่วโมง</h4><p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">ระบบจะออกจากระบบให้อัตโนมัติเมื่อครบ 8 ชั่วโมงนับจากเข้าสู่ระบบ</p></div></div>
+                  <div class="tw-flex tw-items-start tw-gap-3"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem] tw-mt-0.5">block</span>
+                    <div><h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">จำกัดการเดารหัสผ่าน</h4><p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">ใส่รหัสผ่านผิดเกิน 5 ครั้งใน 15 นาที ระบบจะระงับการล็อกอินชั่วคราว</p></div></div>
+                  <div class="tw-flex tw-items-start tw-gap-3"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem] tw-mt-0.5">history</span>
+                    <div><h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">บันทึกทุกการเข้าสู่ระบบ</h4><p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">ดูย้อนหลังได้ที่เมนู System Logs (ไม่บันทึกรหัสผ่านลงล็อก)</p></div></div>
+                </div>
+                <div>
+                  <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-3 tw-mt-0 tw-flex tw-items-center tw-justify-between">
+                    <span>การเข้าสู่ระบบล่าสุดของบัญชีนี้</span>
+                    <a href="#" onclick="showPage('logs'); return false;" class="tw-text-body-sm tw-text-primary tw-font-normal hover:tw-underline tw-no-underline">ดูทั้งหมด</a>
+                  </h4>
+                  <div id="settingsSignIns" class="tw-space-y-3"><div class="tw-text-body-sm tw-text-outline">กำลังโหลด...</div></div>
+                </div>
+              </section>
+
+              <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-p-6 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+                <div class="tw-flex tw-items-center tw-gap-2.5 tw-pb-4 tw-mb-5 tw-border-b tw-border-outline-variant/20">
+                  <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">hub</span></div>
+                  <div>
+                    <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">สถานะระบบ (System Status)</h3>
+                    <p class="tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant tw-m-0">ตรวจจากเซิร์ฟเวอร์จริงทุกครั้งที่เปิดหน้านี้</p>
+                  </div>
+                </div>
+                <div id="settingsHealth" class="tw-space-y-3"><div class="tw-text-body-sm tw-text-outline">กำลังตรวจสอบ...</div></div>
+              </section>
             </div>
           </div>
 
-          <div class="card building-card" style="max-width:520px;">
-            <form class="card-body p-4" id="passwordForm" onsubmit="changePassword(event)">
-              <h2 class="h6 mb-3">เปลี่ยนรหัสผ่าน</h2>
-              <div class="mb-3">
-                <label for="currentPassword" class="form-label">รหัสผ่านปัจจุบัน</label>
-                <input id="currentPassword" type="password" class="form-control" required autocomplete="current-password">
+          <div class="role-admin-only tw-mt-8 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-p-6 tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4">
+            <div class="tw-flex tw-items-start tw-gap-3.5">
+              <div class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-tertiary-fixed tw-text-tertiary tw-flex tw-items-center tw-justify-center tw-flex-shrink-0"><span class="material-symbols-outlined tw-text-[1.375rem]">database</span></div>
+              <div>
+                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">การสำรองข้อมูล (Data Backup)</h3>
+                <p class="tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant tw-mt-0.5 tw-mb-0 tw-max-w-2xl">สำรองฐานข้อมูลและไฟล์รูปทั้งหมดเป็นไฟล์ .zip ได้ด้วยสคริปต์บนเครื่องเซิร์ฟเวอร์ (ตั้งเวลาให้ทำทุกวันได้ผ่าน Windows Task Scheduler) ดูวิธีใช้และวิธีกู้คืนในไฟล์ README ของโฟลเดอร์ backup</p>
               </div>
-              <div class="mb-3">
-                <label for="newPassword" class="form-label">รหัสผ่านใหม่ <span class="text-secondary small">(อย่างน้อย 8 ตัวอักษร)</span></label>
-                <input id="newPassword" type="password" class="form-control" required minlength="8" autocomplete="new-password">
-              </div>
-              <div class="mb-3">
-                <label for="confirmPassword" class="form-label">ยืนยันรหัสผ่านใหม่</label>
-                <input id="confirmPassword" type="password" class="form-control" required minlength="8" autocomplete="new-password">
-              </div>
-              <button id="passwordSaveButton" type="submit" class="btn btn-primary">บันทึกรหัสผ่านใหม่</button>
-            </form>
+            </div>
+            <code class="tw-px-3 tw-py-2 tw-rounded-lg tw-bg-surface-container tw-text-on-surface tw-text-body-sm tw-font-mono tw-whitespace-nowrap tw-self-start md:tw-self-center">kps_backend\backup\backup.ps1</code>
           </div>
+
+          <footer class="tw-mt-10 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-text-center tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant">
+            KPS ClassFinder Navigation System · มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตกำแพงแสน
+          </footer>
         </section>
+
       </div>
     </div>
   </div>
@@ -1454,6 +1560,7 @@
       if (page === 'panoramas') loadPanoramasPage();
       if (page === 'tour') loadTourPage();
       if (page === 'logs') loadLogs(0);
+      if (page === 'settings') loadSettingsPage();
     }
 
     // ============ Shared helpers for the newer pages ============
@@ -3602,6 +3709,109 @@
       }
     }
 
+    // ============ Settings ============
+    const ROLE_PERMISSIONS = {
+      admin: [
+        'จัดการอาคาร ห้องเรียน และแผนผังชั้น', 'จัดการภาพ 360° และจุดเชื่อม',
+        'นำเข้า/ส่งออกข้อมูลห้องด้วย CSV', 'ดูบันทึกกิจกรรมของทุกบัญชี',
+      ],
+      editor: [
+        'อัปโหลด เปลี่ยน และลบรูปแผนผัง/รูปปก/ภาพ 360°', 'ดูข้อมูลห้อง อาคาร และแผนผัง (อ่านอย่างเดียว)',
+        'ดูบันทึกกิจกรรมของบัญชีตัวเอง', 'เปลี่ยนรหัสผ่านของตัวเอง',
+      ],
+    };
+
+    function togglePasswordVisibility(inputId, button) {
+      const input = document.getElementById(inputId);
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      button.querySelector('.material-symbols-outlined').textContent = show ? 'visibility' : 'visibility_off';
+    }
+
+    // คะแนนความแข็งแรงรหัสผ่านคำนวณฝั่งเบราว์เซอร์ (ความยาว/ตัวพิมพ์ใหญ่-เล็ก/ตัวเลข/สัญลักษณ์) เป็นแค่คำแนะนำ ไม่ใช่เงื่อนไขบังคับ
+    function updatePasswordStrength() {
+      const value = document.getElementById('newPassword').value;
+      const checks = [
+        ['ยาวอย่างน้อย 8 ตัวอักษร', value.length >= 8],
+        ['ยาว 12 ตัวขึ้นไป', value.length >= 12],
+        ['มีตัวพิมพ์ใหญ่และเล็ก', /[a-z]/.test(value) && /[A-Z]/.test(value)],
+        ['มีตัวเลข', /\d/.test(value)],
+        ['มีสัญลักษณ์พิเศษ', /[^A-Za-z0-9]/.test(value)],
+      ];
+      const passed = value ? checks.filter(([, ok]) => ok).length : 0;
+      const levels = [
+        { label: '-', color: 'tw-bg-outline-variant' }, { label: 'อ่อน (Weak)', color: 'tw-bg-error' },
+        { label: 'พอใช้ (Fair)', color: 'tw-bg-tertiary-container' }, { label: 'ดี (Good)', color: 'tw-bg-primary-container' },
+        { label: 'แข็งแกร่ง (Strong)', color: 'tw-bg-primary-container' }, { label: 'แข็งแกร่งมาก', color: 'tw-bg-primary-container' },
+      ];
+      const level = levels[passed];
+      const segments = Math.ceil(passed * 4 / 5);
+      document.getElementById('pwStrengthLabel').textContent = level.label;
+      document.getElementById('pwStrengthPct').textContent = `${Math.round(passed / 5 * 100)}%`;
+      document.getElementById('pwStrengthBar').innerHTML = Array.from({ length: 4 }, (_, index) =>
+        `<div class="tw-h-full tw-w-1/4 tw-rounded-full ${index < segments ? level.color : 'tw-bg-surface-container-highest'}"></div>`).join('');
+      document.getElementById('pwChecklist').innerHTML = checks
+        .map(([text, ok]) => `<span class="${ok ? 'tw-text-primary' : ''}">${ok ? '✓' : '○'} ${text}</span>`).join(' &nbsp;•&nbsp; ');
+    }
+
+    async function loadSettingsPage() {
+      const username = document.getElementById('settingsUsername').textContent || '';
+      document.getElementById('settingsAvatar').textContent = username.slice(0, 2).toUpperCase() || '--';
+      document.getElementById('settingsDisplayName').textContent = ROLE_LABELS[currentRole] || username;
+      document.getElementById('settingsPermissions').innerHTML = (ROLE_PERMISSIONS[currentRole] || []).map(text => `
+        <li class="tw-flex tw-items-start tw-gap-2 tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-text-body-sm tw-text-on-surface-variant">
+          <span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem] tw-shrink-0">check_circle</span><span>${escapeHtml(text)}</span>
+        </li>`).join('');
+      updatePasswordStrength();
+
+      const [logs, health] = await Promise.allSettled([
+        api(`/api/admin/logs?entity=session&limit=5&q=${encodeURIComponent(username)}`),
+        api('/api/admin/health'),
+      ]);
+      renderSettingsSignIns(logs.status === 'fulfilled' ? logs.value.rows.filter(row => row.username === username) : null);
+      renderSettingsHealth(health.status === 'fulfilled' ? health.value : null);
+    }
+
+    function renderSettingsSignIns(rows) {
+      const box = document.getElementById('settingsSignIns');
+      const lastOk = rows ? rows.find(row => row.action === 'login') : null;
+      document.getElementById('settingsLastLogin').textContent = lastOk
+        ? `เข้าสู่ระบบล่าสุด: ${formatDateTime(lastOk.created_at)} จาก ${lastOk.ip || '-'}` : '';
+      if (rows === null) {
+        box.innerHTML = '<div class="tw-text-body-sm tw-text-outline">โหลดข้อมูลไม่สำเร็จ</div>';
+        return;
+      }
+      box.innerHTML = rows.length === 0 ? '<div class="tw-text-body-sm tw-text-outline">ยังไม่มีประวัติ</div>' : rows.map(row => {
+        const style = activityStyle(row.action);
+        const icon = { login: 'login', logout: 'logout', login_failed: 'gpp_maybe' }[row.action] || 'history';
+        return `
+        <div class="tw-flex tw-items-start tw-justify-between tw-gap-3 tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/25">
+          <div class="tw-flex tw-items-center tw-gap-3">
+            <span class="tw-w-8 tw-h-8 tw-rounded-full ${style.avatar} tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span></span>
+            <div>
+              <div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">${escapeHtml(ACTION_LABELS[row.action] || row.action)}</div>
+              <p class="tw-text-body-sm tw-text-on-surface-variant tw-m-0">${escapeHtml(row.ip || '-')} • ${escapeHtml(formatDateTime(row.created_at))}</p>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderSettingsHealth(health) {
+      const item = (icon, title, subtitle, ok) => `
+        <div class="tw-p-3 tw-rounded-lg tw-border tw-border-outline-variant/25 tw-bg-surface-container-low tw-flex tw-items-center tw-justify-between">
+          <div class="tw-flex tw-items-center tw-gap-3">
+            <div class="tw-w-8 tw-h-8 tw-rounded tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-flex tw-items-center tw-justify-center ${ok ? 'tw-text-primary-container' : 'tw-text-error'}"><span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span></div>
+            <div><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-block">${title}</span><span class="tw-text-body-sm tw-text-on-surface-variant">${subtitle}</span></div>
+          </div>
+          <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-font-semibold ${ok ? 'tw-bg-primary-container/15 tw-text-primary-container' : 'tw-bg-error-container tw-text-on-error-container'}">${ok ? 'ปกติ' : 'มีปัญหา'}</span>
+        </div>`;
+      document.getElementById('settingsHealth').innerHTML = health === null
+        ? '<div class="tw-text-body-sm tw-text-error">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</div>'
+        : item('database', 'ฐานข้อมูล MySQL', 'ตอบสนองต่อคำสั่งตรวจสอบ', health.database)
+          + item('folder', 'โฟลเดอร์เก็บรูปภาพ', 'แผนผัง รูปปก และภาพ 360° (เขียนไฟล์ได้)', health.storage);
+    }
+
     // ============ Settings: change password ============
     async function changePassword(event) {
       event.preventDefault();
@@ -3617,6 +3827,7 @@
       try {
         const data = await api('/api/admin/change-password', jsonRequest('POST', { current_password: currentPassword, new_password: newPassword }));
         document.getElementById('passwordForm').reset();
+        updatePasswordStrength();
         showStatus(data.message);
       } catch (error) {
         reportError(error);
