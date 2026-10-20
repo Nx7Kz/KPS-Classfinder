@@ -1723,6 +1723,11 @@ app.get('/api/admin/logs', requireStaff, asyncRoute(async (req, res) => {
 
     const where = [];
     const params = [];
+    // editor เห็นเฉพาะกิจกรรมของตัวเอง ไม่เห็นของ admin หรือ editor คนอื่น
+    if (req.session.role !== 'admin') {
+        where.push('username = ?');
+        params.push(ACCOUNTS[req.session.role].username);
+    }
     for (const column of ['entity', 'action']) {
         if (typeof req.query[column] === 'string' && req.query[column] !== '') {
             where.push(`${column} = ?`);
