@@ -1179,6 +1179,7 @@
           <div id="settingsTabs" class="tw-flex tw-items-center tw-gap-6 tw-border-b tw-border-outline-variant/30 tw-mb-6 tw-overflow-x-auto tw-text-label-md tw-font-label-md">
             <button type="button" data-settings-tab="profile" onclick="showSettingsTab('profile')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-text-primary-container tw-font-semibold tw-border-primary-container">โปรไฟล์และบัญชี</button>
             <button type="button" data-settings-tab="security" onclick="showSettingsTab('security')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">verified_user</span>ความปลอดภัย (Security &amp; 2FA)</button>
+            <button type="button" data-settings-tab="system" onclick="showSettingsTab('system')" class="need-settings-manage tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">cloud_sync</span>ระบบและพื้นที่จัดเก็บ (System &amp; Storage)</button>
             <button type="button" data-settings-tab="admins" onclick="showSettingsTab('admins')" class="need-settings-manage tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">shield_person</span>ผู้ดูแลและสิทธิ์การใช้งาน (Admin &amp; Roles)</button>
           </div>
 
@@ -1504,6 +1505,51 @@
               </div>
             </div>
           </div><!-- /settingsTabSecurity -->
+
+          <!-- ============ Settings tab: System & Storage (ตามดีไซน์ code.html) ============ -->
+          <div id="settingsTabSystem" class="need-settings-manage d-none">
+            <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4 tw-mb-6">
+              <div>
+                <div class="tw-flex tw-items-baseline tw-gap-3 tw-flex-wrap">
+                  <h3 class="tw-text-headline-lg tw-font-headline-lg tw-font-bold tw-text-on-surface tw-tracking-tight tw-m-0">การตั้งค่าระบบและพื้นที่จัดเก็บข้อมูล</h3>
+                  <span class="tw-text-body-lg tw-text-outline">(System &amp; Storage)</span>
+                </div>
+                <p class="tw-text-body-md tw-font-body-md tw-text-outline tw-mt-1 tw-mb-0 tw-max-w-3xl">ดูการใช้พื้นที่ไฟล์ผังอาคารและภาพ 360° สถานะเซิร์ฟเวอร์และฐานข้อมูล ตั้งค่าการบีบอัดภาพที่อัปโหลดใหม่ และจำกัดจำนวนคำขอ API</p>
+              </div>
+              <div class="tw-flex tw-items-center tw-gap-3 tw-flex-wrap">
+                <span id="sysStatusPill" class="tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-1.5 tw-rounded-full tw-bg-surface-container tw-text-on-surface-variant tw-text-label-sm tw-font-semibold">กำลังตรวจสอบ...</span>
+                <button type="button" onclick="refreshSystemStatus()" class="tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-surface-container-lowest tw-border tw-border-outline-variant/60 hover:tw-bg-surface-container-high tw-text-on-surface tw-text-label-md tw-font-medium tw-transition-all tw-shadow-sm active:tw-scale-95">
+                  <span class="material-symbols-outlined tw-text-[1.125rem] tw-text-primary">sync</span><span>ตรวจสอบสถานะระบบ (Refresh)</span>
+                </button>
+              </div>
+            </div>
+
+            <section id="sysMetrics" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4 tw-mb-6"></section>
+
+            <div class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-6">
+              <div class="tw-space-y-6">
+                <section id="sysStorageCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden"></section>
+                <section id="sysImageCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden"></section>
+              </div>
+              <div class="tw-space-y-6">
+                <section id="sysServerCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden"></section>
+                <section id="sysRateCard" class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-overflow-hidden"></section>
+              </div>
+            </div>
+
+            <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-flex-col md:tw-flex-row tw-items-center tw-justify-between tw-gap-4 tw-mt-8">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                <div class="tw-w-9 tw-h-9 tw-rounded-full tw-bg-tertiary-fixed/70 tw-text-tertiary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.25rem]">info</span></div>
+                <span class="tw-text-body-md tw-text-on-surface-variant">การตั้งค่าการบีบอัดภาพมีผลกับภาพ 360° ที่อัปโหลดหลังจากนี้เท่านั้น ไฟล์ที่อัปโหลดไปแล้วไม่ถูกแก้ไข ค่าจำกัดคำขอ API มีผลทันทีหลังบันทึก</span>
+              </div>
+              <div class="tw-flex tw-items-center tw-gap-3 tw-shrink-0">
+                <button type="button" onclick="resetSystemDraft()" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-5 tw-py-2.5 tw-rounded-lg tw-border tw-border-outline-variant/60 hover:tw-bg-surface-container tw-text-on-surface tw-text-label-md tw-font-medium tw-transition-colors active:tw-scale-95">ยกเลิกการแก้ไข</button>
+                <button id="sysSaveButton" type="button" onclick="saveSystemSettings()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-6 tw-py-2.5 tw-rounded-lg tw-bg-primary hover:tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-semibold tw-shadow-sm tw-transition-all active:tw-scale-95 disabled:tw-opacity-60">
+                  <span class="material-symbols-outlined tw-text-[1.125rem]">save</span><span>บันทึกการตั้งค่าระบบ</span>
+                </button>
+              </div>
+            </div>
+          </div><!-- /settingsTabSystem -->
 
 
           <footer class="tw-mt-10 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-text-center tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant">
@@ -4618,10 +4664,10 @@
     // ============ Settings: tabs + Admin & Roles ============
     const SETTINGS_TAB_ACTIVE = ['tw-text-primary-container', 'tw-font-semibold', 'tw-border-primary-container'];
     const SETTINGS_TAB_IDLE = ['tw-text-outline', 'tw-border-transparent'];
-    const SETTINGS_TABS = { profile: 'settingsTabProfile', security: 'settingsTabSecurity', admins: 'settingsTabAdmins' };
+    const SETTINGS_TABS = { profile: 'settingsTabProfile', security: 'settingsTabSecurity', system: 'settingsTabSystem', admins: 'settingsTabAdmins' };
 
     function showSettingsTab(name) {
-      if (name === 'admins' && !can('settings.manage')) name = 'profile';
+      if ((name === 'admins' || name === 'system') && !can('settings.manage')) name = 'profile';
       for (const [key, elementId] of Object.entries(SETTINGS_TABS)) {
         document.getElementById(elementId).classList.toggle('d-none', key !== name);
       }
@@ -4632,6 +4678,7 @@
       });
       if (name === 'admins') loadAdminsTab();
       if (name === 'security') loadSecurityTab();
+      if (name === 'system') loadSystemTab();
     }
 
     // สไตล์ป้ายบทบาท/สีรูปย่อ ต่อบทบาท (ใช้โทนสีของธีม ไม่ฮาร์ดโค้ดสีเฉพาะ)
@@ -5613,6 +5660,215 @@
         if (document.getElementById('settingsTabSecurity') && !document.getElementById('settingsTabSecurity').classList.contains('d-none')) loadSecurityTab();
         if (activeRestrictions.length === 0 && document.getElementById('dashboardSection').classList.contains('d-flex')) showPage(landingPage());
       });
+    }
+
+    // ============ Settings: System & Storage ============
+    let sysData = null;
+    let sysDraft = null;
+
+    function formatBytes(value) {
+      const bytes = Number(value) || 0;
+      if (bytes < 1024) return `${bytes} B`;
+      const units = ['KB', 'MB', 'GB', 'TB'];
+      let size = bytes / 1024; let index = 0;
+      while (size >= 1024 && index < units.length - 1) { size /= 1024; index += 1; }
+      return `${size >= 100 ? size.toFixed(0) : size.toFixed(1)} ${units[index]}`;
+    }
+
+    function formatDuration(seconds) {
+      const days = Math.floor(seconds / 86400); const hours = Math.floor((seconds % 86400) / 3600); const minutes = Math.floor((seconds % 3600) / 60);
+      return days > 0 ? `${days} วัน ${hours} ชม.` : hours > 0 ? `${hours} ชม. ${minutes} นาที` : `${minutes} นาที`;
+    }
+
+    async function loadSystemTab() {
+      try {
+        sysData = await api('/api/admin/system');
+        sysDraft = { ...sysData.settings };
+        renderSystemTab();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    async function refreshSystemStatus() {
+      await loadSystemTab();
+      if (sysData) showStatus(sysData.healthy ? 'ตรวจสอบแล้ว: ระบบทำงานปกติ' : 'ตรวจสอบแล้ว: พบความผิดปกติ ดูรายละเอียดในการ์ดด้านล่าง', sysData.healthy ? 'success' : 'warning');
+    }
+
+    function renderSystemTab() {
+      const d = sysData;
+      const pill = document.getElementById('sysStatusPill');
+      pill.className = `tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-1.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${d.healthy ? 'tw-bg-primary-fixed/60 tw-text-on-primary-fixed-variant tw-border tw-border-primary/20' : 'tw-bg-error-container tw-text-on-error-container'}`;
+      pill.innerHTML = `<span class="tw-w-2 tw-h-2 tw-rounded-full ${d.healthy ? 'tw-bg-primary' : 'tw-bg-error'}"></span>สถานะระบบ: ${d.healthy ? 'ปกติ (ฐานข้อมูลและโฟลเดอร์ไฟล์พร้อมใช้งาน)' : 'มีปัญหา'}`;
+      renderSysMetrics();
+      renderSysStorage();
+      renderSysImage();
+      renderSysServer();
+      renderSysRate();
+    }
+
+    function sysCardHeader(icon, title, subtitle, rightHtml = '') {
+      return `<div class="tw-p-5 tw-border-b tw-border-outline-variant/20 tw-flex tw-items-center tw-justify-between tw-gap-3">
+        <div class="tw-flex tw-items-center tw-gap-3">
+          <div class="tw-w-9 tw-h-9 tw-rounded-lg tw-bg-primary-fixed/40 tw-text-primary tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.375rem]">${icon}</span></div>
+          <div><h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-semibold tw-text-on-surface tw-m-0">${title}</h4><p class="tw-text-body-sm tw-text-outline tw-m-0">${subtitle}</p></div>
+        </div>${rightHtml}</div>`;
+    }
+
+    function renderSysMetrics() {
+      const d = sysData;
+      const pano = d.storage.directories.find(item => item.key === 'panoramas');
+      const plans = d.storage.directories.find(item => item.key === 'floorplans');
+      const disk = d.storage.disk;
+      const used = disk ? Math.max(0, disk.total - disk.free) : 0;
+      const usedPercent = disk && disk.total > 0 ? Math.min(100, used / disk.total * 100) : 0;
+      const card = (label, icon, tone, body) => `
+        <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-flex-col tw-justify-between">
+          <div class="tw-flex tw-items-start tw-justify-between"><span class="tw-text-label-md tw-font-label-md tw-text-outline">${label}</span>
+            <div class="tw-w-8 tw-h-8 tw-rounded-lg ${tone} tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">${icon}</span></div></div>
+          <div class="tw-mt-4 tw-space-y-1.5">${body}</div>
+        </div>`;
+      const big = text => `<div class="tw-text-headline-md tw-font-headline-md tw-font-bold tw-text-on-surface">${text}</div>`;
+      const sub = (icon, text) => `<div class="tw-flex tw-items-center tw-gap-1.5 tw-text-body-sm tw-text-outline"><span class="material-symbols-outlined tw-text-[1rem]">${icon}</span><span>${text}</span></div>`;
+      document.getElementById('sysMetrics').innerHTML =
+        card('ไฟล์ที่อัปโหลดทั้งหมด', 'folder', 'tw-bg-primary-fixed/50 tw-text-primary', `
+          <div class="tw-flex tw-items-baseline tw-justify-between">${big(formatBytes(d.storage.total_bytes))}${disk ? `<span class="tw-text-label-sm tw-text-outline">ดิสก์ ${formatBytes(disk.total)}</span>` : ''}</div>
+          ${disk ? `<div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-2 tw-overflow-hidden"><div class="${usedPercent > 90 ? 'tw-bg-error' : 'tw-bg-primary'} tw-h-2 tw-rounded-full" style="width:${usedPercent.toFixed(1)}%"></div></div>
+          <div class="tw-flex tw-justify-between tw-text-body-sm tw-text-outline"><span>ดิสก์ใช้ไป ${usedPercent.toFixed(1)}%</span><span class="tw-text-primary tw-font-medium">เหลือ ${formatBytes(disk.free)}</span></div>`
+            : sub('info', 'อ่านพื้นที่ดิสก์ไม่ได้บนระบบนี้')}`)
+        + card('ภาพ 360° Panorama', 'photo_camera', 'tw-bg-secondary-container/60 tw-text-secondary', `
+          ${big(`${Number(d.counts.panoramas || 0).toLocaleString('th-TH')} ภาพ`)}
+          ${sub('image', pano.files > 0 ? `ไฟล์ ${pano.files} ไฟล์ • เฉลี่ย ${formatBytes(pano.bytes / pano.files)} ต่อไฟล์` : 'ยังไม่มีไฟล์')}`)
+        + card('แผนผังชั้น (Floor Plans)', 'layers', 'tw-bg-surface-container-high tw-text-on-surface-variant', `
+          ${big(`${Number(d.counts.floor_plans || 0).toLocaleString('th-TH')} แผน`)}
+          ${sub('folder', `ไฟล์ ${plans.files} ไฟล์ • รวม ${formatBytes(plans.bytes)}`)}`)
+        + card('ฐานข้อมูล MySQL', 'database', 'tw-bg-primary-fixed/50 tw-text-primary', `
+          ${big(d.database.size_bytes === null ? '-' : formatBytes(d.database.size_bytes))}
+          ${sub('timer', d.database.latency_ms === null ? 'เชื่อมต่อไม่ได้' : `ตอบสนองเฉลี่ย ${d.database.latency_ms.toFixed(1)} ms • ${d.database.tables} ตาราง`)}`);
+    }
+
+    function renderSysStorage() {
+      const d = sysData.storage;
+      const rows = d.directories.map(item => {
+        const percent = d.total_bytes > 0 ? item.bytes / d.total_bytes * 100 : 0;
+        return `
+        <div class="tw-p-3 tw-rounded-lg tw-border tw-border-outline-variant/30 tw-space-y-2">
+          <div class="tw-flex tw-items-center tw-justify-between tw-gap-2">
+            <div class="tw-flex tw-items-center tw-gap-2 tw-min-w-0"><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-truncate">${escapeHtml(item.label)}</span>
+              ${item.writable ? '' : '<span class="tw-text-label-sm tw-text-on-error-container tw-bg-error-container tw-px-2 tw-py-0.5 tw-rounded-full">เขียนไฟล์ไม่ได้</span>'}</div>
+            <span class="tw-text-label-md tw-font-mono tw-text-on-surface tw-shrink-0">${formatBytes(item.bytes)} • ${item.files} ไฟล์</span>
+          </div>
+          <div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-1.5 tw-overflow-hidden"><div class="tw-bg-primary tw-h-1.5 tw-rounded-full" style="width:${percent.toFixed(1)}%"></div></div>
+        </div>`;
+      }).join('');
+      document.getElementById('sysStorageCard').innerHTML = `
+        ${sysCardHeader('database', 'พื้นที่จัดเก็บไฟล์', 'Local File Storage (โฟลเดอร์บนเซิร์ฟเวอร์)',
+          '<span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-primary-fixed tw-text-on-primary-fixed-variant"><span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-primary tw-mr-1.5"></span>Local Disk</span>')}
+        <div class="tw-p-5 tw-space-y-3">${rows}
+          <p class="tw-text-body-sm tw-text-outline tw-m-0 tw-flex tw-items-start tw-gap-1.5"><span class="material-symbols-outlined tw-text-[1rem]">info</span>ระบบเก็บไฟล์บนดิสก์ของเซิร์ฟเวอร์เอง (ไม่ได้ใช้ Cloud Storage ภายนอก) ควรสำรองข้อมูลสม่ำเสมอ ดูวิธีที่ kps_backend/backup</p>
+        </div>`;
+    }
+
+    function renderSysImage() {
+      const d = sysDraft;
+      const options = [[8192, 'สูงสุด 8192 × 4096 px (8K)'], [4096, '4096 × 2048 px (4K มาตรฐาน)'], [2048, '2048 × 1024 px (โหลดเร็วบนมือถือ)']]
+        .map(([value, label]) => `<option value="${value}" ${d.max_width === value ? 'selected' : ''}>${label}</option>`).join('');
+      document.getElementById('sysImageCard').innerHTML = `
+        ${sysCardHeader('auto_fix_high', 'การประมวลผลภาพ 360° ที่อัปโหลด', 'Media Processing (มีผลกับภาพที่อัปโหลดใหม่)', '<span class="material-symbols-outlined tw-text-outline tw-text-[1.25rem]">tune</span>')}
+        <div class="tw-p-5 tw-space-y-4">
+          <div class="tw-flex tw-items-center tw-justify-between tw-gap-3 tw-p-3 tw-rounded-lg tw-border tw-border-outline-variant/30">
+            <div><div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">แปลงภาพ 360° เป็น WebP อัตโนมัติ</div>
+              <div class="tw-text-body-sm tw-text-outline">ลดขนาดไฟล์ได้มาก โหลดไวขึ้น ถ้าปิดจะเก็บไฟล์ในรูปแบบเดิม (JPG/PNG/WebP)</div></div>
+            ${switchHtml(d.convert_webp, 'setSysDraft(\'convert_webp\', this.checked)', 'แปลงเป็น WebP')}
+          </div>
+          <div><label class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1">ขีดจำกัดความกว้างสูงสุด (Resolution Limit)</label>
+            <select onchange="setSysDraft('max_width', Number(this.value))" class="${secSelectClass}">${options}</select>
+            <p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">ภาพที่กว้างกว่านี้จะถูกย่อลงตอนอัปโหลด (ภาพเล็กกว่าไม่ถูกขยาย)</p></div>
+          <div class="tw-space-y-1.5 tw-p-3 tw-rounded-lg tw-bg-surface-container-low/60 tw-border tw-border-outline-variant/30">
+            <div class="tw-flex tw-justify-between tw-items-center"><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">คุณภาพการบีบอัดภาพ (Quality):</span>
+              <span id="sysQualityLabel" class="tw-text-label-md tw-font-bold tw-text-primary tw-bg-primary-fixed/40 tw-px-2.5 tw-py-0.5 tw-rounded-full">${d.quality}%</span></div>
+            <input type="range" min="60" max="100" step="5" value="${d.quality}" oninput="setSysQuality(this.value)" class="tw-w-full tw-h-2 tw-cursor-pointer tw-accent-primary">
+            <div class="tw-flex tw-justify-between tw-text-label-sm tw-text-outline"><span>60% (ไฟล์เล็ก)</span><span>85% (แนะนำ)</span><span>100% (ไฟล์ใหญ่)</span></div>
+            <p class="tw-text-body-sm tw-text-outline tw-m-0">ใช้เมื่อมีการย่อหรือแปลงภาพ (JPG/WebP) ภาพ PNG ที่ไม่ได้แปลงจะบีบแบบไม่สูญเสียคุณภาพ</p>
+          </div>
+        </div>`;
+    }
+
+    function renderSysServer() {
+      const d = sysData;
+      const item = (icon, label, value, tone = 'tw-text-on-surface') => `
+        <div class="tw-p-3 tw-rounded-lg tw-bg-surface-container-low/60 tw-border tw-border-outline-variant/30 tw-space-y-0.5">
+          <span class="tw-text-label-sm tw-text-outline">${label}</span>
+          <div class="tw-text-label-md tw-font-label-md tw-font-semibold ${tone} tw-flex tw-items-center tw-gap-1.5"><span class="material-symbols-outlined tw-text-primary tw-text-[1.125rem]">${icon}</span><span class="tw-break-all">${escapeHtml(String(value))}</span></div>
+        </div>`;
+      const s = d.server;
+      document.getElementById('sysServerCard').innerHTML = `
+        ${sysCardHeader('developer_board', 'สถานะเซิร์ฟเวอร์และฐานข้อมูล', 'API Server &amp; Database', `<span class="tw-text-label-sm tw-font-mono tw-text-outline">${escapeHtml(s.hostname)}</span>`)}
+        <div class="tw-p-5 tw-space-y-4">
+          <div class="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 tw-gap-3">
+            ${item('terminal', 'ระบบปฏิบัติการ / CPU', `${s.platform} • ${s.cpus} คอร์`)}
+            ${item('code', 'Node.js', s.node)}
+            ${item('schedule', 'เปิดทำงานมาแล้ว', formatDuration(s.uptime_seconds))}
+            ${item('memory', 'หน่วยความจำของแอป', formatBytes(s.memory_rss))}
+            ${item('database', 'ฐานข้อมูล', d.database.version ? `MySQL ${d.database.version}` : 'เชื่อมต่อไม่ได้', d.database.healthy ? 'tw-text-on-surface' : 'tw-text-error')}
+            ${item('speed', 'ความเร็วตอบสนองฐานข้อมูล', d.database.latency_ms === null ? '-' : `${d.database.latency_ms.toFixed(1)} ms`)}
+          </div>
+          <div class="tw-space-y-1.5 tw-p-3 tw-rounded-lg tw-border tw-border-outline-variant/30">
+            <div class="tw-flex tw-items-center tw-justify-between"><span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">หน่วยความจำเครื่องเซิร์ฟเวอร์</span>
+              <span class="tw-text-label-md tw-font-mono tw-text-on-surface">${formatBytes(s.system_memory_total - s.system_memory_free)} / ${formatBytes(s.system_memory_total)}</span></div>
+            <div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-2 tw-overflow-hidden"><div class="tw-bg-secondary tw-h-2 tw-rounded-full" style="width:${Math.min(100, (s.system_memory_total - s.system_memory_free) / s.system_memory_total * 100).toFixed(1)}%"></div></div>
+          </div>
+          <div class="tw-grid tw-grid-cols-3 tw-gap-3 tw-text-center">
+            ${[['อาคาร', d.counts.buildings], ['ห้องเรียน', d.counts.rooms], ['จุดเดินชม', d.counts.tour_points]].map(([label, value]) => `
+              <div class="tw-p-3 tw-rounded-lg tw-bg-surface-container-low/60"><div class="tw-text-headline-sm tw-font-bold tw-text-on-surface">${Number(value || 0).toLocaleString('th-TH')}</div><div class="tw-text-label-sm tw-text-outline">${label}</div></div>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    function renderSysRate() {
+      const d = sysDraft;
+      const choices = [[0, 'ไม่จำกัด'], [120, '120 คำขอ / นาที'], [300, '300 คำขอ / นาที'], [600, '600 คำขอ / นาที (แนะนำ)'], [1200, '1,200 คำขอ / นาที']]
+        .map(([value, label]) => `<option value="${value}" ${d.api_rate_limit === value ? 'selected' : ''}>${label}</option>`).join('');
+      document.getElementById('sysRateCard').innerHTML = `
+        ${sysCardHeader('speed', 'การจำกัดปริมาณคำขอ (API Rate Limiting)', 'ป้องกันการยิงคำขอถี่เกินกำหนดจากโปรแกรมภายนอก')}
+        <div class="tw-p-5 tw-space-y-3">
+          <div><label class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1">จำนวนคำขอสูงสุดต่อ IP</label>
+            <select onchange="setSysDraft('api_rate_limit', Number(this.value))" class="${secSelectClass}">${choices}</select></div>
+          <div class="tw-text-body-sm tw-text-outline tw-space-y-1">
+            <div class="tw-flex tw-items-start tw-gap-1.5"><span class="material-symbols-outlined tw-text-[1rem]">info</span><span>นับเฉพาะ API สาธารณะที่แอปมือถือใช้ (ค้นหาห้อง ดูอาคาร ภาพ 360°) ผู้ดูแลที่ล็อกอินแล้วและหน้า login ไม่ถูกนับ เกินกำหนดจะได้รับข้อความให้รอสักครู่</span></div>
+            <div class="tw-flex tw-items-start tw-gap-1.5 tw-text-tertiary"><span class="material-symbols-outlined tw-text-[1rem]">warning</span><span>นักศึกษาในเครือข่ายมหาวิทยาลัยอาจใช้ IP ร่วมกัน (NAT) ถ้าตั้งต่ำเกินไป อาจทำให้คนทั้งอาคารใช้แอปไม่ได้ จึงแนะนำ 600 ขึ้นไป</span></div>
+          </div>
+        </div>`;
+    }
+
+    function setSysDraft(key, value) {
+      sysDraft[key] = value;
+      if (key === 'convert_webp' || key === 'max_width') renderSysImage();
+    }
+
+    function setSysQuality(value) {
+      sysDraft.quality = Number(value);
+      document.getElementById('sysQualityLabel').textContent = `${sysDraft.quality}%`;
+    }
+
+    function resetSystemDraft() {
+      sysDraft = { ...sysData.settings };
+      renderSysImage();
+      renderSysRate();
+    }
+
+    async function saveSystemSettings() {
+      const button = document.getElementById('sysSaveButton');
+      button.disabled = true;
+      try {
+        const data = await api('/api/admin/system/settings', jsonRequest('PUT', sysDraft));
+        showStatus(data.message);
+        await loadSystemTab();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+      }
     }
 
     // ============ Settings: change password ============

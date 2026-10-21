@@ -1,6 +1,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const os = require('node:os');
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
@@ -458,6 +459,51 @@ for (const name of ['core', 'virtual-tour-plugin', 'map-plugin', 'markers-plugin
     app.use(`/vendor/psv/${name}`, express.static(path.join(NODE_MODULES_DIR, '@photo-sphere-viewer', name)));
 }
 
+// ==========================================
+// 🌟 ตั้งค่าระบบ (การประมวลผลภาพ 360° ที่อัปโหลด + จำกัดคำขอ API) 🌟
+// ==========================================
+const SYSTEM_DEFAULTS = {
+    convert_webp: false, // แปลงภาพ 360° ที่อัปโหลดใหม่เป็น WebP
+    max_width: 8192, // ย่อภาพ 360° ที่กว้างกว่านี้ (พิกเซล)
+    quality: 85, // คุณภาพการบีบอัด (60-100)
+    api_rate_limit: 600, // จำนวนคำขอ API ต่อ IP ต่อนาที (0 = ไม่จำกัด) ไม่นับผู้ที่ล็อกอินเป็นผู้ดูแล
+};
+const SYSTEM_CHOICES = { max_width: [2048, 4096, 8192], api_rate_limit: [0, 120, 300, 600, 1200] };
+const SYSTEM_SETTING_KEY = 'system_settings';
+let systemSettings = { ...SYSTEM_DEFAULTS };
+
+function sanitizeSystemSettings(input, base = SYSTEM_DEFAULTS) {
+    const source = input && typeof input === 'object' ? input : {};
+    const result = { ...base };
+    if (typeof source.convert_webp === 'boolean') result.convert_webp = source.convert_webp;
+    for (const [key, choices] of Object.entries(SYSTEM_CHOICES)) {
+        const value = Number(source[key]);
+        if (choices.includes(value)) result[key] = value;
+    }
+    const quality = Number(source.quality);
+    if (Number.isInteger(quality) && quality >= 60 && quality <= 100) result.quality = quality;
+    return result;
+}
+
+async function reloadSystemSettings() {
+    const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [SYSTEM_SETTING_KEY]);
+    let stored = {};
+    if (rows.length > 0) {
+        try { stored = JSON.parse(rows[0].setting_value); } catch (err) { stored = {}; }
+    }
+    systemSettings = sanitizeSystemSettings(stored);
+}
+
+// จำกัดคำขอ API ต่อ IP (ค่าตั้งได้ที่ Settings > ระบบและพื้นที่จัดเก็บ) ผู้ดูแลที่ล็อกอินแล้วและหน้า login (มีตัวจำกัดของตัวเอง) ไม่ถูกนับ
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: () => systemSettings.api_rate_limit || Number.MAX_SAFE_INTEGER,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: req => systemSettings.api_rate_limit === 0 || Boolean(req.session?.userId) || req.path.startsWith('/login'),
+    message: { error: 'ส่งคำขอถี่เกินไป กรุณารอสักครู่แล้วลองใหม่' },
+});
+
 const sessionStore = new session.MemoryStore();
 app.use(session({
     store: sessionStore,
@@ -477,6 +523,7 @@ app.use((req, res, next) => {
 });
 // จำกัด IP เฉพาะหน้า login และ API ผู้ดูแล (API สาธารณะของแอปมือถือไม่ถูกจำกัด)
 app.use(['/api/login', '/api/admin'], ipGate);
+app.use('/api', apiLimiter);
 
 // ==========================================
 // 🌟 บันทึกกิจกรรม (System Logs) 🌟
@@ -1076,6 +1123,95 @@ app.get('/api/admin/security/events', requireUserAdmin, asyncRoute(async (req, r
 }));
 
 // ==========================================
+// 🌟 ระบบและพื้นที่จัดเก็บ (System & Storage) — เฉพาะผู้จัดการระบบ 🌟
+// ==========================================
+const STORAGE_DIRS = [
+    { key: 'panoramas', label: 'ภาพ 360° (Panorama)', dir: PANORAMA_DIR },
+    { key: 'tour-images', label: 'ภาพเดินชม 360° (Virtual Tour)', dir: TOUR_IMAGE_DIR },
+    { key: 'floorplans', label: 'แผนผังชั้น (Floor Plans)', dir: FLOORPLAN_DIR },
+    { key: 'covers', label: 'รูปปกอาคาร (Covers)', dir: COVER_DIR },
+];
+
+async function directoryStats(dir) {
+    let files = 0; let bytes = 0;
+    for (const entry of await fs.promises.readdir(dir, { withFileTypes: true })) {
+        if (!entry.isFile()) continue;
+        const stat = await fs.promises.stat(path.join(dir, entry.name));
+        files += 1; bytes += stat.size;
+    }
+    return { files, bytes };
+}
+
+app.get('/api/admin/system', requireUserAdmin, asyncRoute(async (req, res) => {
+    const directories = [];
+    for (const item of STORAGE_DIRS) {
+        let stats = { files: 0, bytes: 0 };
+        let writable = true;
+        try { stats = await directoryStats(item.dir); } catch (err) { writable = false; }
+        try { fs.accessSync(item.dir, fs.constants.W_OK); } catch (err) { writable = false; }
+        directories.push({ key: item.key, label: item.label, ...stats, writable });
+    }
+    let disk = null;
+    try {
+        const stat = await fs.promises.statfs(PUBLIC_DIR);
+        disk = { total: stat.blocks * stat.bsize, free: stat.bavail * stat.bsize };
+    } catch (err) { disk = null; }
+
+    const timings = [];
+    let version = null;
+    let healthy = true;
+    try {
+        for (let i = 0; i < 3; i += 1) {
+            const started = process.hrtime.bigint();
+            const [[row]] = await pdb.query('SELECT VERSION() AS version');
+            timings.push(Number(process.hrtime.bigint() - started) / 1e6);
+            version = row.version;
+        }
+    } catch (err) { healthy = false; }
+    let dbSize = null;
+    let counts = {};
+    if (healthy) {
+        const [[sizeRow]] = await pdb.query(
+            `SELECT COALESCE(SUM(data_length + index_length), 0) AS bytes, COUNT(*) AS tables
+             FROM information_schema.tables WHERE table_schema = DATABASE()`);
+        dbSize = { bytes: Number(sizeRow.bytes), tables: Number(sizeRow.tables) };
+        const [[countRow]] = await pdb.query(`
+            SELECT (SELECT COUNT(*) FROM buildings) AS buildings, (SELECT COUNT(*) FROM rooms) AS rooms,
+                   (SELECT COUNT(*) FROM panoramas) AS panoramas, (SELECT COUNT(*) FROM floor_plans) AS floor_plans,
+                   (SELECT COUNT(*) FROM tour_points) AS tour_points, (SELECT COUNT(*) FROM admin_users) AS admin_users`);
+        counts = countRow;
+    }
+    const memory = process.memoryUsage();
+    res.json({
+        healthy: healthy && directories.every(item => item.writable),
+        storage: { directories, total_bytes: directories.reduce((sum, item) => sum + item.bytes, 0), disk },
+        database: {
+            healthy, version, latency_ms: timings.length ? timings.reduce((a, b) => a + b, 0) / timings.length : null,
+            size_bytes: dbSize ? dbSize.bytes : null, tables: dbSize ? dbSize.tables : null,
+        },
+        counts,
+        server: {
+            hostname: os.hostname(), node: process.version, platform: `${os.type()} ${os.arch()}`, cpus: os.cpus().length,
+            uptime_seconds: Math.round(process.uptime()), memory_rss: memory.rss, memory_heap_used: memory.heapUsed,
+            system_memory_total: os.totalmem(), system_memory_free: os.freemem(),
+        },
+        settings: systemSettings, choices: SYSTEM_CHOICES,
+    });
+}));
+
+app.put('/api/admin/system/settings', requireUserAdmin, asyncRoute(async (req, res) => {
+    const next = sanitizeSystemSettings({ ...systemSettings, ...(req.body || {}) }, systemSettings);
+    await pdb.query(
+        `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [SYSTEM_SETTING_KEY, JSON.stringify(next)]);
+    const changed = Object.keys(next).filter(key => next[key] !== systemSettings[key]);
+    systemSettings = next;
+    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขการตั้งค่าระบบ${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
+    res.json({ message: 'บันทึกการตั้งค่าระบบสำเร็จ!', settings: systemSettings });
+}));
+
+// ==========================================
 // 🌟 ไฟล์ที่อัปโหลด (แผนผังชั้น / ภาพพาโนรามา) 🌟
 // ==========================================
 const IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -1133,9 +1269,41 @@ async function saveUploadedImage(file, rule) {
     if (!ext || !info.width || !info.height) {
         throw new HttpError(400, IMAGE_TYPE_ERROR);
     }
+    if (rule === PANORAMA_RULE) {
+        const processed = await processPanoramaImage(file.buffer, info, ext);
+        const processedName = `${rule.filePrefix}${crypto.randomBytes(8).toString('hex')}${processed.ext}`;
+        await fs.promises.writeFile(path.join(rule.dir, processedName), processed.buffer);
+        return { url: `${rule.urlPrefix}${processedName}`, width: processed.width, height: processed.height };
+    }
     const fileName = `${rule.filePrefix}${crypto.randomBytes(8).toString('hex')}${ext}`;
     await fs.promises.writeFile(path.join(rule.dir, fileName), file.buffer);
     return { url: `${rule.urlPrefix}${fileName}`, width: info.width, height: info.height };
+}
+
+// ภาพ 360° ที่อัปโหลดใหม่: ย่อถ้ากว้างเกินขีดจำกัด และ/หรือแปลงเป็น WebP ตามการตั้งค่าระบบ (ไม่แตะไฟล์เดิมที่อัปโหลดไปแล้ว)
+async function processPanoramaImage(buffer, info, ext) {
+    const { convert_webp: convertWebp, max_width: maxWidth, quality } = systemSettings;
+    const needsResize = info.width > maxWidth;
+    if (!convertWebp && !needsResize) return { buffer, ext, width: info.width, height: info.height };
+    let pipeline = sharp(buffer, { limitInputPixels: 20000 * 10000 });
+    if (needsResize) pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true });
+    let outExt = ext;
+    if (convertWebp) {
+        pipeline = pipeline.webp({ quality });
+        outExt = '.webp';
+    } else if (ext === '.jpg') {
+        pipeline = pipeline.jpeg({ quality, mozjpeg: true });
+    } else if (ext === '.png') {
+        pipeline = pipeline.png({ compressionLevel: 9 });
+    } else {
+        pipeline = pipeline.webp({ quality });
+    }
+    try {
+        const { data, info: out } = await pipeline.toBuffer({ resolveWithObject: true });
+        return { buffer: data, ext: outExt, width: out.width, height: out.height };
+    } catch (err) {
+        throw new HttpError(400, 'ประมวลผลภาพไม่สำเร็จ ไฟล์อาจเสียหายหรือใหญ่เกินไป');
+    }
 }
 
 function removeUploadedFiles(urls) {
@@ -2886,6 +3054,7 @@ async function ensureDashboardSchema(attempt = 1) {
         await seedAdminUsers();
         await pdb.query('UPDATE admin_users SET password_changed_at = NOW() WHERE password_changed_at IS NULL');
         await reloadSecuritySettings();
+        await reloadSystemSettings();
         if (floorPlansIsNew) {
             for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
                 await pdb.query(
