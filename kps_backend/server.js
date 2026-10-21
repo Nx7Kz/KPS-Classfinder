@@ -1086,15 +1086,7 @@ app.get('/api/admin/security/audit', requireUserAdmin, asyncRoute(async (req, re
     const activeUsers = users.filter(user => user.status === 'active');
     const twoFactorCount = activeUsers.filter(user => user.totp_enabled).length;
 
-    // บัญชีที่ยังใช้รหัสผ่านเริ่มต้น (ค่าตั้งต้นในระบบ/docker-compose หรือรหัสเท่ากับชื่อผู้ใช้)
-    const defaultCandidates = new Set(['admin1234', 'editor1234', process.env.ADMIN_PASSWORD, process.env.EDITOR_PASSWORD].filter(Boolean));
-    const weakAccounts = [];
-    for (const user of activeUsers) {
-        const candidates = [...defaultCandidates, user.username];
-        for (const candidate of candidates) {
-            if (await bcrypt.compare(candidate, user.password_hash)) { weakAccounts.push(user.username); break; }
-        }
-    }
+    const weakAccounts = await findDefaultPasswordAccounts();
     const [[failed]] = await pdb.query(
         "SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
     const sessions = await countActiveSessions();
@@ -1659,6 +1651,133 @@ app.post('/api/admin/backups/:name/restore', requireUserAdmin, changePasswordLim
     });
     logActivity({ ip: clientIp(req) }, { action: 'update', entity: 'backup', username: actor, detail: `กู้คืนข้อมูลจาก ${name} สำเร็จ (ไฟล์ภาพ ${outcome.files} ไฟล์, สำรองก่อนกู้คืนไว้ที่ ${outcome.safety})` });
     res.json({ message: 'กู้คืนข้อมูลสำเร็จ! กรุณาเข้าสู่ระบบใหม่', safety_backup: outcome.safety, files: outcome.files });
+}));
+
+// ==========================================
+// 🌟 การแจ้งเตือน (กระดิ่ง) — คำนวณจากสถานะจริงของระบบ แสดงตามสิทธิ์ของบัญชี 🌟
+// ==========================================
+const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
+const DEFAULT_PASSWORD_CACHE_MS = 60 * 60 * 1000;
+let defaultPasswordCache = null; // { signature, at, accounts }
+
+// บัญชีที่ยังใช้รหัสผ่านเริ่มต้น (ค่าตั้งต้นในระบบ/docker-compose หรือรหัสเท่ากับชื่อผู้ใช้)
+// bcrypt ช้า จึงเก็บผลไว้ และคำนวณใหม่เมื่อรหัสผ่านของใครเปลี่ยน (ดูจาก signature) หรือเกิน 1 ชั่วโมง
+async function findDefaultPasswordAccounts() {
+    const [users] = await pdb.query("SELECT id, username, password_hash FROM admin_users WHERE status = 'active' ORDER BY id");
+    const signature = crypto.createHash('sha256').update(users.map(user => `${user.id}:${user.password_hash}`).join('|')).digest('hex');
+    if (defaultPasswordCache && defaultPasswordCache.signature === signature && Date.now() - defaultPasswordCache.at < DEFAULT_PASSWORD_CACHE_MS) {
+        return defaultPasswordCache.accounts;
+    }
+    const defaults = new Set(['admin1234', 'editor1234', process.env.ADMIN_PASSWORD, process.env.EDITOR_PASSWORD].filter(Boolean));
+    const accounts = [];
+    for (const user of users) {
+        for (const candidate of [...defaults, user.username]) {
+            if (await bcrypt.compare(candidate, user.password_hash)) { accounts.push(user.username); break; }
+        }
+    }
+    defaultPasswordCache = { signature, at: Date.now(), accounts };
+    return accounts;
+}
+
+function daysAgoText(iso) {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    return days <= 0 ? 'วันนี้' : `${days} วันที่แล้ว`;
+}
+
+async function buildNotifications(user) {
+    const items = [];
+    const can = key => hasPermission(user.role, key);
+    const add = (id, severity, icon, title, detail, action = null) => items.push({ id, severity, icon, title, detail, action });
+    const manage = can('settings.manage');
+    const seesAllLogs = can('logs.all');
+
+    // --- เรื่องของบัญชีตัวเอง (ทุกบทบาท) ---
+    const [[self]] = await pdb.query('SELECT totp_enabled, password_changed_at FROM admin_users WHERE id = ?', [user.id]);
+    const expiryDays = securitySettings.password_expiry_days;
+    if (expiryDays > 0 && self.password_changed_at) {
+        const remaining = Math.ceil((new Date(self.password_changed_at).getTime() + expiryDays * 86400000 - Date.now()) / 86400000);
+        if (remaining > 0 && remaining <= 7) {
+            add(`password_expiring:${remaining}`, 'warning', 'lock_clock', `รหัสผ่านของคุณจะหมดอายุใน ${remaining} วัน`, 'เปลี่ยนรหัสผ่านก่อนหมดอายุเพื่อไม่ให้ถูกบังคับเปลี่ยนตอนใช้งาน', { page: 'settings', tab: 'profile' });
+        }
+    }
+    if (!manage && !self.totp_enabled) {
+        add('own_2fa', 'info', 'phonelink_lock', 'บัญชีของคุณยังไม่ได้เปิด 2FA', 'เปิดการยืนยันตัวตน 2 ขั้นตอนเพื่อปกป้องบัญชีของคุณ', { page: 'settings', tab: 'security' });
+    }
+
+    // --- ความพยายามล็อกอินผิด (ผู้ที่ดูบันทึกของทุกคนได้) ---
+    if (seesAllLogs || manage) {
+        const [[failed]] = await pdb.query("SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
+        if (failed.total > 0) {
+            add(`failed_logins:${failed.total}`, failed.total >= 10 ? 'warning' : 'info', 'gpp_maybe', `ล็อกอินไม่สำเร็จ ${failed.total} ครั้งใน 24 ชั่วโมง`,
+                failed.total >= 10 ? 'มากผิดปกติ อาจมีคนพยายามเดารหัสผ่าน ตรวจ IP ใน System Logs' : 'ตรวจรายละเอียดและ IP ใน System Logs', { page: 'logs' });
+        }
+    }
+
+    // --- เรื่องของผู้จัดการระบบ ---
+    if (manage) {
+        const weak = await findDefaultPasswordAccounts();
+        if (weak.length > 0) {
+            add(`default_passwords:${weak.join(',')}`, 'critical', 'key_off', `${weak.length} บัญชียังใช้รหัสผ่านเริ่มต้น`, `บัญชี: ${weak.join(', ')} — เปลี่ยนรหัสผ่านทันที`, { page: 'settings', tab: 'admins' });
+        }
+        const [locked] = await pdb.query("SELECT username FROM admin_users WHERE locked_until IS NOT NULL AND locked_until > NOW()");
+        if (locked.length > 0) {
+            add(`locked:${locked.map(row => row.username).join(',')}`, 'warning', 'lock', `${locked.length} บัญชีถูกล็อกชั่วคราว`, `${locked.map(row => row.username).join(', ')} — ใส่รหัสผิดหลายครั้ง (ล็อกอัตโนมัติ 15 นาที) ตรวจว่าเป็นเจ้าของบัญชีหรือผู้บุกรุก`, { page: 'logs' });
+        }
+        const [noTwoFa] = await pdb.query("SELECT username FROM admin_users WHERE status = 'active' AND totp_enabled = 0 ORDER BY id");
+        if (noTwoFa.length > 0) {
+            add(`no_2fa:${noTwoFa.length}`, 'info', 'phonelink_lock', `${noTwoFa.length} บัญชียังไม่ได้เปิด 2FA`,
+                `${noTwoFa.slice(0, 3).map(row => row.username).join(', ')}${noTwoFa.length > 3 ? ' และอื่นๆ' : ''} — แนะนำให้เปิด ก่อนขึ้นระบบจริง`, { page: 'settings', tab: 'security' });
+        }
+
+        // สำรองข้อมูล
+        const backups = await listBackups();
+        const latest = backups[0];
+        const run = backupSettings.last_run;
+        if (run && run.status === 'failed') {
+            add(`backup_failed:${run.at}`, 'critical', 'error', 'การสำรองข้อมูลล้มเหลว', `${run.error || 'ไม่ทราบสาเหตุ'} (${daysAgoText(run.at)})`, { page: 'settings', tab: 'backups' });
+        }
+        if (!latest) {
+            add('backup_none', 'warning', 'backup', 'ยังไม่มีไฟล์สำรองข้อมูล', 'สร้างไฟล์สำรองไว้ก่อน เผื่อข้อมูลเสียหาย', { page: 'settings', tab: 'backups' });
+        } else if (backupSettings.enabled && Date.now() - new Date(latest.created_at).getTime() > 2 * 86400000) {
+            add(`backup_stale:${latest.name}`, 'warning', 'schedule', `ไม่มีการสำรองข้อมูลมา ${daysAgoText(latest.created_at).replace(' ที่แล้ว', '')}`, 'เปิดสำรองอัตโนมัติไว้แต่ไม่ได้ทำงาน ตรวจว่าเซิร์ฟเวอร์เปิดอยู่ตามเวลา', { page: 'settings', tab: 'backups' });
+        } else if (!backupSettings.enabled) {
+            const old = Date.now() - new Date(latest.created_at).getTime() > 7 * 86400000;
+            add(`backup_manual_only:${old ? 'old' : 'ok'}`, old ? 'warning' : 'info', 'backup', 'ยังไม่ได้เปิดสำรองข้อมูลอัตโนมัติ',
+                old ? `ไฟล์สำรองล่าสุดอายุ ${daysAgoText(latest.created_at).replace(' ที่แล้ว', '')} แล้ว` : 'แนะนำให้ตั้งสำรองทุกวันเพื่อไม่ต้องจำ', { page: 'settings', tab: 'backups' });
+        }
+        if (backupSettings.last_verify && backupSettings.last_verify.failed.length > 0) {
+            add(`verify_failed:${backupSettings.last_verify.at}`, 'critical', 'broken_image', 'ไฟล์สำรองบางไฟล์ไม่ผ่านการตรวจสอบ', `${backupSettings.last_verify.failed.join(', ')} อาจเสียหาย ควรสำรองใหม่`, { page: 'settings', tab: 'backups' });
+        }
+        if (backupSettings.last_drill && !backupSettings.last_drill.ok) {
+            add(`drill_failed:${backupSettings.last_drill.at}`, 'warning', 'vital_signs', 'ทดสอบกู้คืนจำลองไม่ผ่าน', `ไฟล์ ${backupSettings.last_drill.backup} กู้แล้วข้อมูลไม่ตรงกับตอนสำรอง`, { page: 'settings', tab: 'backups' });
+        }
+
+        // พื้นที่ดิสก์และโฟลเดอร์ไฟล์
+        try {
+            const stat = await fs.promises.statfs(PUBLIC_DIR);
+            const total = stat.blocks * stat.bsize;
+            const free = stat.bavail * stat.bsize;
+            const freePercent = total > 0 ? free / total * 100 : 100;
+            if (freePercent < 15) {
+                add(`disk_low:${freePercent < 5 ? 'critical' : 'warning'}`, freePercent < 5 ? 'critical' : 'warning', 'hard_drive',
+                    `พื้นที่ดิสก์เหลือน้อย (${freePercent.toFixed(1)}%)`, `เหลือ ${(free / 1073741824).toFixed(1)} GB จาก ${(total / 1073741824).toFixed(0)} GB ลบไฟล์สำรองเก่าหรือเพิ่มพื้นที่`, { page: 'settings', tab: 'system' });
+            }
+        } catch (err) { /* อ่านพื้นที่ดิสก์ไม่ได้บนระบบนี้ ข้ามการเตือน */ }
+        const unwritable = [FLOORPLAN_DIR, PANORAMA_DIR, COVER_DIR, TOUR_IMAGE_DIR].filter((dir) => {
+            try { fs.accessSync(dir, fs.constants.W_OK); return false; } catch (err) { return true; }
+        });
+        if (unwritable.length > 0) {
+            add(`storage_unwritable:${unwritable.length}`, 'critical', 'folder_off', 'โฟลเดอร์เก็บรูปภาพเขียนไฟล์ไม่ได้', 'อัปโหลดรูปจะล้มเหลว ตรวจสิทธิ์ของโฟลเดอร์ใน Docker volume', { page: 'settings', tab: 'system' });
+        }
+    }
+
+    items.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+    return items;
+}
+
+app.get('/api/admin/notifications', requireAnyUser, asyncRoute(async (req, res) => {
+    const items = await buildNotifications(req.user);
+    res.json({ items, counts: { critical: items.filter(i => i.severity === 'critical').length, warning: items.filter(i => i.severity === 'warning').length, info: items.filter(i => i.severity === 'info').length } });
 }));
 
 // ==========================================

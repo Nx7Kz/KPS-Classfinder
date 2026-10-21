@@ -29,6 +29,9 @@
       'primary-container': '#15803d', 'primary': '#00652c', 'tertiary': '#854600',
       'surface-container-high': '#e2e7ff', 'on-tertiary-fixed': '#2f1500', 'surface-container-highest': '#dae2fd',
       'primary-fixed': '#95f8a7', 'on-surface-variant': '#3f493f', 'surface-variant': '#dae2fd',
+      'on-primary-fixed-variant': '#005323', 'tertiary-fixed-dim': '#ffb77d', 'on-tertiary-fixed-variant': '#6e3900',
+      'on-secondary-fixed-variant': '#00504a', 'secondary-fixed': '#9cf2e8', 'secondary-fixed-dim': '#80d5cb',
+      'primary-fixed-dim': '#79db8d', 'on-tertiary-container': '#fff1e9',
     };
     const M3_DARK = {
       'on-secondary': '#00201d', 'on-tertiary': '#2f1500', 'on-primary-fixed': '#bbf7d0', 'on-primary': '#052e16',
@@ -41,6 +44,9 @@
       'primary-container': '#22c55e', 'primary': '#4ade80', 'tertiary': '#ffb77d',
       'surface-container-high': '#243329', 'on-tertiary-fixed': '#ffdcc3', 'surface-container-highest': '#2c3d32',
       'primary-fixed': '#14532d', 'on-surface-variant': '#b6c4bb', 'surface-variant': '#2c3d32',
+      'on-primary-fixed-variant': '#86efac', 'tertiary-fixed-dim': '#7a4a1c', 'on-tertiary-fixed-variant': '#ffdcc3',
+      'on-secondary-fixed-variant': '#99f6e4', 'secondary-fixed': '#134e4a', 'secondary-fixed-dim': '#0f766e',
+      'primary-fixed-dim': '#166534', 'on-tertiary-container': '#2f1500',
     };
     const hexToChannels = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ');
     const m3Css = (palette) => Object.entries(palette).map(([k, v]) => `--m3-${k}:${hexToChannels(v)};`).join('');
@@ -344,6 +350,7 @@
       body.sidebar-open { overflow: hidden; }
       #appMain { margin-left: 0; }
       #appMain > header { padding-left: .9rem; padding-right: .9rem; gap: .5rem; }
+      #notifPanel { position: fixed !important; left: .75rem; right: .75rem; top: 4.25rem; width: auto !important; }
       #pageTitle { font-size: 1.1rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
       .content-body { padding: 1.1rem; }
       .toolbar { padding: 1.1rem !important; }
@@ -544,10 +551,23 @@
             <button type="button" id="themeToggle" onclick="toggleTheme()" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface tw-rounded-full tw-p-2 tw-transition-colors active:tw-scale-95" title="สลับโหมดการแสดงผล" aria-label="สลับโหมดมืด/สว่าง">
               <span class="material-symbols-outlined tw-text-[1.25rem]">dark_mode</span>
             </button>
-            <button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface tw-rounded-full tw-p-2 tw-transition-colors active:tw-scale-95 tw-relative" title="การแจ้งเตือน (ล็อกอินไม่สำเร็จใน 24 ชั่วโมงล่าสุด)" aria-label="การแจ้งเตือน">
-              <span class="material-symbols-outlined tw-text-[1.25rem]">notifications</span>
-              <span id="bellDot" class="tw-hidden tw-absolute tw-top-2 tw-right-2 tw-w-2 tw-h-2 tw-bg-error tw-rounded-full"></span>
-            </button>
+            <div id="notifWrap" class="tw-relative">
+              <button id="bellButton" type="button" onclick="toggleNotifPanel()" class="tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface tw-rounded-full tw-p-2 tw-transition-colors active:tw-scale-95 tw-relative tw-flex" title="การแจ้งเตือน" aria-label="การแจ้งเตือน" aria-haspopup="dialog" aria-expanded="false">
+                <span class="material-symbols-outlined tw-text-[1.25rem]">notifications</span>
+                <span id="bellBadge" class="tw-hidden"></span>
+              </button>
+              <div id="notifPanel" role="dialog" aria-label="การแจ้งเตือน" class="tw-hidden tw-absolute tw-right-0 tw-top-full tw-mt-2 tw-w-[23rem] tw-bg-surface-container-lowest tw-border tw-border-outline-variant/40 tw-rounded-xl tw-shadow-[0_20px_50px_-12px_rgba(15,23,42,0.35)] tw-z-50 tw-overflow-hidden">
+                <div class="tw-flex tw-items-center tw-justify-between tw-gap-2 tw-px-4 tw-py-3 tw-border-b tw-border-outline-variant/25">
+                  <div class="tw-flex tw-items-baseline tw-gap-2"><span class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface">การแจ้งเตือน</span><span id="notifCount" class="tw-text-label-sm tw-text-outline"></span></div>
+                  <button id="notifReadAll" type="button" onclick="markAllNotificationsRead()" class="tw-hidden tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-label-sm tw-font-semibold tw-text-primary hover:tw-underline">อ่านทั้งหมดแล้ว</button>
+                </div>
+                <div id="notifList" class="tw-max-h-[26rem] tw-overflow-y-auto tw-p-2"></div>
+                <div class="tw-px-4 tw-py-2.5 tw-border-t tw-border-outline-variant/25 tw-flex tw-items-center tw-justify-between tw-text-label-sm tw-text-outline">
+                  <span>คำนวณจากสถานะจริงของระบบ</span>
+                  <button type="button" onclick="loadNotifications()" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-primary tw-font-semibold hover:tw-underline tw-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[1rem]">refresh</span>รีเฟรช</button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="tw-h-6 tw-w-px tw-bg-outline-variant/30 tw-mx-1"></div>
           <div class="tw-flex tw-items-center tw-gap-2.5 tw-pl-1">
@@ -2333,6 +2353,8 @@
 
     function showPage(page) {
       closeSidebar();
+      document.getElementById('notifPanel').classList.add('tw-hidden');
+      loadNotifications();
       document.querySelectorAll('.page-section').forEach(section => section.classList.add('d-none'));
       document.getElementById(`page-${page}`).classList.remove('d-none');
       document.querySelectorAll('.sidebar-nav button[data-page]').forEach(link => {
@@ -2576,6 +2598,8 @@
       loadHealth();
       loadProfile();
       showRestrictionModal(session.restrictions || []);
+      loadNotifications();
+      startNotificationPolling();
     }
 
     // หน้าแรกหลังเข้าสู่ระบบ: หน้าแรกที่บัญชีนี้มีสิทธิ์เข้า
@@ -2598,7 +2622,6 @@
         dot.classList.toggle('tw-bg-primary-container', health.ok);
         dot.classList.toggle('tw-bg-error', !health.ok);
         text.textContent = health.ok ? `ระบบออนไลน์ปกติ • ${today}` : `ระบบมีปัญหา • ${today}`;
-        document.getElementById('bellDot').classList.toggle('tw-hidden', !(health.failed_logins_24h > 0));
       } catch (error) {
         if (error instanceof SessionExpiredError) return;
         dot.classList.replace('tw-bg-primary-container', 'tw-bg-error');
@@ -6435,6 +6458,109 @@
         submit.textContent = 'กู้คืนข้อมูล';
       }
     }
+
+    // ============ กระดิ่งแจ้งเตือน ============
+    // รายการคำนวณที่เซิร์ฟเวอร์จากสถานะจริงและสิทธิ์ของบัญชี ส่วน "อ่านแล้ว" จำไว้ในเบราว์เซอร์ (ID มีสถานะต่อท้าย เรื่องใหม่จึงกลับมาเป็นยังไม่อ่าน)
+    let notifItems = [];
+    let notifTimer = null;
+    const NOTIF_STYLES = {
+      critical: { tile: 'tw-bg-error-container tw-text-on-error-container', ring: 'tw-border-error/30 tw-bg-error-container/20', label: 'เร่งด่วน' },
+      warning: { tile: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant', ring: 'tw-border-tertiary-fixed-dim/50 tw-bg-tertiary-fixed/20', label: 'ควรตรวจสอบ' },
+      info: { tile: 'tw-bg-secondary-container/60 tw-text-on-secondary-container', ring: 'tw-border-outline-variant/30', label: 'ข้อเสนอแนะ' },
+    };
+
+    function notifStorageKey() {
+      return `kps_notif_read_${document.getElementById('settingsUsername').textContent || ''}`;
+    }
+    function readNotifIds() {
+      try { return new Set(JSON.parse(localStorage.getItem(notifStorageKey()) || '[]')); } catch (_) { return new Set(); }
+    }
+    function writeNotifIds(ids) {
+      const current = new Set(notifItems.map(item => item.id));
+      try { localStorage.setItem(notifStorageKey(), JSON.stringify([...ids].filter(id => current.has(id)))); } catch (_) { /* โหมดส่วนตัว เก็บไม่ได้ก็ไม่เป็นไร */ }
+    }
+
+    async function loadNotifications() {
+      if (!document.getElementById('dashboardSection').classList.contains('d-flex')) return;
+      try {
+        const data = await api('/api/admin/notifications');
+        notifItems = data.items;
+        renderNotifications();
+      } catch (error) {
+        if (!(error instanceof SessionExpiredError)) console.error('โหลดการแจ้งเตือนไม่สำเร็จ:', error);
+      }
+    }
+
+    function startNotificationPolling() {
+      if (notifTimer) return;
+      notifTimer = setInterval(loadNotifications, 120000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) loadNotifications(); });
+    }
+
+    function renderNotifications() {
+      const read = readNotifIds();
+      const unread = notifItems.filter(item => item.severity !== 'info' && !read.has(item.id));
+      const badge = document.getElementById('bellBadge');
+      badge.classList.toggle('tw-hidden', unread.length === 0);
+      badge.textContent = unread.length > 9 ? '9+' : String(unread.length);
+      badge.className = `${unread.length === 0 ? 'tw-hidden ' : ''}tw-absolute tw-top-0.5 tw-right-0 tw-min-w-[1.1rem] tw-h-[1.1rem] tw-px-1 tw-rounded-full tw-text-[0.625rem] tw-font-bold tw-flex tw-items-center tw-justify-center tw-text-white ${unread.some(item => item.severity === 'critical') ? 'tw-bg-error' : 'tw-bg-tertiary-container'}`;
+      document.getElementById('bellButton').title = unread.length > 0 ? `การแจ้งเตือน (${unread.length} เรื่องที่ยังไม่อ่าน)` : 'การแจ้งเตือน';
+
+      document.getElementById('notifCount').textContent = notifItems.length === 0 ? '' : `${notifItems.length} เรื่อง`;
+      document.getElementById('notifList').innerHTML = notifItems.length === 0
+        ? `<div class="tw-py-10 tw-px-6 tw-text-center">
+             <span class="material-symbols-outlined tw-text-[2.5rem] tw-text-primary">task_alt</span>
+             <div class="tw-text-label-md tw-font-semibold tw-text-on-surface tw-mt-2">ไม่มีเรื่องที่ต้องดำเนินการ</div>
+             <div class="tw-text-body-sm tw-text-outline tw-mt-0.5">ระบบทำงานปกติ</div></div>`
+        : notifItems.map((item, index) => {
+          const style = NOTIF_STYLES[item.severity] || NOTIF_STYLES.info;
+          const isUnread = item.severity !== 'info' && !read.has(item.id);
+          return `
+          <button type="button" onclick="openNotification(${index})" class="tw-appearance-none tw-text-left tw-w-full tw-cursor-pointer tw-flex tw-items-start tw-gap-3 tw-p-3 tw-mb-2 tw-rounded-lg tw-border ${style.ring} hover:tw-bg-surface-container-low tw-transition-colors ${isUnread ? '' : 'tw-opacity-80'}">
+            <span class="tw-w-9 tw-h-9 tw-rounded-lg ${style.tile} tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.25rem]">${escapeHtml(item.icon)}</span></span>
+            <span class="tw-flex-1 tw-min-w-0">
+              <span class="tw-flex tw-items-center tw-gap-2"><span class="tw-text-label-md tw-font-label-md ${isUnread ? 'tw-font-bold' : 'tw-font-medium'} tw-text-on-surface">${escapeHtml(item.title)}</span>${isUnread ? '<span class="tw-w-2 tw-h-2 tw-rounded-full tw-bg-error tw-shrink-0"></span>' : ''}</span>
+              <span class="tw-block tw-text-body-sm tw-text-on-surface-variant tw-mt-0.5">${escapeHtml(item.detail)}</span>
+              <span class="tw-block tw-text-label-sm tw-text-outline tw-mt-1">${style.label}${item.action ? ' • แตะเพื่อไปจัดการ' : ''}</span>
+            </span>
+          </button>`;
+        }).join('');
+      document.getElementById('notifReadAll').classList.toggle('tw-hidden', unread.length === 0);
+    }
+
+    function toggleNotifPanel(forceOpen) {
+      const panel = document.getElementById('notifPanel');
+      const open = forceOpen === undefined ? panel.classList.contains('tw-hidden') : forceOpen;
+      panel.classList.toggle('tw-hidden', !open);
+      document.getElementById('bellButton').setAttribute('aria-expanded', String(open));
+      if (open) loadNotifications();
+    }
+
+    function markAllNotificationsRead() {
+      const ids = readNotifIds();
+      notifItems.forEach(item => ids.add(item.id));
+      writeNotifIds(ids);
+      renderNotifications();
+    }
+
+    function openNotification(index) {
+      const item = notifItems[index];
+      if (!item) return;
+      const ids = readNotifIds();
+      ids.add(item.id);
+      writeNotifIds(ids);
+      toggleNotifPanel(false);
+      renderNotifications();
+      if (!item.action) return;
+      showPage(item.action.page);
+      if (item.action.tab) showSettingsTab(item.action.tab);
+    }
+
+    document.addEventListener('click', (event) => {
+      const wrap = document.getElementById('notifWrap');
+      if (wrap && !wrap.contains(event.target)) document.getElementById('notifPanel').classList.add('tw-hidden');
+    });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') document.getElementById('notifPanel').classList.add('tw-hidden'); });
 
     // ============ Settings: change password ============
     async function changePassword(event) {
