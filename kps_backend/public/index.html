@@ -326,19 +326,25 @@
     @media (max-width: 767.98px) {
       html { font-size: 16px; }
       .app-shell { flex-direction: column; }
-      /* จอแคบ: แถบเมนูซ้ายกลายเป็นแถบเลื่อนแนวนอนด้านบน */
+      /* จอแคบ: เมนูซ้ายซ่อนไว้ กดปุ่ม ☰ ที่แถบบนแล้วเลื่อนออกมาเป็นลิ้นชักเต็มความสูง (กดฉากหลัง/เลือกเมนู/กด Esc เพื่อปิด) */
       #appSidebar {
-        position: static; width: 100%; height: auto; flex-direction: row; justify-content: flex-start; align-items: center;
-        overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; padding: .6rem; gap: .4rem; border-right: 0;
+        position: fixed; top: 0; left: 0; bottom: 0; width: min(18rem, 86vw); height: 100vh; height: 100dvh; z-index: 1045;
+        transform: translateX(-102%); visibility: hidden; box-shadow: none;
+        transition: transform .25s ease, visibility 0s linear .25s, box-shadow .25s ease;
       }
-      #appSidebar > div { flex-direction: row; gap: .4rem; }
-      #appSidebar .sidebar-brand-block { display: none; }
-      #appSidebar .sidebar-nav { flex-direction: row; gap: .4rem; }
-      #appSidebar .sidebar-nav button { white-space: nowrap; width: auto; padding: .55rem .75rem; }
-      #appSidebar .sidebar-footer { border-top: 0; padding-top: 0; flex-shrink: 0; }
-      #appSidebar .sidebar-footer button { white-space: nowrap; padding: .55rem .75rem; }
+      body.sidebar-open #appSidebar {
+        transform: none; visibility: visible; box-shadow: 0 0 40px rgb(15 23 42 / .35);
+        transition: transform .25s ease, visibility 0s, box-shadow .25s ease;
+      }
+      #sidebarOverlay {
+        position: fixed; inset: 0; z-index: 1040; background: rgb(0 0 0 / .5); opacity: 0; visibility: hidden;
+        transition: opacity .25s ease, visibility 0s linear .25s;
+      }
+      body.sidebar-open #sidebarOverlay { opacity: 1; visibility: visible; transition: opacity .25s ease, visibility 0s; }
+      body.sidebar-open { overflow: hidden; }
       #appMain { margin-left: 0; }
-      #appMain > header { padding-left: 1.1rem; padding-right: 1.1rem; }
+      #appMain > header { padding-left: .9rem; padding-right: .9rem; gap: .5rem; }
+      #pageTitle { font-size: 1.1rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
       .content-body { padding: 1.1rem; }
       .toolbar { padding: 1.1rem !important; }
       .room-card .card-header, .building-card .card-header, .room-card .card-body, .building-card .card-body {
@@ -486,6 +492,7 @@
             <span class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-primary tw-leading-tight">KPS ClassFinder</span>
             <span class="tw-text-label-sm tw-font-label-sm tw-text-outline tw-tracking-wider">Admin Console</span>
           </div>
+          <button type="button" onclick="closeSidebar()" aria-label="ปิดเมนู" class="md:tw-hidden tw-ml-auto tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface-variant tw-rounded-full tw-p-1.5 tw-flex"><span class="material-symbols-outlined tw-text-[1.25rem]">close</span></button>
         </div>
         <nav aria-label="Main Navigation" class="sidebar-nav tw-flex tw-flex-col tw-gap-1.5">
           <button type="button" data-page="overview" onclick="showPage('overview')" class="need-overview-view tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-primary tw-text-on-primary tw-font-label-md tw-text-label-md tw-font-semibold tw-transition-colors tw-cursor-pointer">
@@ -518,9 +525,13 @@
       </div>
     </aside>
 
+    <div id="sidebarOverlay" onclick="closeSidebar()" aria-hidden="true"></div>
     <div id="appMain" class="tw-flex-1 tw-ml-64 tw-flex tw-flex-col tw-min-h-screen tw-min-w-0">
       <header class="tw-flex tw-justify-between tw-items-center tw-h-16 tw-px-8 tw-bg-surface-container-lowest tw-border-b tw-border-outline-variant/30 tw-sticky tw-top-0 tw-z-30">
         <div class="tw-flex tw-items-center tw-gap-3">
+          <button id="menuToggle" type="button" onclick="toggleSidebar()" aria-label="เปิดเมนู" aria-controls="appSidebar" aria-expanded="false" class="md:tw-hidden tw-appearance-none tw-border-0 tw-bg-transparent tw-cursor-pointer hover:tw-bg-surface-container tw-text-on-surface tw-rounded-lg tw-p-1.5 tw--ml-1.5 tw-flex tw-transition-colors active:tw-scale-95">
+            <span class="material-symbols-outlined tw-text-[1.5rem]">menu</span>
+          </button>
           <h1 id="pageTitle" class="tw-text-headline-lg tw-font-headline-lg tw-font-semibold tw-text-on-surface tw-tracking-tight tw-m-0">Overview</h1>
           <span id="pageSubtitle" class="tw-text-label-sm tw-font-label-sm tw-px-2.5 tw-py-0.5 tw-rounded-full tw-bg-surface-container tw-text-on-surface-variant tw-hidden sm:tw-inline-flex">ภาพรวมระบบ</span>
         </div>
@@ -2309,7 +2320,19 @@
     const NAV_ACTIVE = ['tw-bg-primary', 'tw-text-on-primary', 'tw-font-semibold'];
     const NAV_IDLE = ['tw-bg-transparent', 'tw-text-on-surface-variant', 'tw-font-medium'];
 
+    // เมนูลิ้นชักบนมือถือ (บนจอกว้างเมนูอยู่ซ้ายตลอด ฟังก์ชันเหล่านี้ไม่มีผล)
+    function setSidebarOpen(open) {
+      document.body.classList.toggle('sidebar-open', open);
+      const toggle = document.getElementById('menuToggle');
+      if (toggle) { toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'ปิดเมนู' : 'เปิดเมนู'); }
+    }
+    function toggleSidebar() { setSidebarOpen(!document.body.classList.contains('sidebar-open')); }
+    function closeSidebar() { setSidebarOpen(false); }
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeSidebar(); });
+    window.matchMedia('(min-width: 768px)').addEventListener('change', (event) => { if (event.matches) closeSidebar(); });
+
     function showPage(page) {
+      closeSidebar();
       document.querySelectorAll('.page-section').forEach(section => section.classList.add('d-none'));
       document.getElementById(`page-${page}`).classList.remove('d-none');
       document.querySelectorAll('.sidebar-nav button[data-page]').forEach(link => {
