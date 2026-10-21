@@ -157,6 +157,77 @@
     .btn-check:checked + .btn-outline-primary { background-color: var(--brand); border-color: var(--brand); }
     a { color: var(--brand); }
 
+    /* ===== หน้าต่าง (modal) ให้ดีไซน์เดียวกับหน้า Tailwind ใหม่: มุมโค้ง สีจากชุด Material เดียวกัน ช่องกรอก/ปุ่ม/การ์ดส่วนย่อย ===== */
+    .modal-backdrop { --bs-backdrop-bg: rgb(var(--m3-on-surface)); --bs-backdrop-opacity: .45; }
+    [data-bs-theme="dark"] .modal-backdrop { --bs-backdrop-bg: #000; --bs-backdrop-opacity: .6; }
+    .modal-backdrop.show { backdrop-filter: blur(3px); }
+    .modal-content {
+      background: rgb(var(--m3-surface-container-lowest)); color: rgb(var(--m3-on-surface));
+      border: 1px solid rgb(var(--m3-outline-variant) / .4); border-radius: 1rem; overflow: hidden;
+      box-shadow: 0 28px 70px -14px rgb(15 23 42 / .4);
+    }
+    .modal-header { padding: 1.1rem 1.5rem; border-bottom: 1px solid rgb(var(--m3-outline-variant) / .25); align-items: flex-start; }
+    .m-head { display: flex; gap: .9rem; align-items: flex-start; min-width: 0; }
+    .m-icon {
+      width: 2.75rem; height: 2.75rem; border-radius: .75rem; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgb(var(--m3-primary) / .1); color: rgb(var(--m3-primary));
+    }
+    .m-icon .material-symbols-outlined { font-size: 1.5rem; }
+    .m-icon.danger { background: rgb(var(--m3-error) / .12); color: rgb(var(--m3-error)); }
+    .modal-title.m-title { font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; margin: 0; }
+    .m-sub { font-size: .78rem; color: rgb(var(--m3-outline)); margin: .15rem 0 0; }
+    .modal-body { padding: 1.4rem 1.5rem; }
+    .modal-footer {
+      background: rgb(var(--m3-surface-container-low)); border-top: 1px solid rgb(var(--m3-outline-variant) / .3);
+      padding: .9rem 1.5rem; gap: .6rem;
+    }
+    .modal .form-label { font-size: .8125rem; font-weight: 500; color: rgb(var(--m3-on-surface)); margin-bottom: .35rem; }
+    .modal .form-text, .modal .text-secondary { color: rgb(var(--m3-outline)) !important; }
+    .modal .form-control, .modal .form-select {
+      border: 1px solid rgb(var(--m3-outline-variant) / .6); border-radius: .5rem; padding: .5rem .8rem;
+      background-color: rgb(var(--m3-surface-container-lowest)); color: rgb(var(--m3-on-surface));
+      box-shadow: inset 0 1px 2px rgb(15 23 42 / .05);
+    }
+    .modal .form-control-sm, .modal .form-select-sm { padding: .35rem .65rem; border-radius: .45rem; }
+    .modal .form-control:focus, .modal .form-select:focus {
+      border-color: rgb(var(--m3-primary)); box-shadow: 0 0 0 .2rem rgb(var(--m3-primary) / .15);
+    }
+    .modal .form-control::placeholder { color: rgb(var(--m3-outline) / .7); }
+    .modal .form-control:disabled, .modal .form-select:disabled { background-color: rgb(var(--m3-surface-container-low)); color: rgb(var(--m3-on-surface-variant)); }
+    .modal input[type="file"].form-control::file-selector-button {
+      margin: -.5rem .85rem -.5rem -.8rem; padding: .5rem .95rem; border: 0; border-right: 1px solid rgb(var(--m3-outline-variant) / .5);
+      background: rgb(var(--m3-surface-container)); color: rgb(var(--m3-on-surface)); font-weight: 500; cursor: pointer;
+    }
+    .modal input[type="file"].form-control-sm::file-selector-button { margin: -.35rem .8rem -.35rem -.65rem; padding: .35rem .85rem; }
+    .modal .btn { border-radius: .5rem; font-weight: 600; padding: .5rem 1.1rem; }
+    .modal .btn-sm { padding: .3rem .75rem; font-size: .8rem; }
+    .modal .btn-light {
+      background: transparent; color: rgb(var(--m3-on-surface)); border: 1px solid rgb(var(--m3-outline-variant) / .6);
+    }
+    .modal .btn-light:hover { background: rgb(var(--m3-surface-container-high)); border-color: rgb(var(--m3-outline-variant) / .8); }
+    .modal .btn-outline-secondary { --bs-btn-color: rgb(var(--m3-on-surface-variant)); --bs-btn-border-color: rgb(var(--m3-outline-variant) / .7); --bs-btn-hover-bg: rgb(var(--m3-surface-container-high)); --bs-btn-hover-color: rgb(var(--m3-on-surface)); --bs-btn-hover-border-color: rgb(var(--m3-outline-variant)); }
+    .modal .btn-link { font-weight: 600; text-decoration: none; }
+    .modal .alert { border-radius: .75rem; border-width: 1px; padding: .8rem 1rem; }
+    .modal .alert-warning { --bs-alert-bg: rgb(var(--m3-tertiary-fixed) / .45); --bs-alert-border-color: rgb(var(--m3-tertiary-fixed-dim) / .55); --bs-alert-color: rgb(var(--m3-on-tertiary-fixed-variant)); }
+    .modal .alert-danger { --bs-alert-bg: rgb(var(--m3-error-container) / .6); --bs-alert-border-color: rgb(var(--m3-error) / .3); --bs-alert-color: rgb(var(--m3-on-error-container)); }
+    .modal .alert-info { --bs-alert-bg: rgb(var(--m3-secondary-container) / .4); --bs-alert-border-color: rgb(var(--m3-secondary) / .25); --bs-alert-color: rgb(var(--m3-on-secondary-container)); }
+    .modal .alert-success { --bs-alert-bg: rgb(var(--m3-primary-fixed) / .5); --bs-alert-border-color: rgb(var(--m3-primary) / .25); --bs-alert-color: rgb(var(--m3-on-primary-fixed-variant)); }
+    .modal .list-group-item { background: transparent; color: inherit; border-color: rgb(var(--m3-outline-variant) / .3); }
+    .modal .list-group { border-radius: .75rem; overflow: hidden; border: 1px solid rgb(var(--m3-outline-variant) / .3); }
+    .modal code { background: rgb(var(--m3-surface-container)); color: rgb(var(--m3-primary)); padding: .1rem .35rem; border-radius: .3rem; font-size: .8em; }
+    .modal .table { --bs-table-bg: transparent; --bs-table-color: rgb(var(--m3-on-surface)); --bs-table-border-color: rgb(var(--m3-outline-variant) / .3); }
+    .modal .border { border-color: rgb(var(--m3-outline-variant) / .4) !important; }
+    .modal .rounded.border.bg-light { background: rgb(var(--m3-surface-container-low)) !important; }
+    .m-section {
+      border: 1px solid rgb(var(--m3-outline-variant) / .3); background: rgb(var(--m3-surface-container-low) / .6);
+      border-radius: .75rem; padding: 1rem 1.1rem; margin-bottom: 1rem;
+    }
+    .m-section-title { display: flex; align-items: center; gap: .45rem; font-weight: 600; font-size: .9rem; margin-bottom: .85rem; color: rgb(var(--m3-on-surface)); }
+    .m-section-title .material-symbols-outlined { font-size: 1.2rem; color: rgb(var(--m3-primary)); }
+    .modal .btn-close { opacity: .55; }
+    .modal .btn-close:hover { opacity: 1; }
+
     /* จอคอมส่วนใหญ่กว้างกว่า 1366px มาก ขนาดเริ่มต้นของ Bootstrap (16px) เลยดูเล็ก/โล่งเกินไป ขยับฐานขึ้นหน่อย
        (ค่านี้คูณกับทุก rem ในไฟล์ ทำให้ทุกอย่างใหญ่ขึ้นตามสัดส่วนเดียวกันโดยไม่ต้องไล่แก้ทีละจุด) */
     html { font-size: 17px; }
@@ -1618,7 +1689,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <form class="modal-content" id="userForm" onsubmit="saveUser(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="userModalTitle">เพิ่มผู้ดูแลระบบ</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">person_add</span></div><div><h2 class="modal-title m-title" id="userModalTitle">เพิ่มผู้ดูแลระบบ</h2><p class="m-sub">บัญชีผู้ดูแลระบบ บทบาท และสถานะการใช้งาน</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -1678,7 +1749,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="twoFaTitle">ตั้งค่า 2FA (Authenticator)</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">phonelink_lock</span></div><div><h2 class="modal-title m-title" id="twoFaTitle">ตั้งค่า 2FA (Authenticator)</h2><p class="m-sub">ยืนยันตัวตน 2 ขั้นตอนด้วยแอป Authenticator</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div id="twoFaStepSetup">
@@ -1727,7 +1798,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="submitTwoFaPassword(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="twoFaPasswordTitle">ยืนยันรหัสผ่าน</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">password</span></div><div><h2 class="modal-title m-title" id="twoFaPasswordTitle">ยืนยันรหัสผ่าน</h2><p class="m-sub">ยืนยันด้วยรหัสผ่านของคุณ</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -1748,7 +1819,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="restrictionTitle">ต้องดำเนินการก่อนใช้งานต่อ</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">shield_lock</span></div><div><h2 class="modal-title m-title" id="restrictionTitle">ต้องดำเนินการก่อนใช้งานต่อ</h2><p class="m-sub">ทำให้ครบก่อนใช้งานส่วนอื่นของระบบ</p></div></div>
         </div>
         <div class="modal-body" id="restrictionBody"></div>
         <div class="modal-footer">
@@ -1763,7 +1834,7 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="auditTitle">ผลการตรวจสอบความปลอดภัย (Security Audit)</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">verified_user</span></div><div><h2 class="modal-title m-title" id="auditTitle">ผลการตรวจสอบความปลอดภัย (Security Audit)</h2><p class="m-sub">ตรวจจากการตั้งค่าจริงของระบบ</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body" id="auditBody"></div>
@@ -1799,7 +1870,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="submitBackupCreate(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="backupCreateTitle">สำรองข้อมูลทันที</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">cloud_upload</span></div><div><h2 class="modal-title m-title" id="backupCreateTitle">สำรองข้อมูลทันที</h2><p class="m-sub">สร้างไฟล์สำรองฐานข้อมูลและไฟล์ภาพ</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -1824,7 +1895,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="submitBackupRestore(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5 text-danger" id="backupRestoreTitle">กู้คืนข้อมูลจากไฟล์สำรอง</h2>
+          <div class="m-head"><div class="m-icon danger"><span class="material-symbols-outlined">settings_backup_restore</span></div><div><h2 class="modal-title m-title" id="backupRestoreTitle">กู้คืนข้อมูลจากไฟล์สำรอง</h2><p class="m-sub">เขียนทับข้อมูลปัจจุบันด้วยข้อมูลจากไฟล์สำรอง</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -1860,7 +1931,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="submitResetPassword(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="resetPasswordTitle">รีเซ็ตรหัสผ่าน</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">lock_reset</span></div><div><h2 class="modal-title m-title" id="resetPasswordTitle">รีเซ็ตรหัสผ่าน</h2><p class="m-sub">ตั้งรหัสผ่านใหม่ให้บัญชีนี้</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -1882,11 +1953,12 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <form class="modal-content" id="roomForm" onsubmit="saveRoom(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="roomModalTitle">เพิ่มห้องเรียน</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">meeting_room</span></div><div><h2 class="modal-title m-title" id="roomModalTitle">เพิ่มห้องเรียน</h2><p class="m-sub">ข้อมูลห้อง สิ่งอำนวยความสะดวก และตำแหน่งหมุดบนแผนผังชั้น</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
           <input id="roomId" type="hidden">
+          <div class="m-section"><div class="m-section-title"><span class="material-symbols-outlined">meeting_room</span>ข้อมูลทั่วไป</div>
           <div class="row g-3">
             <div class="col-12 col-md-6">
               <label for="roomCode" class="form-label">ชื่อ / รหัสห้อง</label>
@@ -1935,9 +2007,10 @@
             </div>
           </div>
 
-          <hr class="my-3">
-          <p class="small fw-semibold mb-2">สิ่งอำนวยความสะดวก</p>
-          <div class="row g-3 mb-3">
+          </div>
+
+          <div class="m-section"><div class="m-section-title"><span class="material-symbols-outlined">chair</span>สิ่งอำนวยความสะดวก</div>
+          <div class="row g-3">
             <div class="col-6 col-md-3">
               <label for="amenitySeats" class="form-label small">ที่นั่ง</label>
               <input id="amenitySeats" type="number" min="0" class="form-control form-control-sm">
@@ -1956,8 +2029,11 @@
             </div>
           </div>
 
+          </div>
+
+          <div class="m-section mb-0"><div class="m-section-title"><span class="material-symbols-outlined">pin_drop</span>ตำแหน่งหมุดบนแผนผังชั้น</div>
           <p class="small text-secondary mb-2">อาคาร: <span id="formBuildingName"></span></p>
-          <div class="mb-2">
+          <div class="mb-0">
             <div class="form-label d-flex justify-content-between align-items-center">
               <span>ตำแหน่งหมุดบนแผนที่ (คลิกบนรูปเพื่อปักหมุด)</span>
               <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearPin()">ล้างหมุด</button>
@@ -1968,6 +2044,7 @@
             </div>
             <p id="floorPlanEmpty" class="text-secondary small mb-0 d-none">ยังไม่มีแผนที่สำหรับอาคาร/ชั้นนี้</p>
             <p id="pinCoordText" class="text-secondary small mb-0 mt-1">ยังไม่ได้ปักหมุด</p>
+          </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -1983,7 +2060,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" id="buildingForm" onsubmit="saveBuilding(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="buildingModalTitle">เพิ่มอาคาร</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">apartment</span></div><div><h2 class="modal-title m-title" id="buildingModalTitle">เพิ่มอาคาร</h2><p class="m-sub">รหัส ชื่อ ที่ตั้ง และรูปปกอาคารที่แสดงในแอป</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -2007,8 +2084,8 @@
             </div>
           </div>
           <!-- รูปปกอาคาร: อัปโหลด/ลบได้ทันที (ไม่ต้องกดบันทึก) แสดงบนการ์ดอาคารในแอป -->
-          <div id="buildingCoverSection" class="need-image-write border-top pt-3 d-none">
-            <div class="form-label mb-1">รูปปกอาคาร <span class="text-secondary small">(แสดงบนการ์ดอาคารในแอป)</span></div>
+          <div id="buildingCoverSection" class="need-image-write m-section d-none">
+            <div class="m-section-title"><span class="material-symbols-outlined">image</span>รูปปกอาคาร <span class="text-secondary small fw-normal">(แสดงบนการ์ดอาคารในแอป)</span></div>
             <div class="rounded border bg-light overflow-hidden mb-2" style="aspect-ratio: 16 / 7;">
               <img id="buildingCoverPreview" alt="รูปปกอาคาร" class="w-100 h-100 d-none" style="object-fit: cover;">
               <div id="buildingCoverEmpty" class="h-100 d-flex align-items-center justify-content-center text-secondary small text-center px-3">
@@ -2038,7 +2115,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="saveFloorPlan(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="floorPlanModalTitle">เพิ่มแผนผังชั้น</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">map</span></div><div><h2 class="modal-title m-title" id="floorPlanModalTitle">เพิ่มแผนผังชั้น</h2><p class="m-sub">รูปแผนผังของชั้นนี้ ใช้ปักหมุดห้องและแสดงในแอป</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -2071,7 +2148,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="uploadPanorama(event)">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="panoUploadModalTitle">เพิ่มภาพ 360°</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">add_a_photo</span></div><div><h2 class="modal-title m-title" id="panoUploadModalTitle">เพิ่มภาพ 360°</h2><p class="m-sub">ภาพ 360° แบบ equirectangular อัตราส่วน 2:1</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -2103,7 +2180,7 @@
     <div class="modal-dialog modal-dialog-centered modal-xl">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="hotspotModalTitle">จัดการจุดเชื่อม</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">point_scan</span></div><div><h2 class="modal-title m-title" id="hotspotModalTitle">จัดการจุดเชื่อม</h2><p class="m-sub">วางจุดเชื่อมระหว่างภาพ 360° ของห้อง</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -2137,8 +2214,7 @@
               <button type="submit" class="btn btn-sm btn-primary" id="hotspotSaveButton" disabled>บันทึกจุดเชื่อม</button>
             </div>
           </form>
-          <hr>
-          <p class="small fw-semibold mb-2">จุดเชื่อมทั้งหมดในภาพนี้</p>
+          <div class="m-section-title mt-3"><span class="material-symbols-outlined">list</span>จุดเชื่อมทั้งหมดในภาพนี้</div>
           <div id="hotspotList" class="list-group"></div>
         </div>
       </div>
@@ -2150,7 +2226,7 @@
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 class="modal-title h5" id="tourHeadingModalTitle">ตั้งทิศของภาพ</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">explore</span></div><div><h2 class="modal-title m-title" id="tourHeadingModalTitle">ตั้งทิศของภาพ</h2><p class="m-sub">ปรับทิศของภาพให้ตรงกับทางเดิน</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -2178,7 +2254,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 class="modal-title fs-5" id="importModalTitle">นำเข้าห้องเรียนจากไฟล์ CSV</h2>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">upload_file</span></div><div><h2 class="modal-title m-title" id="importModalTitle">นำเข้าห้องเรียนจากไฟล์ CSV</h2><p class="m-sub">เพิ่ม/อัปเดตห้องเรียนหลายห้องพร้อมกันด้วยไฟล์ CSV</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
