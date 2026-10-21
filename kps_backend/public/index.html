@@ -1180,6 +1180,7 @@
             <button type="button" data-settings-tab="profile" onclick="showSettingsTab('profile')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-text-primary-container tw-font-semibold tw-border-primary-container">โปรไฟล์และบัญชี</button>
             <button type="button" data-settings-tab="security" onclick="showSettingsTab('security')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">verified_user</span>ความปลอดภัย (Security &amp; 2FA)</button>
             <button type="button" data-settings-tab="system" onclick="showSettingsTab('system')" class="need-settings-manage tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">cloud_sync</span>ระบบและพื้นที่จัดเก็บ (System &amp; Storage)</button>
+            <button type="button" data-settings-tab="backups" onclick="showSettingsTab('backups')" class="need-settings-manage tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">history</span>การสำรองข้อมูล (Backups)</button>
             <button type="button" data-settings-tab="admins" onclick="showSettingsTab('admins')" class="need-settings-manage tw-appearance-none tw-bg-transparent tw-border-0 tw-border-b-2 tw-cursor-pointer tw-pb-3 tw-px-0 tw-whitespace-nowrap tw-transition-colors tw-flex tw-items-center tw-gap-1.5 tw-text-outline tw-border-transparent"><span class="material-symbols-outlined tw-text-[1.125rem]">shield_person</span>ผู้ดูแลและสิทธิ์การใช้งาน (Admin &amp; Roles)</button>
           </div>
 
@@ -1551,6 +1552,57 @@
             </div>
           </div><!-- /settingsTabSystem -->
 
+          <!-- ============ Settings tab: Backups (ตามดีไซน์ code.html) ============ -->
+          <div id="settingsTabBackups" class="need-settings-manage d-none">
+            <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4 tw-mb-6">
+              <div>
+                <h3 class="tw-text-headline-lg tw-font-headline-lg tw-font-bold tw-text-on-surface tw-tracking-tight tw-m-0">การสำรองข้อมูลและการกู้คืนระบบ (Backups &amp; Disaster Recovery)</h3>
+                <p class="tw-text-body-md tw-font-body-md tw-text-outline tw-mt-1 tw-mb-0 tw-max-w-3xl">สำรองฐานข้อมูลและไฟล์ภาพทั้งหมดเป็นไฟล์ .zip ตั้งเวลาอัตโนมัติ ดาวน์โหลดเก็บนอกเครื่อง ตรวจความสมบูรณ์ และกู้คืนเมื่อเกิดเหตุฉุกเฉิน</p>
+              </div>
+              <button id="backupCreateButton" type="button" onclick="openBackupCreateModal()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-body-md tw-font-semibold tw-transition-colors tw-shadow-sm tw-shrink-0 disabled:tw-opacity-60">
+                <span class="material-symbols-outlined tw-text-[1.125rem]">add_circle</span><span>สำรองข้อมูลทันที (Create Backup)</span>
+              </button>
+            </div>
+
+            <section id="backupMetrics" class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4 tw-mb-6"></section>
+
+            <div class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-12 tw-gap-6 tw-items-start">
+              <div class="lg:tw-col-span-8">
+                <section class="tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-rounded-xl tw-shadow-sm tw-overflow-hidden">
+                  <div class="tw-p-5 tw-border-b tw-border-outline-variant/30 tw-flex tw-flex-col sm:tw-flex-row sm:tw-items-center sm:tw-justify-between tw-gap-4">
+                    <div>
+                      <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">ประวัติไฟล์สำรองข้อมูล</h4>
+                      <p class="tw-text-body-sm tw-text-outline tw-m-0">ไฟล์สำรองทั้งที่สร้างจากหน้านี้ ตั้งเวลาอัตโนมัติ และสคริปต์ backup.ps1</p>
+                    </div>
+                    <div class="tw-flex tw-items-center tw-gap-2 tw-flex-wrap">
+                      <div id="backupFilter" class="tw-inline-flex tw-rounded-lg tw-border tw-border-outline-variant/40 tw-p-0.5 tw-bg-surface-container tw-text-label-sm tw-gap-0.5"></div>
+                      <button type="button" onclick="loadBackupsTab()" title="รีเฟรช" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-p-1.5 tw-border tw-border-outline-variant/40 tw-rounded-lg tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">refresh</span></button>
+                    </div>
+                  </div>
+                  <div class="tw-overflow-x-auto">
+                    <table class="tw-w-full tw-text-left tw-border-collapse">
+                      <thead><tr class="tw-bg-surface-container-low tw-border-b tw-border-outline-variant/30 tw-text-label-md tw-font-label-md tw-text-outline">
+                        <th class="tw-py-3 tw-px-4">วัน-เวลา</th><th class="tw-py-3 tw-px-4">ไฟล์สำรอง / รายละเอียด</th><th class="tw-py-3 tw-px-4">ประเภท</th>
+                        <th class="tw-py-3 tw-px-4">ขนาด</th><th class="tw-py-3 tw-px-4">ผู้ดำเนินการ</th><th class="tw-py-3 tw-px-4 tw-text-right">การกระทำ</th>
+                      </tr></thead>
+                      <tbody id="backupBody" class="tw-divide-y tw-divide-outline-variant/20 tw-text-body-md"><tr><td colspan="6" class="tw-py-8 tw-text-center tw-text-outline">กำลังโหลด...</td></tr></tbody>
+                    </table>
+                  </div>
+                  <div id="backupPager" class="tw-p-4 tw-border-t tw-border-outline-variant/30 tw-flex tw-items-center tw-justify-between tw-text-body-sm tw-text-outline"></div>
+                </section>
+              </div>
+              <div class="lg:tw-col-span-4 tw-space-y-6">
+                <section id="backupScheduleCard" class="tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-rounded-xl tw-p-5 tw-shadow-sm"></section>
+                <section id="backupDrillCard" class="tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-rounded-xl tw-p-5 tw-shadow-sm"></section>
+              </div>
+            </div>
+
+            <div class="tw-mt-6 tw-p-4 tw-rounded-xl tw-bg-tertiary-fixed/40 tw-border tw-border-tertiary-fixed-dim/50 tw-flex tw-items-start tw-gap-3">
+              <span class="material-symbols-outlined tw-text-tertiary tw-text-[1.5rem]">shield</span>
+              <div class="tw-text-body-sm tw-text-on-tertiary-fixed-variant"><span class="tw-font-bold">โปรดทราบ:</span> ไฟล์สำรองเก็บบนดิสก์ของเซิร์ฟเวอร์เครื่องเดียวกับระบบ และ<strong>ไม่ได้เข้ารหัส</strong> มีข้อมูลผู้ใช้ (รหัสผ่านเก็บเป็น hash) ถ้าเครื่องเสีย ไฟล์สำรองในเครื่องก็เสียไปด้วย ควรดาวน์โหลดสำเนาไปเก็บนอกเครื่องเป็นประจำ ในที่ที่ปลอดภัยและเข้าถึงได้เฉพาะผู้ดูแลระบบ</div>
+            </div>
+          </div><!-- /settingsTabBackups -->
+
 
           <footer class="tw-mt-10 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-text-center tw-text-body-sm tw-font-body-sm tw-text-on-surface-variant">
             KPS ClassFinder Navigation System · มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตกำแพงแสน
@@ -1739,6 +1791,60 @@
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: สำรองข้อมูลทันที ============ -->
+  <div class="modal fade" id="backupCreateModal" tabindex="-1" aria-labelledby="backupCreateTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="submitBackupCreate(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="backupCreateTitle">สำรองข้อมูลทันที</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <label for="backupNote" class="form-label">หมายเหตุ (ไม่บังคับ)</label>
+          <input id="backupNote" class="form-control mb-3" maxlength="120" placeholder="เช่น ก่อนนำเข้าข้อมูลห้องใหม่">
+          <div class="form-label mb-1">ขอบเขตที่สำรอง</div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" checked disabled id="bkScopeDb"><label class="form-check-label" for="bkScopeDb">ฐานข้อมูลทั้งหมด (อาคาร ห้อง บัญชีผู้ดูแล บันทึกระบบ ฯลฯ) — สำรองเสมอ</label></div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" checked id="bkScopePlans"><label class="form-check-label" for="bkScopePlans">แผนผังชั้นและรูปปกอาคาร</label></div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" checked id="bkScopePanoramas"><label class="form-check-label" for="bkScopePanoramas">ภาพ 360° และภาพเดินชม (ไฟล์ใหญ่ที่สุด ถ้าไม่เลือกจะกู้ภาพกลับมาไม่ได้)</label></div>
+          <div id="backupCreateProgress" class="alert alert-info small mt-3 d-none mb-0">กำลังสำรองข้อมูล อาจใช้เวลาหลายสิบวินาทีถึงหลายนาทีขึ้นกับขนาดไฟล์ภาพ กรุณาอย่าปิดหน้านี้</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal" id="backupCreateCancel">ยกเลิก</button>
+          <button id="backupCreateSubmit" type="submit" class="btn btn-primary">เริ่มสำรองข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: กู้คืนข้อมูล (อันตราย) ============ -->
+  <div class="modal fade" id="backupRestoreModal" tabindex="-1" aria-labelledby="backupRestoreTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="submitBackupRestore(event)">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5 text-danger" id="backupRestoreTitle">กู้คืนข้อมูลจากไฟล์สำรอง</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-danger small">
+            <strong>คำเตือน:</strong> การกู้คืนจะ <strong>เขียนทับฐานข้อมูลปัจจุบันทั้งหมด</strong> (รวมบัญชีผู้ดูแลและบันทึกระบบ) ด้วยข้อมูล ณ เวลาที่สำรอง ข้อมูลที่เพิ่ม/แก้ไขหลังจากนั้นจะหายไป และไฟล์ภาพในไฟล์สำรองจะถูกเขียนทับไฟล์ชื่อเดียวกัน
+            <ul class="mb-0 mt-2"><li>ระบบจะสำรองสภาพปัจจุบันไว้ให้อัตโนมัติก่อน (ประเภท "ก่อนกู้คืน") เผื่อกู้กลับ</li><li>หลังเสร็จต้องเข้าสู่ระบบใหม่ และผู้ใช้ทุกคนอาจถูกออกจากระบบ</li></ul>
+          </div>
+          <div class="small text-secondary mb-2">ไฟล์: <code id="restoreFileName"></code></div>
+          <div id="restoreFileMeta" class="small mb-3"></div>
+          <label for="restoreConfirm" class="form-label">พิมพ์ชื่อไฟล์ด้านบนให้ตรงเพื่อยืนยัน</label>
+          <input id="restoreConfirm" class="form-control mb-3" autocomplete="off" required>
+          <label for="restorePassword" class="form-label">รหัสผ่านของคุณ</label>
+          <input id="restorePassword" type="password" class="form-control" autocomplete="current-password" required>
+          <div id="restoreProgress" class="alert alert-warning small mt-3 mb-0 d-none">กำลังกู้คืนข้อมูล กรุณาอย่าปิดหน้านี้หรือรีเฟรช</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal" id="restoreCancel">ยกเลิก</button>
+          <button id="restoreSubmit" type="submit" class="btn btn-danger">กู้คืนข้อมูล</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -4664,10 +4770,10 @@
     // ============ Settings: tabs + Admin & Roles ============
     const SETTINGS_TAB_ACTIVE = ['tw-text-primary-container', 'tw-font-semibold', 'tw-border-primary-container'];
     const SETTINGS_TAB_IDLE = ['tw-text-outline', 'tw-border-transparent'];
-    const SETTINGS_TABS = { profile: 'settingsTabProfile', security: 'settingsTabSecurity', system: 'settingsTabSystem', admins: 'settingsTabAdmins' };
+    const SETTINGS_TABS = { profile: 'settingsTabProfile', security: 'settingsTabSecurity', system: 'settingsTabSystem', backups: 'settingsTabBackups', admins: 'settingsTabAdmins' };
 
     function showSettingsTab(name) {
-      if ((name === 'admins' || name === 'system') && !can('settings.manage')) name = 'profile';
+      if ((name === 'admins' || name === 'system' || name === 'backups') && !can('settings.manage')) name = 'profile';
       for (const [key, elementId] of Object.entries(SETTINGS_TABS)) {
         document.getElementById(elementId).classList.toggle('d-none', key !== name);
       }
@@ -4679,6 +4785,7 @@
       if (name === 'admins') loadAdminsTab();
       if (name === 'security') loadSecurityTab();
       if (name === 'system') loadSystemTab();
+      if (name === 'backups') loadBackupsTab();
     }
 
     // สไตล์ป้ายบทบาท/สีรูปย่อ ต่อบทบาท (ใช้โทนสีของธีม ไม่ฮาร์ดโค้ดสีเฉพาะ)
@@ -5868,6 +5975,365 @@
         reportError(error);
       } finally {
         button.disabled = false;
+      }
+    }
+
+    // ============ Settings: Backups ============
+    let backupData = null;
+    let backupDraft = null;
+    let backupFilter = 'all';
+    let backupPage = 1;
+    let backupCreateModal = null;
+    let backupRestoreModal = null;
+    let restoreTarget = null;
+    const BACKUP_PAGE_SIZE = 8;
+    const BACKUP_TYPE_STYLE = {
+      auto: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant', manual: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant',
+      'pre-restore': 'tw-bg-error-container tw-text-on-error-container', script: 'tw-bg-surface-container-high tw-text-on-surface-variant',
+    };
+    const WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+    function ensureBackupModals() {
+      if (backupCreateModal) return;
+      backupCreateModal = new bootstrap.Modal(document.getElementById('backupCreateModal'));
+      backupRestoreModal = new bootstrap.Modal(document.getElementById('backupRestoreModal'));
+    }
+
+    function timeAgo(iso) {
+      const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+      if (seconds < 60) return 'เมื่อสักครู่';
+      if (seconds < 3600) return `${Math.floor(seconds / 60)} นาทีที่แล้ว`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)} ชั่วโมงที่แล้ว`;
+      return `${Math.floor(seconds / 86400)} วันที่แล้ว`;
+    }
+
+    function thaiDateParts(iso) {
+      const date = new Date(iso);
+      return {
+        day: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
+        time: `${date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false })} น.`,
+      };
+    }
+
+    async function loadBackupsTab() {
+      ensureBackupModals();
+      try {
+        backupData = await api('/api/admin/backups');
+        backupDraft = { ...backupData.settings };
+        renderBackupsTab();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    function renderBackupsTab() {
+      renderBackupMetrics();
+      renderBackupFilter();
+      renderBackupTable();
+      renderBackupSchedule();
+      renderBackupDrill();
+    }
+
+    function renderBackupMetrics() {
+      const d = backupData;
+      const s = d.settings;
+      const latest = d.backups[0];
+      const run = s.last_run;
+      const failed = run && run.status === 'failed';
+      const card = (label, icon, tone, body, footer) => `
+        <div class="tw-p-5 tw-rounded-xl tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-shadow-sm tw-flex tw-flex-col tw-justify-between">
+          <div class="tw-flex tw-items-center tw-justify-between tw-text-outline tw-mb-2"><span class="tw-text-label-md tw-font-label-md">${label}</span>
+            <span class="tw-p-1.5 tw-rounded-md ${tone} tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span></span></div>
+          <div>${body}</div>
+          <div class="tw-mt-3 tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-label-sm tw-text-outline tw-flex tw-items-center tw-gap-1">${footer}</div>
+        </div>`;
+      const big = (text, cls = 'tw-text-on-surface') => `<div class="tw-text-headline-md tw-font-headline-md tw-font-bold ${cls}">${text}</div>`;
+      const small = text => `<p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">${text}</p>`;
+      const nextText = s.enabled && s.next_run_at ? `รอบถัดไป: ${thaiDateParts(s.next_run_at).day} ${thaiDateParts(s.next_run_at).time}` : 'ยังไม่ได้เปิดสำรองอัตโนมัติ';
+      const disk = d.disk;
+      const v = s.last_verify;
+      document.getElementById('backupMetrics').innerHTML =
+        card('สถานะการสำรองล่าสุด', failed ? 'error' : 'check_circle', failed ? 'tw-bg-error-container tw-text-on-error-container' : 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant',
+          failed ? big('ล้มเหลว', 'tw-text-error') + small(escapeHtml(run.error || 'ไม่ทราบสาเหตุ'))
+            : latest ? big('สำเร็จ') + small(`${timeAgo(latest.created_at)} • ${formatBytes(latest.size)} (${BACKUP_TYPE_LABELS_TH[latest.type] || latest.type})`)
+              : big('ยังไม่มีไฟล์สำรอง', 'tw-text-tertiary') + small('กดปุ่มสำรองข้อมูลทันทีเพื่อเริ่มต้น'),
+          `<span class="material-symbols-outlined tw-text-[0.875rem]">update</span>${nextText}`)
+        + card('พื้นที่ไฟล์สำรอง', 'pie_chart', 'tw-bg-surface-container-high tw-text-on-surface-variant',
+          big(formatBytes(d.total_bytes)) + small(`${d.backups.length} ไฟล์สำรอง${disk ? ` • ดิสก์เหลือ ${formatBytes(disk.free)}` : ''}`)
+          + (disk ? `<div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-2 tw-mt-2 tw-overflow-hidden"><div class="tw-bg-primary-container tw-h-2 tw-rounded-full" style="width:${Math.min(100, (disk.total - disk.free) / disk.total * 100).toFixed(1)}%"></div></div>` : ''),
+          `ชุดอัตโนมัติเก็บ ${s.retention_auto} ชุดล่าสุด ชุดอื่นไม่ถูกลบเอง`)
+        + card('ความสมบูรณ์ของไฟล์สำรอง', 'verified_user', v && v.failed.length > 0 ? 'tw-bg-error-container tw-text-on-error-container' : 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant',
+          v ? big(`${v.ok} / ${v.total} ผ่าน`, v.failed.length > 0 ? 'tw-text-error' : 'tw-text-primary') + small(v.failed.length > 0 ? `ไม่ผ่าน: ${escapeHtml(v.failed.join(', '))}` : 'SHA-256 ตรงกับตอนสำรองทุกไฟล์') : big('ยังไม่เคยตรวจ', 'tw-text-outline') + small('ตรวจว่าไฟล์ไม่เสียหายหลังเก็บไว้นาน'),
+          `<button type="button" onclick="verifyAllBackups()" id="backupVerifyAll" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-primary tw-font-semibold hover:tw-underline">ตรวจสอบทุกไฟล์เดี๋ยวนี้</button>${v ? ` <span>• ตรวจล่าสุด ${timeAgo(v.at)}</span>` : ''}`)
+        + card('ที่เก็บไฟล์สำรอง', 'dns', 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant',
+          big('ในเครื่องเซิร์ฟเวอร์', 'tw-text-tertiary') + small('ยังไม่มีสำเนานอกเครื่องอัตโนมัติ'),
+          '<span class="material-symbols-outlined tw-text-[0.875rem]">download</span>ดาวน์โหลดไฟล์ไปเก็บนอกเครื่องเป็นประจำ');
+    }
+
+    const BACKUP_TYPE_LABELS_TH = { auto: 'อัตโนมัติ', manual: 'กำหนดเอง', 'pre-restore': 'ก่อนกู้คืน', script: 'สคริปต์' };
+
+    function renderBackupFilter() {
+      const options = [['all', 'ทั้งหมด'], ['auto', 'อัตโนมัติ'], ['manual', 'กำหนดเอง'], ['other', 'ก่อนกู้คืน/สคริปต์']];
+      document.getElementById('backupFilter').innerHTML = options.map(([key, label]) => `
+        <button type="button" onclick="setBackupFilter('${key}')" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${key === backupFilter ? 'tw-bg-surface-container-lowest tw-shadow-sm tw-font-semibold tw-text-primary' : 'tw-bg-transparent tw-text-on-surface-variant hover:tw-text-on-surface'}">${label}</button>`).join('');
+    }
+
+    function setBackupFilter(key) {
+      backupFilter = key;
+      backupPage = 1;
+      renderBackupFilter();
+      renderBackupTable();
+    }
+
+    function filteredBackups() {
+      return backupData.backups.filter(item => backupFilter === 'all' || (backupFilter === 'other' ? (item.type === 'pre-restore' || item.type === 'script') : item.type === backupFilter));
+    }
+
+    function renderBackupTable() {
+      const rows = filteredBackups();
+      const pages = Math.max(1, Math.ceil(rows.length / BACKUP_PAGE_SIZE));
+      backupPage = Math.min(backupPage, pages);
+      const pageRows = rows.slice((backupPage - 1) * BACKUP_PAGE_SIZE, backupPage * BACKUP_PAGE_SIZE);
+      const chip = (text, cls) => `<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm ${cls}">${text}</span>`;
+      document.getElementById('backupBody').innerHTML = pageRows.length === 0
+        ? `<tr><td colspan="6" class="tw-py-10 tw-text-center tw-text-outline">${backupData.backups.length === 0 ? 'ยังไม่มีไฟล์สำรอง กดปุ่ม "สำรองข้อมูลทันที" เพื่อเริ่มต้น' : 'ไม่พบไฟล์สำรองในหมวดนี้'}</td></tr>`
+        : pageRows.map(item => {
+          const when = thaiDateParts(item.created_at);
+          const scope = item.scope
+            ? [chip('ฐานข้อมูล', 'tw-bg-surface-container tw-text-on-surface-variant'), item.scope.plans ? chip('ผัง/รูปปก', 'tw-bg-surface-container tw-text-on-surface-variant') : '', item.scope.panoramas ? chip('ภาพ 360°', 'tw-bg-surface-container tw-text-on-surface-variant') : ''].join(' ')
+            : chip('สร้างด้วยสคริปต์', 'tw-bg-surface-container tw-text-on-surface-variant');
+          return `
+          <tr class="hover:tw-bg-surface-container-low/60 tw-transition-colors">
+            <td class="tw-py-3.5 tw-px-4 tw-whitespace-nowrap"><div class="tw-font-medium tw-text-on-surface">${escapeHtml(when.day)}</div><div class="tw-text-body-sm tw-text-outline">${escapeHtml(when.time)}</div></td>
+            <td class="tw-py-3.5 tw-px-4"><div class="tw-font-semibold tw-text-on-surface tw-break-all">${escapeHtml(item.note || item.name)}</div>
+              ${item.note ? `<div class="tw-text-body-sm tw-text-outline tw-break-all">${escapeHtml(item.name)}</div>` : ''}
+              <div class="tw-flex tw-flex-wrap tw-gap-1 tw-mt-1">${scope}${item.sha256 ? chip('<span class="material-symbols-outlined tw-text-[0.75rem] tw-align-middle">verified</span> SHA-256', 'tw-bg-primary-fixed/60 tw-text-on-primary-fixed-variant') : ''}</div></td>
+            <td class="tw-py-3.5 tw-px-4 tw-whitespace-nowrap">${chip(BACKUP_TYPE_LABELS_TH[item.type] || item.type, BACKUP_TYPE_STYLE[item.type] || BACKUP_TYPE_STYLE.script)}</td>
+            <td class="tw-py-3.5 tw-px-4 tw-font-medium tw-text-on-surface tw-whitespace-nowrap">${formatBytes(item.size)}</td>
+            <td class="tw-py-3.5 tw-px-4 tw-text-outline tw-text-body-sm">${escapeHtml(item.created_by || '-')}</td>
+            <td class="tw-py-3.5 tw-px-4 tw-text-right tw-whitespace-nowrap">
+              <div class="tw-inline-flex tw-items-center tw-gap-1">
+                <button type="button" onclick="downloadBackup('${escapeHtml(item.name)}')" title="ดาวน์โหลด" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1 tw-rounded tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">download</span></button>
+                <button type="button" onclick="verifyOneBackup('${escapeHtml(item.name)}')" title="ตรวจสอบความสมบูรณ์" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1 tw-rounded tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">fact_check</span></button>
+                <button type="button" onclick="openBackupRestore('${escapeHtml(item.name)}')" title="กู้คืนจากไฟล์นี้" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1 tw-rounded tw-text-primary hover:tw-bg-primary-fixed/50 tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">settings_backup_restore</span></button>
+                <button type="button" onclick="deleteBackup('${escapeHtml(item.name)}')" title="ลบ" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1 tw-rounded tw-text-error hover:tw-bg-error-container/40 tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span></button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+      const from = rows.length === 0 ? 0 : (backupPage - 1) * BACKUP_PAGE_SIZE + 1;
+      const to = Math.min(backupPage * BACKUP_PAGE_SIZE, rows.length);
+      const btn = (label, page, disabled, active) => `<button type="button" ${disabled ? 'disabled' : `onclick="goBackupPage(${page})"`} class="tw-appearance-none tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${active ? 'tw-border-0 tw-bg-primary-container tw-text-on-primary tw-font-semibold' : 'tw-border tw-border-outline-variant/40 tw-bg-transparent tw-text-on-surface hover:tw-bg-surface-container-high'} disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">${label}</button>`;
+      document.getElementById('backupPager').innerHTML = `<div>แสดง ${from} ถึง ${to} จากทั้งหมด ${rows.length} รายการ</div>
+        <div class="tw-flex tw-items-center tw-gap-1">${btn('ก่อนหน้า', backupPage - 1, backupPage <= 1, false)}${Array.from({ length: pages }, (_, i) => btn(i + 1, i + 1, false, i + 1 === backupPage)).join('')}${btn('ถัดไป', backupPage + 1, backupPage >= pages, false)}</div>`;
+    }
+
+    function goBackupPage(page) {
+      backupPage = page;
+      renderBackupTable();
+    }
+
+    function renderBackupSchedule() {
+      const d = backupDraft;
+      const hourOptions = Array.from({ length: 24 }, (_, hour) => `<option value="${hour}" ${hour === d.hour ? 'selected' : ''}>${String(hour).padStart(2, '0')}:00 น.</option>`).join('');
+      const frequencyOptions = [['daily', 'ทุกวัน'], ['12h', 'ทุก 12 ชั่วโมง'], ['weekly', 'ทุกสัปดาห์']]
+        .map(([value, label]) => `<option value="${value}" ${value === d.frequency ? 'selected' : ''}>${label}</option>`).join('');
+      const retentionOptions = [3, 7, 14, 30, 60].map(count => `<option value="${count}" ${count === d.retention_auto ? 'selected' : ''}>${count} ชุดล่าสุด</option>`).join('');
+      const check = (label, key, locked = false) => `
+        <label class="tw-flex tw-items-start tw-gap-2.5 ${locked ? 'tw-opacity-70' : 'tw-cursor-pointer'}">
+          <input type="checkbox" ${d[key] || locked ? 'checked' : ''} ${locked ? 'disabled' : `onchange="setBackupDraft('${key}', this.checked)"`} class="tw-mt-0.5 tw-h-4 tw-w-4 tw-accent-primary-container">
+          <span class="tw-text-body-sm tw-text-on-surface">${label}</span></label>`;
+      const s = backupData.settings;
+      document.getElementById('backupScheduleCard').innerHTML = `
+        <div class="tw-flex tw-items-center tw-justify-between tw-pb-3 tw-mb-4 tw-border-b tw-border-outline-variant/20">
+          <div class="tw-flex tw-items-center tw-gap-2"><span class="tw-p-1.5 tw-rounded-md tw-bg-primary-fixed/60 tw-text-primary tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">alarm</span></span>
+            <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">กำหนดการสำรองข้อมูล</h4></div>
+          ${switchHtml(d.enabled, 'setBackupDraft(\'enabled\', this.checked)', 'เปิดสำรองอัตโนมัติ')}
+        </div>
+        <div class="tw-space-y-4 ${d.enabled ? '' : 'tw-opacity-60'}">
+          <div><label class="tw-block tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-1.5">ความถี่ (เวลาประเทศไทย)</label>
+            <select onchange="setBackupDraft('frequency', this.value)" class="${secSelectClass}">${frequencyOptions}</select></div>
+          <div class="tw-grid tw-grid-cols-2 tw-gap-3">
+            <div><label class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">${d.frequency === '12h' ? 'เริ่มรอบที่' : 'เวลา'}</label>
+              <select onchange="setBackupDraft('hour', Number(this.value))" class="${secSelectClass}">${hourOptions}</select></div>
+            ${d.frequency === 'weekly' ? `<div><label class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">วัน</label>
+              <select onchange="setBackupDraft('weekday', Number(this.value))" class="${secSelectClass}">${WEEKDAYS.map((name, index) => `<option value="${index}" ${index === d.weekday ? 'selected' : ''}>${name}</option>`).join('')}</select></div>` : ''}
+          </div>
+          <p class="tw-text-body-sm tw-text-outline tw-m-0">${d.frequency === '12h' ? `สำรองวันละ 2 ครั้ง (${String(d.hour % 12).padStart(2, '0')}:00 และ ${String(d.hour % 12 + 12).padStart(2, '0')}:00 น.)` : 'เลือกช่วงที่ไม่มีคนใช้งานเพื่อไม่ให้ระบบช้า'} • ถ้าเครื่องปิดอยู่ตอนถึงรอบ ระบบจะสำรองชดเชยเมื่อเปิดเครื่องอีกครั้ง</p>
+          <div class="tw-space-y-2.5 tw-pt-1"><div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">ขอบเขตที่สำรอง</div>
+            ${check('ฐานข้อมูลทั้งหมด (อาคาร ห้อง จุดเชื่อม บัญชี บันทึกระบบ)', 'db', true)}
+            ${check('แผนผังชั้นและรูปปกอาคาร (ไฟล์เล็ก)', 'scope_plans')}
+            ${check('ภาพ 360° และภาพเดินชม (ไฟล์ใหญ่ที่สุด)', 'scope_panoramas')}</div>
+          <div class="tw-p-3 tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-rounded-lg tw-space-y-1.5">
+            <label class="tw-block tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">นโยบายการเก็บรักษา (เฉพาะชุดอัตโนมัติ)</label>
+            <select onchange="setBackupDraft('retention_auto', Number(this.value))" class="${secSelectClass}">${retentionOptions}</select>
+            <p class="tw-text-body-sm tw-text-outline tw-m-0">ชุดเก่ากว่านี้ถูกลบเองหลังสำรองครั้งใหม่ ส่วนชุดที่สั่งสำรองเองไม่ถูกลบอัตโนมัติ ชุด "ก่อนกู้คืน" เก็บ 5 ชุดล่าสุด</p></div>
+        </div>
+        ${s.enabled && s.next_run_at ? `<p class="tw-text-body-sm tw-text-primary tw-font-medium tw-mt-3 tw-mb-0">รอบถัดไป: ${escapeHtml(thaiDateParts(s.next_run_at).day)} ${escapeHtml(thaiDateParts(s.next_run_at).time)}</p>` : ''}
+        <button id="backupScheduleSave" type="button" onclick="saveBackupSchedule()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-w-full tw-mt-4 tw-py-2 tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-rounded-lg tw-text-body-md tw-font-semibold tw-transition-colors tw-shadow-sm disabled:tw-opacity-60">บันทึกการตั้งค่ากำหนดการ</button>`;
+    }
+
+    function setBackupDraft(key, value) {
+      backupDraft[key] = value;
+      renderBackupSchedule();
+    }
+
+    async function saveBackupSchedule() {
+      const button = document.getElementById('backupScheduleSave');
+      button.disabled = true;
+      try {
+        const data = await api('/api/admin/backups/settings', jsonRequest('PUT', backupDraft));
+        showStatus(data.message);
+        await loadBackupsTab();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function renderBackupDrill() {
+      const s = backupData.settings;
+      const drill = s.last_drill;
+      const rpoText = s.enabled
+        ? { daily: 'ไม่เกิน 24 ชั่วโมง', '12h': 'ไม่เกิน 12 ชั่วโมง', weekly: 'ไม่เกิน 7 วัน' }[s.frequency]
+        : (backupData.backups[0] ? `ถึงเวลา ${thaiDateParts(backupData.backups[0].created_at).day} ${thaiDateParts(backupData.backups[0].created_at).time} (ไม่ได้ตั้งสำรองอัตโนมัติ)` : 'ยังไม่มีไฟล์สำรอง');
+      const row = (label, value) => `<div class="tw-flex tw-items-center tw-justify-between tw-text-body-sm"><span class="tw-text-outline">${label}</span><span class="tw-font-medium tw-text-on-surface tw-text-right">${value}</span></div>`;
+      document.getElementById('backupDrillCard').innerHTML = `
+        <div class="tw-flex tw-items-center tw-gap-2 tw-pb-3 tw-mb-4 tw-border-b tw-border-outline-variant/20">
+          <span class="tw-p-1.5 tw-rounded-md tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">vital_signs</span></span>
+          <h4 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">ทดสอบการกู้คืนจำลอง</h4></div>
+        <p class="tw-text-body-sm tw-text-outline tw-mt-0 tw-mb-3">กู้ไฟล์สำรองล่าสุดลงฐานข้อมูลชั่วคราว นับจำนวนแถวเทียบกับตอนสำรอง แล้วลบทิ้ง เพื่อพิสูจน์ว่าไฟล์สำรองใช้กู้ได้จริง โดยไม่แตะข้อมูลจริง</p>
+        <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-space-y-2">
+          <div class="tw-flex tw-items-center tw-justify-between"><span class="tw-text-body-sm tw-text-outline">ผลทดสอบล่าสุด:</span>
+            ${drill ? `<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${drill.ok ? 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' : 'tw-bg-error-container tw-text-on-error-container'}">${drill.ok ? 'ผ่าน (Pass)' : 'ไม่ผ่าน (Fail)'}</span>` : '<span class="tw-text-body-sm tw-text-outline">ยังไม่เคยทดสอบ</span>'}</div>
+          ${drill ? row('ไฟล์ที่ทดสอบ', `<span class="tw-break-all">${escapeHtml(drill.backup)}</span>`) + row('เมื่อ', `${escapeHtml(timeAgo(drill.at))}`)
+            + row('RTO (เวลาที่ใช้กู้ฐานข้อมูล)', `${(drill.duration_ms / 1000).toFixed(1)} วินาที`) + row('ตาราง / แถวที่กู้ได้', `${drill.tables} ตาราง / ${Number(drill.rows).toLocaleString('th-TH')} แถว`)
+            + (drill.compared ? row('เทียบกับตอนสำรอง', drill.mismatches.length === 0 ? 'ตรงกันทุกตาราง' : `<span class="tw-text-error">ไม่ตรง ${drill.mismatches.length} ตาราง</span>`) : row('เทียบกับตอนสำรอง', 'ไม่ได้ (ไฟล์จากสคริปต์ไม่มีข้อมูลเทียบ)')) : ''}
+          ${row('RPO (ข้อมูลที่อาจสูญเสียสูงสุด)', escapeHtml(rpoText))}
+        </div>
+        <button id="backupDrillButton" type="button" onclick="runBackupDrill()" ${backupData.backups.length === 0 ? 'disabled' : ''} class="tw-appearance-none tw-cursor-pointer tw-w-full tw-mt-4 tw-py-2 tw-border tw-border-primary-container tw-text-primary-container tw-bg-transparent hover:tw-bg-primary-fixed/40 tw-rounded-lg tw-text-body-md tw-font-semibold tw-transition-colors tw-flex tw-items-center tw-justify-center tw-gap-2 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
+          <span class="material-symbols-outlined tw-text-[1.125rem]">play_circle</span><span>เริ่มทดสอบกู้คืนจำลอง (ไฟล์ล่าสุด)</span></button>
+        <p class="tw-text-body-sm tw-text-outline tw-mt-2 tw-mb-0">ต้องใช้ผู้ใช้ฐานข้อมูลที่สร้างฐานข้อมูลชั่วคราวได้ (ปกติบน Docker ทำได้ บนโฮสติ้งแบบแชร์อาจทำไม่ได้)</p>`;
+    }
+
+    async function runBackupDrill() {
+      const button = document.getElementById('backupDrillButton');
+      button.disabled = true;
+      button.querySelector('span:last-child').textContent = 'กำลังทดสอบ...';
+      try {
+        const data = await api('/api/admin/backups/drill', jsonRequest('POST', {}));
+        showStatus(data.message, data.result.ok ? 'success' : 'warning');
+        await loadBackupsTab();
+      } catch (error) {
+        reportError(error);
+        await loadBackupsTab();
+      }
+    }
+
+    async function verifyAllBackups() {
+      const button = document.getElementById('backupVerifyAll');
+      if (button) { button.disabled = true; button.textContent = 'กำลังตรวจสอบ...'; }
+      try {
+        const data = await api('/api/admin/backups/verify-all', { method: 'POST' });
+        showStatus(data.last_verify.failed.length === 0 ? `ตรวจสอบแล้ว: ไฟล์สำรองผ่านทั้งหมด (${data.last_verify.ok} ไฟล์)` : `พบไฟล์สำรองที่มีปัญหา ${data.last_verify.failed.length} ไฟล์`, data.last_verify.failed.length === 0 ? 'success' : 'danger');
+        await loadBackupsTab();
+      } catch (error) {
+        reportError(error);
+        await loadBackupsTab();
+      }
+    }
+
+    async function verifyOneBackup(name) {
+      try {
+        const data = await api(`/api/admin/backups/${encodeURIComponent(name)}/verify`, { method: 'POST' });
+        const r = data.result;
+        showStatus(r.ok ? (r.checksum ? 'ไฟล์สมบูรณ์: SHA-256 ตรงกับตอนสำรอง' : 'เปิดไฟล์ zip ได้ปกติ (ไฟล์นี้ไม่มีค่า SHA-256 เทียบ)') : `ไฟล์มีปัญหา: ${r.reason}`, r.ok ? 'success' : 'danger');
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    function downloadBackup(name) {
+      window.location.href = `/api/admin/backups/${encodeURIComponent(name)}/download`;
+    }
+
+    async function deleteBackup(name) {
+      if (!confirm(`ต้องการลบไฟล์สำรอง "${name}" ใช่หรือไม่?\n\nลบแล้วกู้คืนกลับมาไม่ได้`)) return;
+      try {
+        const data = await api(`/api/admin/backups/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        showStatus(data.message);
+        await loadBackupsTab();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    function openBackupCreateModal() {
+      ensureBackupModals();
+      document.getElementById('backupNote').value = '';
+      document.getElementById('bkScopePlans').checked = true;
+      document.getElementById('bkScopePanoramas').checked = true;
+      document.getElementById('backupCreateProgress').classList.add('d-none');
+      document.getElementById('backupCreateSubmit').disabled = false;
+      backupCreateModal.show();
+    }
+
+    async function submitBackupCreate(event) {
+      event.preventDefault();
+      const submit = document.getElementById('backupCreateSubmit');
+      submit.disabled = true;
+      submit.textContent = 'กำลังสำรอง...';
+      document.getElementById('backupCreateProgress').classList.remove('d-none');
+      try {
+        const data = await api('/api/admin/backups', jsonRequest('POST', {
+          note: document.getElementById('backupNote').value,
+          plans: document.getElementById('bkScopePlans').checked, panoramas: document.getElementById('bkScopePanoramas').checked,
+        }));
+        backupCreateModal.hide();
+        showStatus(`${data.message} (${formatBytes(data.backup.size)})`);
+        await loadBackupsTab();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'เริ่มสำรองข้อมูล';
+      }
+    }
+
+    function openBackupRestore(name) {
+      ensureBackupModals();
+      const item = backupData.backups.find(entry => entry.name === name);
+      if (!item) return;
+      restoreTarget = item;
+      document.getElementById('restoreFileName').textContent = name;
+      const when = thaiDateParts(item.created_at);
+      document.getElementById('restoreFileMeta').textContent = `สำรองเมื่อ ${when.day} ${when.time} • ${formatBytes(item.size)} • ${BACKUP_TYPE_LABELS_TH[item.type] || item.type}${item.scope && !item.scope.panoramas ? ' • ไม่มีภาพ 360° ในไฟล์นี้' : ''}`;
+      document.getElementById('restoreConfirm').value = '';
+      document.getElementById('restorePassword').value = '';
+      document.getElementById('restoreProgress').classList.add('d-none');
+      document.getElementById('restoreSubmit').disabled = false;
+      backupRestoreModal.show();
+    }
+
+    async function submitBackupRestore(event) {
+      event.preventDefault();
+      const submit = document.getElementById('restoreSubmit');
+      submit.disabled = true;
+      submit.textContent = 'กำลังกู้คืน...';
+      document.getElementById('restoreProgress').classList.remove('d-none');
+      try {
+        const data = await api(`/api/admin/backups/${encodeURIComponent(restoreTarget.name)}/restore`, jsonRequest('POST', {
+          confirm: document.getElementById('restoreConfirm').value, password: document.getElementById('restorePassword').value }));
+        backupRestoreModal.hide();
+        try { await fetch('/api/logout', { method: 'POST' }); } catch (_) { /* ออกจากหน้านี้อยู่แล้ว */ }
+        showLogin();
+        showStatus(`${data.message} (สำรองสภาพก่อนกู้คืนไว้ที่ ${data.safety_backup})`);
+      } catch (error) {
+        reportError(error);
+        document.getElementById('restoreProgress').classList.add('d-none');
+        submit.disabled = false;
+        submit.textContent = 'กู้คืนข้อมูล';
       }
     }
 

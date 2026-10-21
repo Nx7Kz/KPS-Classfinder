@@ -13,6 +13,8 @@ const { parse: parseCsv } = require('csv-parse/sync');
 const { imageSize } = require('image-size');
 const sharp = require('sharp');
 const QRCode = require('qrcode');
+const archiver = require('archiver');
+const yauzl = require('yauzl');
 
 const app = express();
 const port = 3000;
@@ -30,11 +32,14 @@ app.use(express.json());
 
 // ใช้ pool แทน connection เดี่ยว เพราะ MySQL container อาจพร้อมช้ากว่า backend ตอน docker compose up ครั้งแรก
 // pool จะขอ connection ใหม่ต่อ query แทนที่จะค้างสถานะ error ไว้ถาวร
-const db = mysql.createPool({
+const DB_CONFIG = {
     host: 'db',
     user: 'root',
     password: '',
     database: 'kps_classfinder',
+};
+const db = mysql.createPool({
+    ...DB_CONFIG,
     waitForConnections: true,
     connectionLimit: 10,
 });
@@ -1209,6 +1214,451 @@ app.put('/api/admin/system/settings', requireUserAdmin, asyncRoute(async (req, r
     systemSettings = next;
     logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขการตั้งค่าระบบ${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
     res.json({ message: 'บันทึกการตั้งค่าระบบสำเร็จ!', settings: systemSettings });
+}));
+
+// ==========================================
+// 🌟 สำรอง / กู้คืนข้อมูล (Backups & Disaster Recovery) — เฉพาะผู้จัดการระบบ 🌟
+// ==========================================
+// ไฟล์สำรองเป็น .zip รูปแบบเดียวกับสคริปต์ backup/backup.ps1 (kps_classfinder.sql + uploads/<โฟลเดอร์>/...)
+// จึงกู้คืนข้ามกันได้ระหว่างสคริปต์กับหน้าเว็บ สร้างฐานข้อมูลสำรองด้วยโค้ด Node เอง ไม่ต้องมี mysqldump ในเซิร์ฟเวอร์
+const BACKUP_DIR = path.join(__dirname, 'backups');
+fs.mkdirSync(BACKUP_DIR, { recursive: true });
+const BACKUP_NAME_PATTERN = /^kps-backup_\d{4}-\d{2}-\d{2}_\d{6}(?:_[a-z0-9-]+)?\.zip$/;
+const BACKUP_SQL_ENTRY = 'kps_classfinder.sql';
+const BACKUP_SETTING_KEY = 'backup_settings';
+const BANGKOK_OFFSET_MS = 7 * 3600 * 1000; // เวลาประเทศไทย UTC+7 (ไม่มีเวลาออมแสง) ใช้กำหนดรอบสำรองอัตโนมัติ
+const PRE_RESTORE_KEEP = 5;
+const UPLOAD_ENTRY_DIRS = { floorplans: FLOORPLAN_DIR, covers: COVER_DIR, panoramas: PANORAMA_DIR, 'tour-images': TOUR_IMAGE_DIR };
+const BACKUP_TYPE_LABELS = { auto: 'อัตโนมัติ', manual: 'กำหนดเอง', 'pre-restore': 'ก่อนกู้คืน', script: 'สคริปต์' };
+
+const BACKUP_DEFAULTS = {
+    enabled: false, frequency: 'daily', hour: 2, weekday: 0, // frequency: daily | 12h | weekly
+    scope_plans: true, scope_panoramas: true, retention_auto: 14,
+    armed_at: null, last_auto_at: null, last_run: null, last_verify: null, last_drill: null,
+};
+const BACKUP_CHOICES = { frequency: ['daily', '12h', 'weekly'], retention_auto: [3, 7, 14, 30, 60] };
+let backupSettings = { ...BACKUP_DEFAULTS };
+let backupBusy = null; // ชื่องานที่กำลังทำอยู่ (กันสำรอง/กู้คืนซ้อนกัน)
+
+function sanitizeBackupSettings(input, base = BACKUP_DEFAULTS) {
+    const source = input && typeof input === 'object' ? input : {};
+    const result = { ...base };
+    for (const key of ['enabled', 'scope_plans', 'scope_panoramas']) {
+        if (typeof source[key] === 'boolean') result[key] = source[key];
+    }
+    if (BACKUP_CHOICES.frequency.includes(source.frequency)) result.frequency = source.frequency;
+    if (BACKUP_CHOICES.retention_auto.includes(Number(source.retention_auto))) result.retention_auto = Number(source.retention_auto);
+    const hour = Number(source.hour);
+    if (Number.isInteger(hour) && hour >= 0 && hour <= 23) result.hour = hour;
+    const weekday = Number(source.weekday);
+    if (Number.isInteger(weekday) && weekday >= 0 && weekday <= 6) result.weekday = weekday;
+    return result;
+}
+
+async function loadBackupSettings() {
+    const [rows] = await pdb.query('SELECT setting_value FROM admin_settings WHERE setting_key = ?', [BACKUP_SETTING_KEY]);
+    let stored = {};
+    if (rows.length > 0) { try { stored = JSON.parse(rows[0].setting_value); } catch (err) { stored = {}; } }
+    backupSettings = { ...sanitizeBackupSettings(stored), ...pickBackupState(stored) };
+}
+// ค่าสถานะที่เซิร์ฟเวอร์เขียนเอง (ไม่รับจากหน้าเว็บ)
+function pickBackupState(source) {
+    const state = {};
+    for (const key of ['armed_at', 'last_auto_at', 'last_run', 'last_verify', 'last_drill']) state[key] = source && source[key] !== undefined ? source[key] : null;
+    return state;
+}
+async function saveBackupSettings() {
+    await pdb.query(
+        `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [BACKUP_SETTING_KEY, JSON.stringify(backupSettings)]);
+}
+
+function bangkokStamp(date = new Date()) {
+    const t = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+    const p = n => String(n).padStart(2, '0');
+    return `${t.getUTCFullYear()}-${p(t.getUTCMonth() + 1)}-${p(t.getUTCDate())}_${p(t.getUTCHours())}${p(t.getUTCMinutes())}${p(t.getUTCSeconds())}`;
+}
+
+// เวลาของรอบสำรองถัดไป (หลัง fromMs) ตามเวลาไทย
+function nextScheduledRun(settings, fromMs) {
+    const hours = settings.frequency === '12h' ? [settings.hour % 12, (settings.hour % 12) + 12] : [settings.hour];
+    const shifted = new Date(fromMs + BANGKOK_OFFSET_MS);
+    let best = null;
+    for (let day = 0; day <= 8; day += 1) {
+        for (const hour of hours) {
+            const slot = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate() + day, hour) - BANGKOK_OFFSET_MS;
+            if (slot <= fromMs) continue;
+            if (settings.frequency === 'weekly' && new Date(slot + BANGKOK_OFFSET_MS).getUTCDay() !== settings.weekday) continue;
+            if (best === null || slot < best) best = slot;
+        }
+    }
+    return best;
+}
+
+function backupPath(name) {
+    if (!BACKUP_NAME_PATTERN.test(name)) throw new HttpError(400, 'ชื่อไฟล์สำรองไม่ถูกต้อง');
+    const full = path.join(BACKUP_DIR, name);
+    if (path.dirname(full) !== BACKUP_DIR) throw new HttpError(400, 'ชื่อไฟล์สำรองไม่ถูกต้อง');
+    return full;
+}
+function readBackupMeta(name) {
+    try { return JSON.parse(fs.readFileSync(`${path.join(BACKUP_DIR, name)}.json`, 'utf8')); } catch (err) { return null; }
+}
+function sha256File(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('sha256');
+        fs.createReadStream(filePath).on('data', chunk => hash.update(chunk)).on('error', reject).on('end', () => resolve(hash.digest('hex')));
+    });
+}
+
+async function listBackups() {
+    const entries = await fs.promises.readdir(BACKUP_DIR);
+    const backups = [];
+    for (const name of entries.filter(item => BACKUP_NAME_PATTERN.test(item))) {
+        const stat = await fs.promises.stat(path.join(BACKUP_DIR, name));
+        const meta = readBackupMeta(name);
+        backups.push({
+            name, size: stat.size, created_at: meta?.created_at || stat.mtime.toISOString(), type: meta?.type || 'script',
+            created_by: meta?.created_by || null, note: meta?.note || '', scope: meta?.scope || null,
+            sha256: meta?.sha256 || null, table_counts: meta?.table_counts || null, duration_ms: meta?.duration_ms || null,
+        });
+    }
+    return backups.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+async function withBackupLock(label, task) {
+    if (backupBusy) throw new HttpError(409, `ระบบกำลัง${backupBusy}อยู่ กรุณารอให้เสร็จก่อน`);
+    backupBusy = label;
+    try { return await task(); } finally { backupBusy = null; }
+}
+
+const dumpConnection = (extra = {}) => mysql.createConnection({ ...DB_CONFIG, dateStrings: true, multipleStatements: true, charset: 'utf8mb4_unicode_ci', ...extra }).promise();
+
+// สร้าง SQL ทั้งฐานข้อมูล (DROP + CREATE + INSERT) ภายใน snapshot เดียว ตัวเลขจำนวนแถวจึงตรงกับข้อมูลที่ dump
+async function buildSqlDump() {
+    const connection = await dumpConnection();
+    try {
+        await connection.query('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        await connection.query('START TRANSACTION WITH CONSISTENT SNAPSHOT');
+        const [tableRows] = await connection.query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'");
+        const tableCounts = {};
+        const parts = [
+            '-- KPS ClassFinder backup (สร้างโดยแดชบอร์ด)', 'SET NAMES utf8mb4;', 'SET FOREIGN_KEY_CHECKS=0;', "SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';", '',
+        ];
+        for (const row of tableRows) {
+            const table = Object.values(row)[0];
+            const quoted = `\`${table.replaceAll('`', '``')}\``;
+            const [createRows] = await connection.query(`SHOW CREATE TABLE ${quoted}`);
+            parts.push(`DROP TABLE IF EXISTS ${quoted};`, `${createRows[0]['Create Table']};`);
+            const [rows] = await connection.query(`SELECT * FROM ${quoted}`);
+            tableCounts[table] = rows.length;
+            if (rows.length > 0) {
+                const columns = Object.keys(rows[0]).map(column => `\`${column.replaceAll('`', '``')}\``).join(', ');
+                for (let index = 0; index < rows.length; index += 200) {
+                    const values = rows.slice(index, index + 200)
+                        .map(item => `(${Object.values(item).map(value => connection.escape(value)).join(', ')})`).join(',\n');
+                    parts.push(`INSERT INTO ${quoted} (${columns}) VALUES\n${values};`);
+                }
+            }
+            parts.push('');
+        }
+        parts.push('SET FOREIGN_KEY_CHECKS=1;');
+        await connection.query('COMMIT');
+        return { sql: `${parts.join('\n')}\n`, tableCounts };
+    } finally {
+        await connection.end();
+    }
+}
+
+// สร้างไฟล์สำรอง (.zip + ไฟล์ .json บอกรายละเอียด/checksum) type: auto | manual | pre-restore
+async function createBackupFile({ type, createdBy, note = '', plans = true, panoramas = true }) {
+    const started = Date.now();
+    const suffix = type === 'pre-restore' ? '_pre-restore' : '';
+    let name = `kps-backup_${bangkokStamp()}${suffix}.zip`;
+    for (let attempt = 2; fs.existsSync(path.join(BACKUP_DIR, name)); attempt += 1) {
+        name = `kps-backup_${bangkokStamp()}${suffix}-${attempt}.zip`;
+    }
+    const finalPath = path.join(BACKUP_DIR, name);
+    const partPath = `${finalPath}.part`;
+    try {
+        const { sql, tableCounts } = await buildSqlDump();
+        const output = fs.createWriteStream(partPath);
+        const archive = archiver('zip', { zlib: { level: 6 } });
+        const finished = new Promise((resolve, reject) => { output.on('close', resolve); output.on('error', reject); archive.on('error', reject); });
+        archive.pipe(output);
+        archive.append(sql, { name: BACKUP_SQL_ENTRY });
+        const scope = { database: true, plans: Boolean(plans), panoramas: Boolean(panoramas) };
+        const folders = [];
+        if (scope.plans) folders.push(['floorplans', FLOORPLAN_DIR], ['covers', COVER_DIR]);
+        if (scope.panoramas) folders.push(['panoramas', PANORAMA_DIR], ['tour-images', TOUR_IMAGE_DIR]);
+        for (const [key, dir] of folders) archive.directory(dir, `uploads/${key}`, entry => ({ ...entry, store: true })); // ไฟล์ภาพบีบอัดมาแล้ว ไม่บีบซ้ำให้เร็วขึ้น
+        await archive.finalize();
+        await finished;
+        await fs.promises.rename(partPath, finalPath);
+        const stat = await fs.promises.stat(finalPath);
+        const meta = {
+            version: 1, name, type, created_at: new Date().toISOString(), created_by: createdBy, note, scope,
+            size: stat.size, sha256: await sha256File(finalPath), table_counts: tableCounts, duration_ms: Date.now() - started,
+        };
+        await fs.promises.writeFile(`${finalPath}.json`, JSON.stringify(meta, null, 2));
+        return meta;
+    } catch (err) {
+        await fs.promises.rm(partPath, { force: true });
+        throw err;
+    }
+}
+
+async function deleteBackupFiles(name) {
+    await fs.promises.rm(path.join(BACKUP_DIR, name), { force: true });
+    await fs.promises.rm(`${path.join(BACKUP_DIR, name)}.json`, { force: true });
+}
+
+// เก็บเฉพาะชุดอัตโนมัติ/ก่อนกู้คืนล่าสุดตามที่กำหนด ชุดที่สร้างเองและชุดจากสคริปต์ไม่ถูกลบอัตโนมัติ
+async function applyRetention() {
+    const backups = await listBackups();
+    const drop = [
+        ...backups.filter(item => item.type === 'auto').slice(backupSettings.retention_auto),
+        ...backups.filter(item => item.type === 'pre-restore').slice(PRE_RESTORE_KEEP),
+    ];
+    for (const item of drop) await deleteBackupFiles(item.name);
+    return drop.length;
+}
+
+// ----- อ่านไฟล์ zip แบบสตรีม (ไม่โหลดทั้งไฟล์เข้าหน่วยความจำ) -----
+function iterateZip(zipPath, handler) {
+    return new Promise((resolve, reject) => {
+        yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (openError, zip) => {
+            if (openError) return reject(openError);
+            zip.on('error', reject);
+            zip.on('end', resolve);
+            zip.on('entry', (entry) => {
+                const open = () => new Promise((res, rej) => zip.openReadStream(entry, (err, stream) => (err ? rej(err) : res(stream))));
+                Promise.resolve(handler(entry, open)).then(() => zip.readEntry(), (err) => { zip.close(); reject(err); });
+            });
+            zip.readEntry();
+        });
+    });
+}
+async function readZipSql(zipPath) {
+    let sql = null;
+    await iterateZip(zipPath, async (entry, open) => {
+        if (entry.fileName !== BACKUP_SQL_ENTRY) return;
+        const chunks = [];
+        for await (const chunk of await open()) chunks.push(chunk);
+        sql = Buffer.concat(chunks).toString('utf8');
+    });
+    if (sql === null) throw new HttpError(400, 'ไฟล์สำรองนี้ไม่มีข้อมูลฐานข้อมูล (kps_classfinder.sql)');
+    return sql;
+}
+async function extractUploadsFromZip(zipPath) {
+    let extracted = 0;
+    await iterateZip(zipPath, async (entry, open) => {
+        const parts = entry.fileName.split('/');
+        const targetDir = parts.length === 3 && parts[0] === 'uploads' ? UPLOAD_ENTRY_DIRS[parts[1]] : null;
+        // กัน zip-slip: รับเฉพาะ uploads/<โฟลเดอร์ที่รู้จัก>/<ชื่อไฟล์เดี่ยว>
+        if (!targetDir || !parts[2] || path.basename(parts[2]) !== parts[2] || entry.fileName.endsWith('/')) return;
+        const stream = await open();
+        await new Promise((resolve, reject) => {
+            const out = fs.createWriteStream(path.join(targetDir, parts[2]));
+            stream.pipe(out); out.on('finish', resolve); out.on('error', reject); stream.on('error', reject);
+        });
+        extracted += 1;
+    });
+    return extracted;
+}
+
+// ทดสอบกู้คืนจำลอง: กู้ SQL ลงฐานข้อมูลชั่วคราวแล้วนับแถวเทียบกับตอนสำรอง จากนั้นลบทิ้ง (ไม่แตะข้อมูลจริง)
+async function runRecoveryDrill(name) {
+    const zipPath = backupPath(name);
+    if (!fs.existsSync(zipPath)) throw new HttpError(404, 'ไม่พบไฟล์สำรองนี้');
+    const meta = readBackupMeta(name);
+    const sql = await readZipSql(zipPath);
+    const drillDb = `kps_drill_${Date.now()}`;
+    const connection = await dumpConnection({ database: undefined });
+    const started = process.hrtime.bigint();
+    try {
+        try {
+            await connection.query(`CREATE DATABASE \`${drillDb}\` CHARACTER SET utf8mb4`);
+        } catch (err) {
+            throw new HttpError(400, 'ผู้ใช้ฐานข้อมูลไม่มีสิทธิ์สร้างฐานข้อมูลชั่วคราว จึงทดสอบกู้คืนจำลองไม่ได้ในสภาพแวดล้อมนี้');
+        }
+        await connection.query(`USE \`${drillDb}\``);
+        await connection.query(sql);
+        const [tableRows] = await connection.query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'");
+        const counts = {};
+        for (const row of tableRows) {
+            const table = Object.values(row)[0];
+            const [[count]] = await connection.query(`SELECT COUNT(*) AS total FROM \`${table}\``);
+            counts[table] = Number(count.total);
+        }
+        const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
+        const expected = meta?.table_counts || null;
+        const mismatches = expected
+            ? Object.keys({ ...expected, ...counts }).filter(table => expected[table] !== counts[table]).map(table => ({ table, expected: expected[table] ?? null, restored: counts[table] ?? null }))
+            : [];
+        return { backup: name, ok: Object.keys(counts).length > 0 && mismatches.length === 0, tables: Object.keys(counts).length, rows: Object.values(counts).reduce((a, b) => a + b, 0), compared: Boolean(expected), mismatches, duration_ms: Math.round(durationMs) };
+    } finally {
+        await connection.query(`DROP DATABASE IF EXISTS \`${drillDb}\``).catch(() => {});
+        await connection.end();
+    }
+}
+
+function systemLog(action, detail) {
+    logActivity({ ip: '-' }, { action, entity: 'backup', detail, username: 'system' });
+}
+
+// ----- ตั้งเวลาสำรองอัตโนมัติ (ตรวจทุกนาที ถึงรอบแล้วค่อยสำรอง ถ้าเครื่องดับตอนถึงเวลาจะสำรองชดเชยตอนเปิดใหม่) -----
+async function backupSchedulerTick() {
+    if (!backupSettings.enabled || backupBusy) return;
+    const reference = new Date(backupSettings.last_auto_at || backupSettings.armed_at || Date.now()).getTime();
+    const due = nextScheduledRun(backupSettings, reference);
+    if (due === null || due > Date.now()) return;
+    try {
+        await withBackupLock('สำรองข้อมูลอัตโนมัติ', async () => {
+            const meta = await createBackupFile({ type: 'auto', createdBy: 'ระบบอัตโนมัติ', plans: backupSettings.scope_plans, panoramas: backupSettings.scope_panoramas });
+            const removed = await applyRetention();
+            backupSettings.last_run = { at: meta.created_at, status: 'success', type: 'auto', name: meta.name, size: meta.size };
+            systemLog('create', `สำรองข้อมูลอัตโนมัติสำเร็จ (${meta.name}, ${(meta.size / 1048576).toFixed(1)} MB${removed ? `, ลบชุดเก่า ${removed} ชุด` : ''})`);
+        });
+    } catch (err) {
+        console.error('สำรองข้อมูลอัตโนมัติไม่สำเร็จ:', err.message);
+        backupSettings.last_run = { at: new Date().toISOString(), status: 'failed', type: 'auto', error: String(err.message).slice(0, 200) };
+        systemLog('create', `สำรองข้อมูลอัตโนมัติไม่สำเร็จ: ${String(err.message).slice(0, 200)}`);
+    }
+    backupSettings.last_auto_at = new Date().toISOString();
+    await saveBackupSettings().catch(() => {});
+}
+let backupSchedulerTimer = null;
+function startBackupScheduler() {
+    if (backupSchedulerTimer) return;
+    backupSchedulerTimer = setInterval(() => { backupSchedulerTick().catch(err => console.error('backup scheduler:', err.message)); }, 60 * 1000);
+}
+
+function backupSettingsView() {
+    const reference = new Date(backupSettings.last_auto_at || backupSettings.armed_at || Date.now()).getTime();
+    const next = backupSettings.enabled ? nextScheduledRun(backupSettings, reference) : null;
+    // ถ้าเลยเวลาแล้ว (เช่น เครื่องดับตอนถึงรอบ) ระบบจะสำรองชดเชยในรอบตรวจถัดไป
+    return { ...backupSettings, next_run_at: next ? new Date(Math.max(next, Date.now())).toISOString() : null };
+}
+
+app.get('/api/admin/backups', requireUserAdmin, asyncRoute(async (req, res) => {
+    const backups = await listBackups();
+    let disk = null;
+    try {
+        const stat = await fs.promises.statfs(BACKUP_DIR);
+        disk = { total: stat.blocks * stat.bsize, free: stat.bavail * stat.bsize };
+    } catch (err) { disk = null; }
+    res.json({
+        backups, total_bytes: backups.reduce((sum, item) => sum + item.size, 0), disk, busy: backupBusy,
+        settings: backupSettingsView(), choices: BACKUP_CHOICES, type_labels: BACKUP_TYPE_LABELS,
+    });
+}));
+
+app.post('/api/admin/backups', requireUserAdmin, asyncRoute(async (req, res) => {
+    const note = typeof req.body?.note === 'string' ? req.body.note.trim().slice(0, 120) : '';
+    const plans = req.body?.plans !== false;
+    const panoramas = req.body?.panoramas !== false;
+    const meta = await withBackupLock('สำรองข้อมูล', () => createBackupFile({ type: 'manual', createdBy: req.user.username, note, plans, panoramas }));
+    backupSettings.last_run = { at: meta.created_at, status: 'success', type: 'manual', name: meta.name, size: meta.size };
+    await saveBackupSettings();
+    logActivity(req, { action: 'create', entity: 'backup', detail: `สำรองข้อมูล ${meta.name} (${(meta.size / 1048576).toFixed(1)} MB)${labelSuffix(note)}` });
+    res.status(201).json({ message: 'สำรองข้อมูลสำเร็จ!', backup: meta });
+}));
+
+app.put('/api/admin/backups/settings', requireUserAdmin, asyncRoute(async (req, res) => {
+    const next = { ...sanitizeBackupSettings({ ...backupSettings, ...(req.body || {}) }, backupSettings), ...pickBackupState(backupSettings) };
+    if (next.enabled && !backupSettings.enabled) next.armed_at = new Date().toISOString(); // เริ่มนับรอบจากตอนที่เปิด
+    const changed = Object.keys(BACKUP_DEFAULTS).filter(key => !['armed_at', 'last_auto_at', 'last_run', 'last_verify', 'last_drill'].includes(key) && next[key] !== backupSettings[key]);
+    backupSettings = next;
+    await saveBackupSettings();
+    logActivity(req, { action: 'update', entity: 'backup', detail: `แก้ไขกำหนดการสำรองข้อมูล${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
+    res.json({ message: 'บันทึกกำหนดการสำรองข้อมูลสำเร็จ!', settings: backupSettingsView() });
+}));
+
+app.get('/api/admin/backups/:name/download', requireUserAdmin, asyncRoute(async (req, res) => {
+    const file = backupPath(req.params.name);
+    if (!fs.existsSync(file)) throw new HttpError(404, 'ไม่พบไฟล์สำรองนี้');
+    logActivity(req, { action: 'export', entity: 'backup', detail: `ดาวน์โหลดไฟล์สำรอง ${req.params.name}` });
+    res.download(file, req.params.name);
+}));
+
+app.delete('/api/admin/backups/:name', requireUserAdmin, asyncRoute(async (req, res) => {
+    const file = backupPath(req.params.name);
+    if (!fs.existsSync(file)) throw new HttpError(404, 'ไม่พบไฟล์สำรองนี้');
+    await withBackupLock('ลบไฟล์สำรอง', () => deleteBackupFiles(req.params.name));
+    logActivity(req, { action: 'delete', entity: 'backup', detail: `ลบไฟล์สำรอง ${req.params.name}` });
+    res.json({ message: 'ลบไฟล์สำรองแล้ว' });
+}));
+
+// ตรวจความสมบูรณ์: คำนวณ SHA-256 ของไฟล์เทียบกับค่าที่บันทึกตอนสำรอง (ไฟล์จากสคริปต์ไม่มีค่านี้ จะตรวจได้แค่ว่าเปิด zip ได้)
+async function verifyBackup(name) {
+    const file = backupPath(name);
+    if (!fs.existsSync(file)) return { name, ok: false, reason: 'ไม่พบไฟล์' };
+    const meta = readBackupMeta(name);
+    try {
+        let entries = 0;
+        await iterateZip(file, async () => { entries += 1; });
+        if (!meta?.sha256) return { name, ok: true, checksum: false, entries };
+        const actual = await sha256File(file);
+        return actual === meta.sha256 ? { name, ok: true, checksum: true, entries } : { name, ok: false, checksum: true, reason: 'ค่า SHA-256 ไม่ตรงกับตอนสำรอง ไฟล์อาจเสียหาย' };
+    } catch (err) {
+        return { name, ok: false, reason: 'เปิดไฟล์ zip ไม่ได้ ไฟล์อาจเสียหาย' };
+    }
+}
+
+app.post('/api/admin/backups/verify-all', requireUserAdmin, asyncRoute(async (req, res) => {
+    const results = await withBackupLock('ตรวจสอบไฟล์สำรอง', async () => {
+        const out = [];
+        for (const item of await listBackups()) out.push(await verifyBackup(item.name));
+        return out;
+    });
+    backupSettings.last_verify = { at: new Date().toISOString(), total: results.length, ok: results.filter(item => item.ok).length, failed: results.filter(item => !item.ok).map(item => item.name) };
+    await saveBackupSettings();
+    logActivity(req, { action: 'update', entity: 'backup', detail: `ตรวจสอบความสมบูรณ์ไฟล์สำรอง ${backupSettings.last_verify.ok}/${results.length} ผ่าน` });
+    res.json({ results, last_verify: backupSettings.last_verify });
+}));
+
+app.post('/api/admin/backups/drill', requireUserAdmin, asyncRoute(async (req, res) => {
+    const backups = await listBackups();
+    const name = typeof req.body?.name === 'string' && req.body.name ? req.body.name : backups[0]?.name;
+    if (!name) throw new HttpError(400, 'ยังไม่มีไฟล์สำรองให้ทดสอบ');
+    const result = await withBackupLock('ทดสอบกู้คืนจำลอง', () => runRecoveryDrill(name));
+    backupSettings.last_drill = { at: new Date().toISOString(), ...result };
+    await saveBackupSettings();
+    logActivity(req, { action: 'update', entity: 'backup', detail: `ทดสอบกู้คืนจำลองจาก ${name}: ${result.ok ? 'ผ่าน' : 'ไม่ผ่าน'} (${result.duration_ms} ms)` });
+    res.json({ message: result.ok ? 'ทดสอบกู้คืนจำลองผ่าน' : 'ทดสอบกู้คืนจำลองไม่ผ่าน', result });
+}));
+
+app.post('/api/admin/backups/:name/verify', requireUserAdmin, asyncRoute(async (req, res) => {
+    res.json({ result: await withBackupLock('ตรวจสอบไฟล์สำรอง', () => verifyBackup(req.params.name)) });
+}));
+
+// กู้คืนจริง: เขียนทับฐานข้อมูลและไฟล์อัปโหลดปัจจุบัน ต้องยืนยันรหัสผ่านและพิมพ์ชื่อไฟล์ และระบบสำรองสภาพปัจจุบันไว้ให้ก่อนเสมอ
+app.post('/api/admin/backups/:name/restore', requireUserAdmin, changePasswordLimiter, asyncRoute(async (req, res) => {
+    const name = req.params.name;
+    const file = backupPath(name);
+    if (!fs.existsSync(file)) throw new HttpError(404, 'ไม่พบไฟล์สำรองนี้');
+    if (req.body?.confirm !== name) throw new HttpError(400, 'พิมพ์ชื่อไฟล์สำรองให้ตรงเพื่อยืนยันการกู้คืน');
+    const [[row]] = await pdb.query('SELECT password_hash FROM admin_users WHERE id = ?', [req.user.id]);
+    if (typeof req.body?.password !== 'string' || !bcrypt.compareSync(req.body.password, row.password_hash)) {
+        throw new HttpError(400, 'รหัสผ่านไม่ถูกต้อง');
+    }
+    const actor = req.user.username;
+    logActivity(req, { action: 'update', entity: 'backup', detail: `เริ่มกู้คืนข้อมูลจาก ${name}` }); // เขียนก่อน เพราะตาราง log จะถูกแทนที่ด้วยข้อมูลในไฟล์สำรอง
+    const outcome = await withBackupLock('กู้คืนข้อมูล', async () => {
+        const sql = await readZipSql(file); // ตรวจว่าไฟล์อ่านได้ก่อนแตะข้อมูลจริง
+        const safety = await createBackupFile({ type: 'pre-restore', createdBy: actor, note: `สำรองอัตโนมัติก่อนกู้คืนจาก ${name}` });
+        const connection = await dumpConnection();
+        try { await connection.query(sql); } finally { await connection.end(); }
+        const files = await extractUploadsFromZip(file);
+        await ensureDashboardSchema(); // เติมตาราง/คอลัมน์ที่ไฟล์สำรองรุ่นเก่าอาจไม่มี และโหลดบทบาท/นโยบายใหม่
+        await loadBackupSettings();
+        await applyRetention();
+        return { safety: safety.name, files };
+    });
+    logActivity({ ip: clientIp(req) }, { action: 'update', entity: 'backup', username: actor, detail: `กู้คืนข้อมูลจาก ${name} สำเร็จ (ไฟล์ภาพ ${outcome.files} ไฟล์, สำรองก่อนกู้คืนไว้ที่ ${outcome.safety})` });
+    res.json({ message: 'กู้คืนข้อมูลสำเร็จ! กรุณาเข้าสู่ระบบใหม่', safety_backup: outcome.safety, files: outcome.files });
 }));
 
 // ==========================================
@@ -3055,6 +3505,8 @@ async function ensureDashboardSchema(attempt = 1) {
         await pdb.query('UPDATE admin_users SET password_changed_at = NOW() WHERE password_changed_at IS NULL');
         await reloadSecuritySettings();
         await reloadSystemSettings();
+        await loadBackupSettings();
+        startBackupScheduler();
         if (floorPlansIsNew) {
             for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
                 await pdb.query(

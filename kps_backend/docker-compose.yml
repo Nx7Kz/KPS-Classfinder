@@ -16,6 +16,8 @@ services:
       - ./public/floorplans:/app/public/floorplans
       - ./public/covers:/app/public/covers
       - ./public/tour-images:/app/public/tour-images
+      # ไฟล์สำรองข้อมูลจากหน้าเว็บ เก็บโฟลเดอร์เดียวกับสคริปต์ backup/backup.ps1 (ใช้กู้คืนข้ามกันได้)
+      - ./backup/backups:/app/backups
     depends_on:
       - db
   db:
