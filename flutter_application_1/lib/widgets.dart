@@ -640,7 +640,12 @@ class HoursCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (row.isToday) const StatusPill(label: 'วันนี้'),
+                  if (row.isToday)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(999)),
+                      child: Text('วันนี้', style: TextStyle(color: AppColors.onPrimary, fontSize: 10.5, fontWeight: FontWeight.w800)),
+                    ),
                   const Spacer(),
                   Text(
                     row.text,

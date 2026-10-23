@@ -75,9 +75,15 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
   List<Widget> _buildPanoramaSection() {
     if (_panoramasLoaded ? _panoramas.isEmpty : !hasPanorama(room)) return const [];
     return [
-      const SectionTitle('ภาพ 360°'),
+      const SizedBox(height: 22),
+      _SectionHeader(
+        icon: Icons.threesixty_rounded,
+        title: 'ภาพพาโนรามา 360°',
+        trailing: _panoramasLoaded && _panoramas.isNotEmpty ? _SoftPill('${_panoramas.length} มุมมอง') : null,
+      ),
+      const SizedBox(height: 10),
       if (!_panoramasLoaded)
-        const Shimmer(child: SkeletonBox(height: 190, radius: 16))
+        const Shimmer(child: SkeletonBox(height: 208, radius: 18))
       else
         _PanoramaPreview(panoramas: _panoramas, onOpen: _openPanorama),
     ];
@@ -151,185 +157,165 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final amenities = amenitiesOf(room);
     final openStatus = roomOpenStatus(room);
     final hours = effectiveHours(room);
+    final facilities = <(IconData, String)>[
+      if (amenities['seats'] != null) (Icons.event_seat_rounded, '${amenities['seats']} ที่นั่ง'),
+      if (amenities['outlets'] != null) (Icons.power_rounded, '${amenities['outlets']} จุดปลั๊กไฟ'),
+      if (amenities['ac'] != null) (Icons.ac_unit_rounded, '${amenities['ac']} เครื่องปรับอากาศ'),
+      if ((amenities['wifi']?.toString() ?? '').isNotEmpty) (Icons.wifi_rounded, '${amenities['wifi']}'),
+    ];
+    final hasRoomType = roomType != null && roomType.isNotEmpty;
+    final hasCapacity = capacity != null && capacity.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('รายละเอียดห้อง'),
-        actions: [
-          Builder(
-            builder: (buttonContext) => IconButton(
-              tooltip: 'แชร์ห้องนี้',
-              onPressed: () => _share(buttonContext),
-              icon: const Icon(Icons.share_rounded, size: 21),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _DetailHeader(
+              isFavorite: _isFavorite,
+              loadingFavorite: _isLoadingFavorite,
+              onFavorite: _toggleFavorite,
+              onShare: _share,
             ),
-          ),
-          IconButton(
-            tooltip: _isFavorite ? 'นำออกจากห้องโปรด' : 'บันทึกเป็นห้องโปรด',
-            onPressed: _isLoadingFavorite ? null : _toggleFavorite,
-            // ดาวเด้งขึ้นเล็กน้อยทุกครั้งที่สลับ (ปิดเองเมื่อเครื่องตั้งลดการเคลื่อนไหว)
-            icon: AnimatedSwitcher(
-              duration: reduceMotion(context) ? Duration.zero : const Duration(milliseconds: 260),
-              transitionBuilder: (child, animation) => ScaleTransition(
-                scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-                child: child,
-              ),
-              child: Icon(
-                _isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-                key: ValueKey(_isFavorite),
-                color: _isFavorite ? AppColors.primary : AppColors.muted,
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          Text(
-            roomCode,
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.apartment_rounded, size: 16, color: AppColors.muted),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(buildingName, style: TextStyle(color: AppColors.muted, fontSize: 15)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              StatusPill(label: floorLabel(floor), icon: Icons.layers_rounded),
-              if (roomType != null && roomType.isNotEmpty)
-                StatusPill(label: roomType, icon: Icons.category_rounded),
-              if (isMaintenance(room))
-                const StatusPill.maintenance()
-              else if (openStatus.isKnown)
-                StatusPill.openStatus(openStatus)
-              else
-                const StatusPill(label: 'เปิดใช้งาน', icon: Icons.check_circle_rounded),
-            ],
-          ),
-          if (openStatus.isClosure) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.warningTint,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.event_busy_rounded, color: AppColors.warning, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      openStatus.detail == null ? 'วันนี้ปิดทำการเป็นกรณีพิเศษ' : 'วันนี้ปิดทำการ: ${openStatus.detail}',
-                      style: TextStyle(color: AppColors.ink, height: 1.4),
+            Expanded(
+              child: ColoredBox(
+                color: AppColors.fill,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  children: [
+                    Text(
+                      roomCode,
+                      style: TextStyle(color: AppColors.ink, fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.5),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (isMaintenance(room)) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.warningTint,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.build_rounded, color: AppColors.warning, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้',
-                      style: TextStyle(color: AppColors.ink, height: 1.4),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.apartment_rounded, size: 16, color: AppColors.muted),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(buildingName, style: TextStyle(color: AppColors.muted, fontSize: 15))),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        StatusPill(label: floorLabel(floor), icon: Icons.layers_rounded),
+                        if (hasRoomType) StatusPill(label: roomType, icon: Icons.category_rounded),
+                        if (isMaintenance(room))
+                          const StatusPill.maintenance()
+                        else if (openStatus.isKnown)
+                          StatusPill.openStatus(openStatus)
+                        else
+                          const StatusPill(label: 'เปิดใช้งาน', icon: Icons.check_circle_rounded),
+                      ],
+                    ),
+                    if (openStatus.isClosure) ...[
+                      const SizedBox(height: 16),
+                      _Notice(
+                        icon: Icons.event_busy_rounded,
+                        text: openStatus.detail == null ? 'วันนี้ปิดทำการเป็นกรณีพิเศษ' : 'วันนี้ปิดทำการ: ${openStatus.detail}',
+                      ),
+                    ],
+                    if (isMaintenance(room)) ...[
+                      const SizedBox(height: 16),
+                      const _Notice(icon: Icons.build_rounded, text: 'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้'),
+                    ],
+                    const SizedBox(height: 18),
+                    _MiniMap(room: room, onOpen: _openMap),
+                    ..._buildPanoramaSection(),
+                    if (kTourEnabled && room['tour_point_id'] != null && room['building_id'] != null) ...[
+                      const SizedBox(height: 12),
+                      _TourEntry(
+                        onTap: () => openTour(
+                          context,
+                          buildingId: room['building_id'],
+                          buildingName: buildingName,
+                          pointId: room['tour_point_id'],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    const _SectionHeader(icon: Icons.info_outline_rounded, title: 'ข้อมูลห้องและสิ่งอำนวยความสะดวก'),
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: appCardDecoration(radius: 18),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          _InfoRow(icon: Icons.apartment_rounded, label: 'อาคาร', value: buildingName),
+                          const Divider(),
+                          _InfoRow(icon: Icons.layers_rounded, label: 'ชั้น', value: floorLabel(floor)),
+                          if (hasRoomType) ...[
+                            const Divider(),
+                            _InfoRow(icon: Icons.category_rounded, label: 'ประเภท', value: roomType),
+                          ],
+                          if (hasCapacity) ...[
+                            const Divider(),
+                            _InfoRow(icon: Icons.groups_rounded, label: 'ความจุ', value: '$capacity ที่นั่ง'),
+                          ],
+                          if (facilities.isNotEmpty) ...[
+                            const Divider(),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 13, 16, 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const _IconTile(Icons.grid_view_rounded),
+                                      const SizedBox(width: 12),
+                                      Text('สิ่งอำนวยความสะดวก', style: TextStyle(color: AppColors.muted, fontSize: 14, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 48),
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [for (final (icon, label) in facilities) _AmenityChip(icon, label)],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (hours != null) ...[
+                      const SizedBox(height: 22),
+                      const _SectionHeader(icon: Icons.schedule_rounded, title: 'เวลาทำการ'),
+                      const SizedBox(height: 10),
+                      HoursCard(rows: weeklyHoursRows(hours), inheritsBuilding: room['open_hours'] == null),
+                    ],
+                  ],
+                ),
               ),
             ),
           ],
-          const SectionTitle('ตำแหน่งในอาคาร'),
-          _MiniMap(room: room, onOpen: _openMap),
-          ..._buildPanoramaSection(),
-          if (kTourEnabled && room['tour_point_id'] != null && room['building_id'] != null) ...[
-            const SizedBox(height: 12),
-            _TourEntry(
-              onTap: () => openTour(
-                context,
-                buildingId: room['building_id'],
-                buildingName: buildingName,
-                pointId: room['tour_point_id'],
-              ),
-            ),
-          ],
-          const SectionTitle('ข้อมูลห้อง'),
-          Container(
-            decoration: appCardDecoration(),
-            child: Column(
-              children: [
-                _InfoRow(icon: Icons.apartment_rounded, label: 'อาคาร', value: buildingName),
-                const Divider(indent: 56),
-                _InfoRow(icon: Icons.layers_rounded, label: 'ชั้น', value: floorLabel(floor)),
-                if (capacity != null && capacity.isNotEmpty) ...[
-                  const Divider(indent: 56),
-                  _InfoRow(icon: Icons.event_seat_rounded, label: 'ความจุ', value: '$capacity ที่นั่ง'),
-                ],
-              ],
-            ),
-          ),
-          if (hours != null) ...[
-            const SectionTitle('เวลาทำการ'),
-            HoursCard(rows: weeklyHoursRows(hours), inheritsBuilding: room['open_hours'] == null),
-          ],
-          if (amenities.isNotEmpty) ...[
-            const SectionTitle('สิ่งอำนวยความสะดวก'),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                if (amenities['seats'] != null)
-                  _AmenityChip(Icons.event_seat_rounded, '${amenities['seats']} ที่นั่ง'),
-                if (amenities['outlets'] != null)
-                  _AmenityChip(Icons.power_rounded, '${amenities['outlets']} จุดปลั๊กไฟ'),
-                if (amenities['ac'] != null)
-                  _AmenityChip(Icons.ac_unit_rounded, '${amenities['ac']} เครื่องปรับอากาศ'),
-                if (amenities['wifi'] != null) _AmenityChip(Icons.wifi_rounded, '${amenities['wifi']}'),
-              ],
-            ),
-          ],
-        ],
+        ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border(top: BorderSide(color: AppColors.line)),
-          ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.line)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, -3))],
+        ),
+        child: SafeArea(
+          top: false,
           child: Row(
             children: [
               if (_panoramas.isNotEmpty) ...[
                 Expanded(
                   child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      shape: const StadiumBorder(),
+                      backgroundColor: AppColors.surface,
+                    ),
                     onPressed: _openPanorama,
                     icon: const Icon(Icons.threesixty_rounded, size: 20),
                     label: const Text('ภาพ 360°', maxLines: 1, softWrap: false),
@@ -339,6 +325,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               ],
               Expanded(
                 child: FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48), shape: const StadiumBorder()),
                   onPressed: _openMap,
                   icon: const Icon(Icons.location_on_rounded, size: 20),
                   label: const Text('ดูบนแผนที่'),
@@ -348,6 +335,148 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// แถบบน: ย้อนกลับ + "รายละเอียดห้อง" + แชร์ + ดาวห้องโปรด (ดาวเด้งเล็กน้อยทุกครั้งที่สลับ)
+class _DetailHeader extends StatelessWidget {
+  final bool isFavorite;
+  final bool loadingFavorite;
+  final VoidCallback onFavorite;
+  final Future<void> Function(BuildContext buttonContext) onShare;
+
+  const _DetailHeader({
+    required this.isFavorite,
+    required this.loadingFavorite,
+    required this.onFavorite,
+    required this.onShare,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.line)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'ย้อนกลับ',
+            icon: Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          Expanded(
+            child: Text(
+              'รายละเอียดห้อง',
+              style: TextStyle(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+            ),
+          ),
+          Builder(
+            builder: (buttonContext) => IconButton(
+              tooltip: 'แชร์ห้องนี้',
+              onPressed: () => onShare(buttonContext),
+              icon: Icon(Icons.share_outlined, size: 21, color: AppColors.muted),
+            ),
+          ),
+          IconButton(
+            tooltip: isFavorite ? 'นำออกจากห้องโปรด' : 'บันทึกเป็นห้องโปรด',
+            onPressed: loadingFavorite ? null : onFavorite,
+            icon: AnimatedSwitcher(
+              duration: reduceMotion(context) ? Duration.zero : const Duration(milliseconds: 260),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                child: child,
+              ),
+              child: Icon(
+                isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                key: ValueKey(isFavorite),
+                color: isFavorite ? AppColors.primary : AppColors.muted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// หัวข้อส่วนมีไอคอนเขียวนำหน้า (และป้ายเล็กทางขวาได้)
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget? trailing;
+
+  const _SectionHeader({required this.icon, required this.title, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(title, style: TextStyle(color: AppColors.ink, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+class _SoftPill extends StatelessWidget {
+  final String label;
+
+  const _SoftPill(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(999)),
+      child: Text(label, style: TextStyle(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// กล่องแจ้งเตือนสีส้มอ่อน (ปิดปรับปรุง / ปิดทำการพิเศษ)
+class _Notice extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _Notice({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.warningTint, borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.warning, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: TextStyle(color: AppColors.ink, height: 1.4))),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconTile extends StatelessWidget {
+  final IconData icon;
+
+  const _IconTile(this.icon);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(12)),
+      child: Icon(icon, size: 20, color: AppColors.primary),
     );
   }
 }
@@ -435,14 +564,16 @@ class _MiniMapState extends State<_MiniMap> {
         final plan = snapshot.data;
         return Material(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             onTap: widget.onOpen,
             child: Ink(
-              decoration: appCardDecoration(),
+              decoration: appCardDecoration(radius: 18).copyWith(
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
+              ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(17),
                 child: plan == null ? _buildNoPlan() : _buildPlan(plan),
               ),
             ),
@@ -507,8 +638,32 @@ class _MiniMapState extends State<_MiniMap> {
                   Positioned(
                     left: box.maxWidth * x - _PulsingPin.size / 2,
                     top: box.maxHeight * y - _PulsingPin.size / 2,
-                    child: _PulsingPin(label: widget.room['room_code']?.toString() ?? ''),
+                    child: const _PulsingPin(label: ''),
                   ),
+                // ป้ายรหัสห้องมุมซ้ายบน (แทนป้ายเหนือหมุด จึงไม่บังรายละเอียดในผัง)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.line),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(width: 7, height: 7, decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.room['room_code']?.toString() ?? '',
+                          style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -528,7 +683,10 @@ class _MiniMapState extends State<_MiniMap> {
               Expanded(
                 child: Text(
                   pinned
-                      ? '${floorLabel(floorOf(widget.room))} · ${widget.room['room_code'] ?? ''}'
+                      ? [
+                          floorLabel(floorOf(widget.room)),
+                          if ((widget.room['room_type']?.toString() ?? '').isNotEmpty) widget.room['room_type'].toString(),
+                        ].join(' • ')
                       : 'ห้องนี้ยังไม่ได้ปักหมุดบนแผนผัง',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -539,8 +697,8 @@ class _MiniMapState extends State<_MiniMap> {
                 'แผนที่เต็ม',
                 style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(width: 4),
-              Icon(Icons.open_in_full_rounded, size: 16, color: AppColors.primary),
+              const SizedBox(width: 3),
+              Icon(Icons.north_east_rounded, size: 16, color: AppColors.primary),
             ],
           ),
         ),
@@ -564,12 +722,12 @@ class _PanoramaPreview extends StatelessWidget {
 
     return Material(
       color: Colors.black,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: SizedBox(
-          height: 190,
+          height: 208,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -599,14 +757,20 @@ class _PanoramaPreview extends StatelessWidget {
               ),
               Center(
                 child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Color(0x55000000), blurRadius: 10, offset: Offset(0, 3))],
+                    ),
+                    child: Icon(Icons.threesixty_rounded, color: AppColors.primary, size: 30),
                   ),
-                  child: const Icon(Icons.threesixty_rounded, color: Colors.white, size: 30),
                 ),
               ),
               Positioned(
@@ -633,7 +797,12 @@ class _PanoramaPreview extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.open_in_full_rounded, color: Colors.white, size: 18),
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
+                      child: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 20),
+                    ),
                   ],
                 ),
               ),
@@ -737,18 +906,18 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: AppColors.primary),
-          const SizedBox(width: 16),
-          Text(label, style: TextStyle(color: AppColors.muted, fontSize: 14)),
+          _IconTile(icon),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(color: AppColors.muted, fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(color: AppColors.ink, fontSize: 14.5, fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -766,8 +935,12 @@ class _AmenityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.fill,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.line),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
