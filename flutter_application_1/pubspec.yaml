@@ -41,6 +41,7 @@ dependencies:
   webview_flutter: ^4.14.1
   cached_network_image: ^4.0.3
   flutter_cache_manager: ^3.4.5
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

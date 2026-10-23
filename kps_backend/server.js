@@ -2463,11 +2463,75 @@ function validateBuildingInput({ code, name }) {
     return null;
 }
 
+// ==========================================
+// 🌟 ลิงก์ Google Maps ของอาคาร (ปุ่ม "นำทาง" ในแอป) 🌟
+// ==========================================
+// รับเฉพาะลิงก์ https ของ Google Maps (ลิงก์สั้น maps.app.goo.gl หรือ google.com/maps) กันลิงก์แปลกปลอมไปโผล่ในแอป
+function sanitizeMapUrl(value) {
+    if (value === null || value === undefined || value === '') return { value: null };
+    if (typeof value !== 'string' || value.length > 500) return { error: 'ลิงก์ Google Maps ยาวเกินไปหรือไม่ถูกต้อง' };
+    let url;
+    try {
+        url = new URL(value.trim());
+    } catch (err) {
+        return { error: 'ลิงก์ไม่ถูกต้อง กรุณาวางลิงก์ที่คัดลอกจาก Google Maps' };
+    }
+    const host = url.hostname.toLowerCase();
+    const isGoogleMaps = host === 'maps.app.goo.gl'
+        || (host === 'goo.gl' && url.pathname.startsWith('/maps'))
+        || host === 'maps.google.com'
+        || ((host === 'www.google.com' || host === 'google.com') && url.pathname.startsWith('/maps'));
+    if (url.protocol !== 'https:' || !isGoogleMaps) {
+        return { error: 'ลิงก์ต้องเป็นลิงก์จาก Google Maps (เช่น https://maps.app.goo.gl/... หรือ https://www.google.com/maps/...)' };
+    }
+    return { value: url.toString() };
+}
+
+function validCoordinates(lat, lng) {
+    return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+}
+
+// ดึงพิกัดหมุดสถานที่จากลิงก์ Google Maps ฉบับเต็ม: !3d<lat>!4d<lng> (หมุดสถานที่จริง) > @<lat>,<lng> (กึ่งกลางแผนที่) > ?q=/ll=
+function extractCoordinates(urlString) {
+    const text = String(urlString || '');
+    const patterns = [/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/, /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/, /[?&](?:q|ll|query)=(-?\d+(?:\.\d+)?)(?:,|%2C)(-?\d+(?:\.\d+)?)/i];
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match) continue;
+        const lat = Number(match[1]);
+        const lng = Number(match[2]);
+        if (validCoordinates(lat, lng)) return { latitude: lat, longitude: lng };
+    }
+    return null;
+}
+
+// ลิงก์สั้นต้องตามไปดูปลายทางก่อนถึงจะเห็นพิกัด (เปิดเฉพาะโดเมนของ Google ที่ผ่าน sanitizeMapUrl แล้ว ไม่อ่านเนื้อหาหน้า)
+// ดึงไม่ได้ก็คืน null ปุ่มนำทางยังใช้ได้เพราะเก็บลิงก์เดิมไว้
+async function resolveMapCoordinates(mapUrl) {
+    const direct = extractCoordinates(mapUrl);
+    if (direct) return direct;
+    const host = new URL(mapUrl).hostname.toLowerCase();
+    if (host !== 'maps.app.goo.gl' && host !== 'goo.gl') return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    try {
+        const response = await fetch(mapUrl, { redirect: 'follow', signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (response.body) response.body.cancel().catch(() => {});
+        const finalHost = new URL(response.url).hostname.toLowerCase();
+        if (!['www.google.com', 'google.com', 'maps.google.com'].includes(finalHost)) return null;
+        return extractCoordinates(response.url);
+    } catch (err) {
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // รายชื่ออาคารทั้งหมด พร้อมสถิติจำนวนชั้น/จำนวนห้อง คำนวณสดจากตาราง rooms
 app.get('/api/buildings', (req, res) => {
     const sql = `
         SELECT buildings.id, buildings.code, buildings.name, buildings.description, buildings.location,
-               buildings.cover_image, buildings.open_hours,
+               buildings.cover_image, buildings.open_hours, buildings.map_url, buildings.latitude, buildings.longitude,
                COUNT(rooms.id) AS room_count,
                COUNT(DISTINCT rooms.floor) AS floor_count,
                SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
@@ -2491,7 +2555,7 @@ app.get('/api/buildings', (req, res) => {
     });
 });
 
-app.post('/api/buildings', requirePerm('buildings.create'), (req, res) => {
+app.post('/api/buildings', requirePerm('buildings.create'), asyncRoute(async (req, res) => {
     const { code, name, description, location } = req.body || {};
     const validationError = validateBuildingInput({ code, name });
     if (validationError) {
@@ -2499,10 +2563,13 @@ app.post('/api/buildings', requirePerm('buildings.create'), (req, res) => {
     }
     const hoursResult = sanitizeOpenHours(req.body?.open_hours);
     if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
+    const mapResult = sanitizeMapUrl(req.body?.map_url);
+    if (mapResult.error) return res.status(400).json({ error: mapResult.error });
+    const coordinates = mapResult.value ? await resolveMapCoordinates(mapResult.value) : null;
 
-    const sql = 'INSERT INTO buildings (code, name, description, location, open_hours) VALUES (?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO buildings (code, name, description, location, open_hours, map_url, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
     const hoursJson = hoursResult.value ? JSON.stringify(hoursResult.value) : null;
-    db.query(sql, [code.trim(), name.trim(), description || null, location || null, hoursJson], (err, results) => {
+    db.query(sql, [code.trim(), name.trim(), description || null, location || null, hoursJson, mapResult.value, coordinates?.latitude ?? null, coordinates?.longitude ?? null], (err, results) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(409).json({ error: 'มีรหัสหรือชื่ออาคารนี้อยู่แล้ว' });
@@ -2515,9 +2582,9 @@ app.post('/api/buildings', requirePerm('buildings.create'), (req, res) => {
         });
         res.json({ message: 'เพิ่มอาคารสำเร็จ!', id: results.insertId });
     });
-});
+}));
 
-app.put('/api/buildings/:id', requirePerm('buildings.create'), (req, res) => {
+app.put('/api/buildings/:id', requirePerm('buildings.create'), asyncRoute(async (req, res) => {
     const buildingId = req.params.id;
     const { code, name, description, location } = req.body || {};
     const validationError = validateBuildingInput({ code, name });
@@ -2529,10 +2596,29 @@ app.put('/api/buildings/:id', requirePerm('buildings.create'), (req, res) => {
     const hoursResult = sanitizeOpenHours(req.body?.open_hours);
     if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
 
-    const sql = `UPDATE buildings SET code=?, name=?, description=?, location=?${hasHours ? ', open_hours=?' : ''} WHERE id=?`;
+    // ลิงก์แผนที่: ไม่ส่งมา = คงค่าเดิม ส่งลิงก์เดิมซ้ำ = ไม่ต้องดึงพิกัดใหม่ ส่งค่าว่าง = ลบลิงก์และพิกัด
+    const hasMap = Boolean(req.body) && 'map_url' in req.body;
+    const mapResult = sanitizeMapUrl(req.body?.map_url);
+    if (mapResult.error) return res.status(400).json({ error: mapResult.error });
+    let mapColumns = '';
+    let mapParams = [];
+    if (hasMap) {
+        const [[existing]] = await pdb.query('SELECT map_url, latitude, longitude FROM buildings WHERE id = ?', [buildingId]);
+        let coordinates = null;
+        if (mapResult.value) {
+            coordinates = existing && existing.map_url === mapResult.value && existing.latitude !== null
+                ? { latitude: existing.latitude, longitude: existing.longitude }
+                : await resolveMapCoordinates(mapResult.value);
+        }
+        mapColumns = ', map_url=?, latitude=?, longitude=?';
+        mapParams = [mapResult.value, coordinates?.latitude ?? null, coordinates?.longitude ?? null];
+    }
+
+    const sql = `UPDATE buildings SET code=?, name=?, description=?, location=?${hasHours ? ', open_hours=?' : ''}${mapColumns} WHERE id=?`;
     const params = [
         code.trim(), name.trim(), description || null, location || null,
         ...(hasHours ? [hoursResult.value ? JSON.stringify(hoursResult.value) : null] : []),
+        ...mapParams,
         buildingId,
     ];
     db.query(sql, params, (err) => {
@@ -2548,7 +2634,7 @@ app.put('/api/buildings/:id', requirePerm('buildings.create'), (req, res) => {
         });
         res.json({ message: 'อัปเดตอาคารสำเร็จ!' });
     });
-});
+}));
 
 app.delete('/api/buildings/:id', requirePerm('buildings.delete'), asyncRoute(async (req, res) => {
     const buildingId = req.params.id;
@@ -4020,6 +4106,11 @@ async function ensureDashboardSchema(attempt = 1) {
         for (const table of ['buildings', 'rooms']) {
             const [hoursColumn] = await pdb.query(`SHOW COLUMNS FROM ${table} LIKE 'open_hours'`);
             if (hoursColumn.length === 0) await pdb.query(`ALTER TABLE ${table} ADD COLUMN open_hours JSON DEFAULT NULL`);
+        }
+        // ลิงก์ Google Maps + พิกัดของอาคาร (ปุ่มนำทางในแอป) เพิ่มให้ฐานข้อมูลเดิม
+        for (const [column, definition] of [['map_url', 'VARCHAR(500) DEFAULT NULL'], ['latitude', 'DOUBLE DEFAULT NULL'], ['longitude', 'DOUBLE DEFAULT NULL']]) {
+            const [found] = await pdb.query('SHOW COLUMNS FROM buildings LIKE ?', [column]);
+            if (found.length === 0) await pdb.query(`ALTER TABLE buildings ADD COLUMN ${column} ${definition}`);
         }
         await loadClosures();
         await seedAdminRoles();

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'api_client.dart';
 import 'app_theme.dart';
@@ -70,6 +71,17 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MapScreen(initialBuilding: _name, initialFloor: floor)),
     );
+  }
+
+  /// เปิดลิงก์ Google Maps ที่ผู้ดูแลตั้งไว้ (แอป Google Maps ถ้ามี ไม่มีก็เบราว์เซอร์) เพื่อนำทางไปอาคาร
+  Future<void> _navigate(String url) async {
+    var opened = false;
+    try {
+      opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) showAppSnack(context, 'เปิด Google Maps ไม่ได้ ลองคัดลอกที่อยู่แล้วเปิดในแอปแผนที่เอง');
   }
 
   void _openRoomList() {
@@ -161,6 +173,10 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
                           onMap: () => _openMap(),
                           on360: () => _open360(rooms),
                         ),
+                        if ((widget.building['map_url']?.toString() ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _NavigateButton(onTap: () => _navigate(widget.building['map_url'].toString())),
+                        ],
                         if (loading) ...[
                           const SizedBox(height: 20),
                           const Shimmer(child: SkeletonBox(height: 52, radius: 14)),
@@ -669,6 +685,52 @@ class _InfoLine extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// ปุ่ม "นำทางไปอาคารนี้" เปิด Google Maps (แสดงเมื่อผู้ดูแลใส่ลิงก์แผนที่ของอาคารไว้)
+class _NavigateButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _NavigateButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: appCardDecoration(radius: 18),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.directions_rounded, size: 21, color: AppColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('นำทางไปอาคารนี้', style: TextStyle(color: AppColors.ink, fontSize: 14.5, fontWeight: FontWeight.w800)),
+                      Text('เปิดใน Google Maps', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.open_in_new_rounded, size: 19, color: AppColors.muted),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

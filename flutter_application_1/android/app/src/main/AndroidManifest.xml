@@ -44,5 +44,10 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- ปุ่ม "นำทาง" เปิดลิงก์ Google Maps ด้วยแอปแผนที่/เบราว์เซอร์ของเครื่อง (url_launcher บน Android 11+) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

@@ -2210,6 +2210,14 @@
               <label for="buildingLocation" class="form-label">ตำแหน่งที่ตั้ง (ไม่บังคับ)</label>
               <input id="buildingLocation" class="form-control">
             </div>
+            <div class="mb-3">
+              <label for="buildingMapUrl" class="form-label">ลิงก์ Google Maps (ไม่บังคับ)</label>
+              <div class="input-group">
+                <input id="buildingMapUrl" type="url" class="form-control" maxlength="500" placeholder="https://maps.app.goo.gl/..." inputmode="url" autocomplete="off">
+                <a id="buildingMapTest" class="btn btn-outline-secondary d-none" target="_blank" rel="noopener noreferrer" title="เปิดทดสอบลิงก์ในแท็บใหม่"><span class="material-symbols-outlined" style="font-size: 1.1rem; vertical-align: middle;">open_in_new</span></a>
+              </div>
+              <div class="form-text">เปิดอาคารใน Google Maps กด "แชร์" แล้ววางลิงก์ที่นี่ แอปจะมีปุ่ม "นำทางไปอาคารนี้" ให้ผู้ใช้</div>
+            </div>
           </div>
           <div class="need-buildings-create m-section">
             <div class="m-section-title"><span class="material-symbols-outlined">schedule</span>เวลาทำการ <span class="text-secondary small fw-normal">(ห้องในอาคารใช้เวลานี้ ถ้าไม่ได้กำหนดเอง)</span></div>
@@ -3346,6 +3354,8 @@
               <span class="tw-font-medium tw-text-on-surface">${escapeHtml(building.name)}</span>
               ${building.cover_image ? `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2 tw-py-0.5 tw-rounded-md tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline">
                 <span class="material-symbols-outlined tw-text-[0.875rem]">image</span>มีรูปปก</span>` : ''}
+              ${building.map_url ? `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2 tw-py-0.5 tw-rounded-md tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline" title="มีลิงก์ Google Maps สำหรับปุ่มนำทางในแอป">
+                <span class="material-symbols-outlined tw-text-[0.875rem]">near_me</span>มีลิงก์แผนที่</span>` : ''}
             </div>
             <div class="tw-mt-1">${building.open_hours
               ? `${openStatusChip(building.open_status)} <span class="tw-text-label-sm tw-text-outline">• ${escapeHtml(summarizeHours(building.open_hours))}</span>`
@@ -3371,10 +3381,21 @@
       if (buildings.some(b => b.name === previous)) select.value = previous;
     }
 
+    // ปุ่มเปิดทดสอบลิงก์ข้างช่องลิงก์ Google Maps: โผล่เมื่อมีข้อความในช่อง
+    function syncMapTestLink() {
+      const input = document.getElementById('buildingMapUrl');
+      const link = document.getElementById('buildingMapTest');
+      const value = input.value.trim();
+      link.classList.toggle('d-none', !/^https:\/\//i.test(value));
+      link.href = /^https:\/\//i.test(value) ? value : '#';
+    }
+    document.addEventListener('input', (event) => { if (event.target && event.target.id === 'buildingMapUrl') syncMapTestLink(); });
+
     function openCreateBuildingModal() {
       document.getElementById('buildingModalTitle').textContent = 'เพิ่มอาคาร';
       document.getElementById('buildingId').value = '';
       document.getElementById('buildingForm').reset();
+      syncMapTestLink();
       loadBuildingHoursForm(null);
       showBuildingCover(null);
       buildingModal.show();
@@ -3452,6 +3473,8 @@
       document.getElementById('buildingName').value = building.name || '';
       document.getElementById('buildingDescription').value = building.description || '';
       document.getElementById('buildingLocation').value = building.location || '';
+      document.getElementById('buildingMapUrl').value = building.map_url || '';
+      syncMapTestLink();
       loadBuildingHoursForm(building.open_hours);
       showBuildingCover(building);
       buildingModal.show();
@@ -3473,6 +3496,7 @@
         description: document.getElementById('buildingDescription').value.trim(),
         location: document.getElementById('buildingLocation').value.trim(),
         open_hours: openHours,
+        map_url: document.getElementById('buildingMapUrl').value.trim(),
       };
 
       saveButton.disabled = true;
