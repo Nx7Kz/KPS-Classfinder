@@ -101,8 +101,8 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin, 
               label: 'ค้นหา',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map_rounded),
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore_rounded),
               label: 'แผนที่',
             ),
             if (kTourEnabled)

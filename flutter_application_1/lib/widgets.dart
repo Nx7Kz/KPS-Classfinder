@@ -501,6 +501,88 @@ Future<bool> confirmDialog(
   return result ?? false;
 }
 
+/// แถบบนมาตรฐานของหน้าหลัก: โลโก้ + ชื่อแอป และปุ่มทางขวา (พื้นขาว มีเส้นบางด้านล่าง)
+class AppTopBar extends StatelessWidget {
+  final List<Widget> actions;
+
+  const AppTopBar({super.key, this.actions = const []});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 8, actions.isEmpty ? 20 : 10, 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.line)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: AppColors.tint, shape: BoxShape.circle),
+            child: Icon(Icons.school_rounded, size: 20, color: AppColors.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'KPS ClassFinder',
+              style: TextStyle(color: AppColors.primary, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+            ),
+          ),
+          ...actions,
+        ],
+      ),
+    );
+  }
+}
+
+/// ปุ่มแคปซูลสำหรับแถวตัวเลือก (อาคาร/ชั้น/คำค้นลัด): เลือกอยู่ = เขียวเต็ม ไม่ได้เลือก = ขาวมีขอบ
+class PillButton extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final EdgeInsetsGeometry padding;
+
+  const PillButton({
+    super.key,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.icon,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.onPrimary : AppColors.muted;
+    return Pressable(
+      child: Material(
+        color: active ? AppColors.primary : AppColors.surface,
+        shape: StadiumBorder(side: BorderSide(color: active ? AppColors.primary : AppColors.line)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: () {
+            if (!active) Haptics.select();
+            onTap();
+          },
+          child: Padding(
+            padding: padding,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[Icon(icon, size: 17, color: color), const SizedBox(width: 6)],
+                Text(label, style: TextStyle(color: color, fontSize: 13, fontWeight: active ? FontWeight.w700 : FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 void showAppSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

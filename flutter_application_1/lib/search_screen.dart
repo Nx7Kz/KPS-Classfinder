@@ -162,7 +162,15 @@ class _SearchScreenState extends State<SearchScreen> {
       onTap: () => _focusNode.unfocus(),
       child: Column(
         children: [
-          _TopBar(onSaved: () => openSaved(context)),
+          AppTopBar(
+            actions: [
+              IconButton(
+                tooltip: 'ห้องที่บันทึกไว้',
+                onPressed: () => openSaved(context),
+                icon: Icon(Icons.bookmarks_outlined, color: AppColors.muted),
+              ),
+            ],
+          ),
           Expanded(
             child: ColoredBox(
               color: AppColors.fill,
@@ -341,46 +349,6 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
-/// แถบบน: โลโก้ + ชื่อแอป และทางลัดไปห้องที่บันทึกไว้ (พื้นขาว มีเส้นบางด้านล่าง)
-class _TopBar extends StatelessWidget {
-  final VoidCallback onSaved;
-
-  const _TopBar({required this.onSaved});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 8, 10, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.line)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: AppColors.tint, shape: BoxShape.circle),
-            child: Icon(Icons.school_rounded, size: 20, color: AppColors.primary),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'KPS ClassFinder',
-              style: TextStyle(color: AppColors.primary, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2),
-            ),
-          ),
-          IconButton(
-            tooltip: 'ห้องที่บันทึกไว้',
-            onPressed: onSaved,
-            icon: Icon(Icons.bookmarks_outlined, color: AppColors.muted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// ชิปคำค้นลัด: "ทั้งหมด" + ชื่ออาคาร + ประเภทห้อง เลื่อนแนวนอนได้ ชิปที่ตรงกับคำค้นตอนนี้เป็นสีเขียวเต็ม
 class _ShortcutChips extends StatelessWidget {
   final String selected;
@@ -396,36 +364,12 @@ class _ShortcutChips extends StatelessWidget {
       clipBehavior: Clip.none,
       child: Row(
         children: [
-          _chip('ทั้งหมด', selected.isEmpty, () => onPick(null)),
+          PillButton(label: 'ทั้งหมด', active: selected.isEmpty, onTap: () => onPick(null)),
           for (final term in terms) ...[
             const SizedBox(width: 8),
-            _chip(term, selected.toLowerCase() == term.toLowerCase(), () => onPick(term)),
+            PillButton(label: term, active: selected.toLowerCase() == term.toLowerCase(), onTap: () => onPick(term)),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _chip(String label, bool active, VoidCallback onTap) {
-    return Pressable(
-      child: Material(
-        color: active ? AppColors.primary : AppColors.surface,
-        shape: StadiumBorder(side: BorderSide(color: active ? AppColors.primary : AppColors.line)),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: active ? AppColors.onPrimary : AppColors.muted,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

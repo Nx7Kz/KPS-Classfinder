@@ -153,11 +153,21 @@ class _MapScreenState extends State<MapScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (names.length > 1) ...[
-              ChipRow(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                labels: names,
-                selected: _building,
-                onSelected: _selectBuilding,
+              SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: names.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (_, index) => PillButton(
+                    label: names[index],
+                    active: names[index] == _building,
+                    icon: names[index] == _building ? Icons.domain_rounded : Icons.apartment_rounded,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                    onTap: () => _selectBuilding(names[index]),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
             ],
@@ -176,26 +186,50 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(width: 4),
           ],
         ),
-        body: content,
+        body: ColoredBox(color: AppColors.fill, child: Padding(padding: const EdgeInsets.only(top: 10), child: content)),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
-          child: PageHeader(
-            title: 'แผนที่',
-            trailing: IconButton.filledTonal(
+        AppTopBar(
+          actions: [
+            IconButton(
               tooltip: 'ค้นหาห้องในแผนที่',
-              style: IconButton.styleFrom(backgroundColor: AppColors.tint, foregroundColor: AppColors.primary),
-              icon: const Icon(Icons.search_rounded),
+              icon: Icon(Icons.search_rounded, color: AppColors.muted),
               onPressed: _openSearch,
+            ),
+          ],
+        ),
+        Expanded(
+          child: ColoredBox(
+            color: AppColors.fill,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'INDOOR WAYFINDING',
+                        style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.1),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'แผนที่ผังอาคาร',
+                        style: TextStyle(color: AppColors.ink, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(child: content),
+              ],
             ),
           ),
         ),
-        Expanded(child: content),
       ],
     );
   }
@@ -244,22 +278,44 @@ class _MapScreenState extends State<MapScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (floors.length > 1) ...[
-              ChipRow(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                labels: floors.map(floorLabel).toList(),
-                selected: floorLabel(_floor!),
-                onSelected: (label) {
-                  setState(() {
-                    _floor = floors.firstWhere((f) => floorLabel(f) == label);
-                    _selectedId = null;
-                  });
-                  // หุบหลังเฟรมถัดไป ให้เนื้อหาชั้นใหม่วาดเสร็จก่อน ไม่งั้นแอนิเมชันหุบโดนยกเลิก
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) _moveSheet(expand: false);
-                  });
-                },
+              SizedBox(
+                height: 36,
+                child: Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 20, right: 10),
+                      child: Text('ระดับชั้น:', style: TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(right: 20),
+                        itemCount: floors.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (_, index) {
+                          final floor = floors[index];
+                          return PillButton(
+                            label: floorLabel(floor),
+                            active: floor == _floor,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            onTap: () {
+                              setState(() {
+                                _floor = floor;
+                                _selectedId = null;
+                              });
+                              // หุบหลังเฟรมถัดไป ให้เนื้อหาชั้นใหม่วาดเสร็จก่อน ไม่งั้นแอนิเมชันหุบโดนยกเลิก
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) _moveSheet(expand: false);
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
             ],
             Expanded(
               child: LayoutBuilder(
@@ -496,10 +552,17 @@ class _RoomSheet extends StatelessWidget {
             onClear: onClear,
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
-            child: Text(
-              'ห้องทั้งหมดใน${floorLabel(floor)} (${rooms.length})',
-              style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w700),
+            padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'ห้องทั้งหมดใน${floorLabel(floor)} (${rooms.length})',
+                    style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text('แตะหมุดเพื่อดูห้อง', style: TextStyle(color: AppColors.muted, fontSize: 11.5)),
+              ],
             ),
           ),
           for (final room in rooms)
@@ -614,50 +677,45 @@ class _MapFooter extends StatelessWidget {
 
     return Container(
       margin: embedded ? EdgeInsets.zero : const EdgeInsets.fromLTRB(20, 10, 20, 14),
-      padding: const EdgeInsets.all(12),
-      decoration: appCardDecoration(color: room == null ? AppColors.fill : AppColors.tint, radius: 18),
+      padding: room == null ? EdgeInsets.zero : const EdgeInsets.all(12),
+      decoration: room == null ? const BoxDecoration() : appCardDecoration(color: AppColors.tint, radius: 18),
       child: room == null
           ? Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 2, 4, 10),
+                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
                   child: Text(
-                    pinned == 0
-                        ? 'ชั้นนี้ยังไม่มีหมุดห้อง'
-                        : 'แตะหมุดบนแผนที่เพื่อดูห้อง ($pinned จาก ${rooms.length} ห้องมีหมุด)',
-                    style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.35),
+                    pinned == 0 ? 'ชั้นนี้ยังไม่มีหมุดห้อง' : 'ปักหมุดบนแผนที่แล้ว $pinned จาก ${rooms.length} ห้อง',
+                    style: TextStyle(color: AppColors.muted, fontSize: 12, height: 1.35),
                   ),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: smallButton,
-                        onPressed: onShowList ?? () => _openList(context),
-                        icon: const Icon(Icons.list_rounded, size: 18),
-                        label: const Text('รายการห้อง', maxLines: 1, softWrap: false),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          backgroundColor: count360 == 0 ? AppColors.muted : AppColors.primary,
-                        ),
-                        onPressed: () => _open360List(context),
-                        icon: const Icon(Icons.threesixty_rounded, size: 20),
-                        label: Text(
-                          count360 == 0 ? 'ภาพ 360°' : 'ภาพ 360° ($count360)',
-                          maxLines: 1,
-                          softWrap: false,
+                // แถบสลับแบบแคปซูล: "รายการห้อง" (ขยายแผงดูห้องทั้งชั้น) / "ภาพ 360°" (รายการห้องที่มีภาพ)
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: AppColors.fill, borderRadius: BorderRadius.circular(14)),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SegmentButton(
+                          icon: Icons.format_list_bulleted_rounded,
+                          label: 'รายการห้อง',
+                          active: true,
+                          onTap: onShowList ?? () => _openList(context),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _SegmentButton(
+                          icon: Icons.threesixty_rounded,
+                          label: count360 == 0 ? 'ภาพ 360°' : 'ภาพ 360° ($count360)',
+                          active: false,
+                          onTap: () => _open360List(context),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             )
@@ -718,6 +776,50 @@ class _MapFooter extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// ปุ่มในแถบสลับแคปซูลใต้แผนที่ (ตัวที่ active เป็นแผ่นขาวตัวหนังสือเขียว)
+class _SegmentButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _SegmentButton({required this.icon, required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.primary : AppColors.muted;
+    return Material(
+      color: active ? AppColors.surface : Colors.transparent,
+      borderRadius: BorderRadius.circular(11),
+      elevation: active ? 1 : 0,
+      shadowColor: Colors.black.withValues(alpha: 0.15),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: color, fontSize: 13, fontWeight: active ? FontWeight.w800 : FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -877,7 +979,9 @@ class _FloorPlanViewState extends State<_FloorPlanView> with SingleTickerProvide
     });
 
     return Container(
-      decoration: appCardDecoration(),
+      decoration: appCardDecoration(radius: 20).copyWith(
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 2))],
+      ),
       clipBehavior: Clip.antiAlias,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -991,11 +1095,14 @@ class _MapButton extends StatelessWidget {
     return Material(
       color: AppColors.surface,
       shape: CircleBorder(side: BorderSide(color: AppColors.line)),
+      elevation: 1.5,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
       child: IconButton(
         tooltip: tooltip,
-        iconSize: 22,
-        color: AppColors.primary,
-        visualDensity: VisualDensity.compact,
+        iconSize: 19,
+        color: AppColors.muted,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 34, height: 34),
         icon: Icon(icon),
         onPressed: onTap,
       ),
@@ -1128,7 +1235,7 @@ class _PinMarker extends StatelessWidget {
 
     final maintenance = isMaintenance(room);
     final dotSize = selected ? 26.0 : 18.0;
-    final color = maintenance ? AppColors.muted : (selected ? AppColors.primaryDark : AppColors.primary);
+    final color = maintenance ? AppColors.warning : (selected ? AppColors.primaryDark : AppColors.primary);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
