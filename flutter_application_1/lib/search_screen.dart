@@ -575,7 +575,7 @@ class _BuildingShortcut extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name)),
+          MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name, buildingCode: building['code']?.toString())),
         ),
         child: Ink(
           padding: const EdgeInsets.all(14),

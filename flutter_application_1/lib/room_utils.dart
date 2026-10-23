@@ -1,6 +1,8 @@
 /// ฟังก์ชันช่วยจัดการข้อมูลห้อง/ชั้นที่ใช้ร่วมกันหลายหน้า
 library;
 
+import 'package:flutter/material.dart' show IconData, Icons;
+
 /// เรียงชั้น: ตัวเลขก่อน (น้อย→มาก) ตามด้วยชื่อชั้นอื่นตามตัวอักษร
 List<String> sortFloors(Iterable<String> floors) {
   final list = floors.toSet().toList();
@@ -23,6 +25,22 @@ String floorLabel(String floor) {
 }
 
 bool isMaintenance(Map<String, dynamic> room) => room['status']?.toString() == 'maintenance';
+
+/// ไอคอนตามประเภทห้อง (ลิฟต์ ห้องน้ำ ห้องบรรยาย ฯลฯ) ใช้บนการ์ดห้อง ถ้าไม่รู้จักประเภทใช้ไอคอนประตู
+IconData roomIcon(Map<String, dynamic> room) {
+  final text = '${room['room_type'] ?? ''} ${room['room_code'] ?? ''}';
+  bool has(String word) => text.contains(word);
+  if (has('ห้องน้ำ')) return Icons.wc_rounded;
+  if (has('ลิฟต์')) return Icons.elevator_rounded;
+  if (has('ห้องบรรยาย')) return Icons.co_present_rounded;
+  if (has('ปฏิบัติการ') || has('Lab')) return Icons.science_rounded;
+  if (has('คอมพิวเตอร์')) return Icons.computer_rounded;
+  if (has('ประชุม') || has('สัมมนา')) return Icons.groups_rounded;
+  if (has('ห้องสมุด') || has('อ่านหนังสือ')) return Icons.local_library_rounded;
+  if (has('สำนักงาน')) return Icons.business_center_rounded;
+  if (has('ร้านค้า') || has('โรงอาหาร')) return Icons.storefront_rounded;
+  return Icons.meeting_room_rounded;
+}
 
 /// จำนวนภาพ 360° ของห้อง (backend ส่งมาใน panorama_count)
 int panoramaCount(Map<String, dynamic> room) => int.tryParse('${room['panorama_count']}') ?? 0;

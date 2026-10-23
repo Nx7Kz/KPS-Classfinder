@@ -206,7 +206,7 @@ class _BuildingCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name))),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name, buildingCode: code))),
         child: Ink(
           padding: const EdgeInsets.all(12),
           decoration: appCardDecoration(radius: 18).copyWith(

@@ -219,7 +219,9 @@ class RoomTile extends StatelessWidget {
   final VoidCallback onTap;
   final bool showBuilding;
   final Widget? trailing;
-  final IconData icon;
+
+  /// null = เลือกไอคอนตามประเภทห้องอัตโนมัติ
+  final IconData? icon;
 
   /// ลำดับในรายการ ใส่แล้วการ์ดจะค่อย ๆ ปรากฏไล่ตามลำดับ (null = ไม่มีแอนิเมชันเข้า)
   final int? entranceIndex;
@@ -233,7 +235,7 @@ class RoomTile extends StatelessWidget {
     required this.onTap,
     this.showBuilding = true,
     this.trailing,
-    this.icon = Icons.meeting_room_rounded,
+    this.icon,
     this.highlight,
     this.entranceIndex,
   });
@@ -260,7 +262,7 @@ class RoomTile extends StatelessWidget {
             decoration: appCardDecoration(),
             child: Row(
               children: [
-                IconBadge(icon),
+                IconBadge(icon ?? roomIcon(room)),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -290,12 +292,13 @@ class RoomTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       // ค้นหาได้ทั้งชื่ออาคารและประเภทห้อง จึงไฮไลต์บรรทัดเหล่านี้ด้วย
                       HighlightText(
-                        where,
+                        // ในรายการของอาคารเดียว (ไม่แสดงชื่ออาคาร) รวมชั้นกับประเภท/ความจุไว้บรรทัดเดียว
+                        showBuilding || summary == null ? where : '$where • $summary',
                         query: highlight,
                         maxLines: 1,
                         style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
-                      if (summary != null)
+                      if (summary != null && showBuilding)
                         HighlightText(
                           summary,
                           query: highlight,
