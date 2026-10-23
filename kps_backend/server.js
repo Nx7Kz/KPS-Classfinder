@@ -2045,6 +2045,7 @@ function findClosure(dateString, roomId, buildingId) {
 
 function getOpenStatus({ status = 'active', hours = null, roomId = null, buildingId = null }, at = new Date()) {
     if (status === 'maintenance') return { state: 'closed', reason: 'maintenance', label: 'ปิดปรับปรุง' };
+    if (status === 'inactive') return { state: 'closed', reason: 'inactive', label: 'ปิดใช้งาน' };
     const now = bangkokParts(at);
     const closure = findClosure(now.date, roomId, buildingId);
     if (closure) {
@@ -2102,9 +2103,12 @@ const ROOM_SELECT_BASE = `
     JOIN buildings ON buildings.id = rooms.building_id
 `;
 
+// ห้องสถานะ "ปิดใช้งาน" ซ่อนจากแอปผู้ใช้ทั่วไป (ค้นหา/รายการห้อง/จำนวนห้อง) แต่ผู้ดูแลที่ล็อกอินอยู่ยังเห็นเพื่อจัดการได้
+const isStaffRequest = (req) => Boolean(req.session?.userId);
+
 // 2. สร้าง API สำหรับดึงห้องเรียนตัวอย่าง 1 ห้อง (ไว้ใช้แสดงคำแนะนำการค้นหา)
 app.get('/api/rooms/sample', (req, res) => {
-    const sql = 'SELECT room_code FROM rooms ORDER BY RAND() LIMIT 1';
+    const sql = `SELECT room_code FROM rooms ${isStaffRequest(req) ? '' : "WHERE status <> 'inactive'"} ORDER BY RAND() LIMIT 1`;
 
     db.query(sql, (err, results) => {
         if (err) {
@@ -2133,7 +2137,8 @@ app.get('/api/rooms/search', (req, res) => {
     const prefix = `${escaped}%`;
 
     const sql = `${ROOM_SELECT_BASE}
-        WHERE rooms.room_code LIKE ? OR buildings.name LIKE ? OR buildings.code LIKE ? OR rooms.room_type LIKE ?
+        WHERE (rooms.room_code LIKE ? OR buildings.name LIKE ? OR buildings.code LIKE ? OR rooms.room_type LIKE ?)
+        ${isStaffRequest(req) ? '' : "AND rooms.status <> 'inactive'"}
         ORDER BY
             CASE
                 WHEN rooms.room_code = ? THEN 0
@@ -2156,7 +2161,7 @@ app.get('/api/rooms/search', (req, res) => {
 
 app.get('/api/search/:room', (req, res) => {
     const roomCode = req.params.room;
-    const sql = `${ROOM_SELECT_BASE} WHERE rooms.room_code = ?`;
+    const sql = `${ROOM_SELECT_BASE} WHERE rooms.room_code = ? ${isStaffRequest(req) ? '' : "AND rooms.status <> 'inactive'"}`;
 
     db.query(sql, [roomCode], (err, results) => {
         if (err) {
@@ -2176,7 +2181,7 @@ app.get('/api/search/:room', (req, res) => {
 // 4. 🌟 เพิ่ม API สำหรับดึงข้อมูลห้องทั้งหมดในอาคารที่เลือก 🌟
 app.get('/api/building/:name', (req, res) => {
     const buildingName = req.params.name;
-    const sql = `${ROOM_SELECT_BASE} WHERE buildings.name = ?`;
+    const sql = `${ROOM_SELECT_BASE} WHERE buildings.name = ? ${isStaffRequest(req) ? '' : "AND rooms.status <> 'inactive'"}`;
 
     db.query(sql, [buildingName], (err, results) => {
         if (err) {
@@ -2216,7 +2221,7 @@ app.get('/api/floorplan', (req, res) => {
 const ROOM_CODE_MAX_LENGTH = 255;
 const FLOOR_MAX_LENGTH = 50;
 const ROOM_TYPE_MAX_LENGTH = 50;
-const ROOM_STATUSES = new Set(['active', 'maintenance']);
+const ROOM_STATUSES = new Set(['active', 'maintenance', 'inactive']);
 
 // ตรวจสอบว่าข้อมูลห้องที่ส่งมาครบและถูกต้องหรือไม่ คืนข้อความ error ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
 // ตรวจทีละส่วนแยกจากกัน (ลดความซับซ้อนของ validateRoomInput ด้านล่าง ซึ่งแค่เรียงลำดับเรียกทั้งหมด)
@@ -2529,6 +2534,7 @@ async function resolveMapCoordinates(mapUrl) {
 
 // รายชื่ออาคารทั้งหมด พร้อมสถิติจำนวนชั้น/จำนวนห้อง คำนวณสดจากตาราง rooms
 app.get('/api/buildings', (req, res) => {
+    const visible = isStaffRequest(req) ? '' : "AND rooms.status <> 'inactive'";
     const sql = `
         SELECT buildings.id, buildings.code, buildings.name, buildings.description, buildings.location,
                buildings.cover_image, buildings.open_hours, buildings.map_url, buildings.latitude, buildings.longitude,
@@ -2537,12 +2543,12 @@ app.get('/api/buildings', (req, res) => {
                SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
                -- จำนวนห้องในอาคารที่มีภาพ 360° อย่างน้อย 1 ภาพ (แอปใช้แสดงป้าย 360° บนการ์ดอาคาร)
                (SELECT COUNT(DISTINCT p.room_id) FROM panoramas p JOIN rooms r ON r.id = p.room_id
-                WHERE r.building_id = buildings.id) AS panorama_room_count,
+                WHERE r.building_id = buildings.id ${visible.replace(/rooms\./g, 'r.')}) AS panorama_room_count,
                -- ภาพสำรองเมื่อยังไม่มีรูปปก: แผนผังชั้น 1 (ถ้าไม่มีใช้ชั้นแรกที่มี)
                (SELECT fp.image_url FROM floor_plans fp WHERE fp.building_id = buildings.id
                 ORDER BY fp.floor = '1' DESC, fp.floor LIMIT 1) AS floor_plan_image
         FROM buildings
-        LEFT JOIN rooms ON rooms.building_id = buildings.id
+        LEFT JOIN rooms ON rooms.building_id = buildings.id ${visible}
         GROUP BY buildings.id
         ORDER BY buildings.name
     `;
@@ -3268,7 +3274,7 @@ app.get('/api/tour/:buildingId', asyncRoute(async (req, res) => {
         'SELECT floor, image_url AS image, width, height FROM floor_plans WHERE building_id = ? ORDER BY floor', [buildingId]);
     const [rooms] = await pdb.query(
         `SELECT id, room_code, floor, pin_x, pin_y, status FROM rooms
-         WHERE building_id = ? AND pin_x IS NOT NULL AND pin_y IS NOT NULL`, [buildingId]);
+         WHERE building_id = ? AND pin_x IS NOT NULL AND pin_y IS NOT NULL ${isStaffRequest(req) ? '' : "AND status <> 'inactive'"}`, [buildingId]);
 
     res.json({
         building: buildings[0],
@@ -4139,6 +4145,11 @@ async function ensureDashboardSchema(attempt = 1) {
         for (const column of ['initial_yaw', 'initial_pitch']) {
             const [found] = await pdb.query('SHOW COLUMNS FROM panoramas LIKE ?', [column]);
             if (found.length === 0) await pdb.query(`ALTER TABLE panoramas ADD COLUMN ${column} DOUBLE DEFAULT NULL`);
+        }
+        // สถานะห้อง "ปิดใช้งาน" (inactive) เพิ่มค่าใน ENUM ให้ฐานข้อมูลเดิม
+        const [roomStatus] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status'");
+        if (roomStatus.length > 0 && !String(roomStatus[0].Type).includes("'inactive'")) {
+            await pdb.query("ALTER TABLE rooms MODIFY COLUMN status ENUM('active','maintenance','inactive') NOT NULL DEFAULT 'active'");
         }
         await loadClosures();
         await seedAdminRoles();

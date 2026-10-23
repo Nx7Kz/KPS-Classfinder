@@ -112,6 +112,7 @@ OpenStatus computeOpenStatus({
   DateTime? at,
 }) {
   if (status == 'maintenance') return const OpenStatus(OpenState.closed, 'ปิดปรับปรุง', 'ปิดปรับปรุง');
+  if (status == 'inactive') return const OpenStatus(OpenState.closed, 'ปิดใช้งาน', 'ปิดใช้งาน');
 
   final now = _bangkok(at);
   final today = _dateKey(now);

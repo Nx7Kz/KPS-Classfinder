@@ -45,7 +45,7 @@ CREATE TABLE `rooms` (
   `floor` varchar(50) DEFAULT '-',
   `room_type` varchar(50) DEFAULT NULL,
   `capacity` int DEFAULT NULL,
-  `status` enum('active','maintenance') NOT NULL DEFAULT 'active',
+  `status` enum('active','maintenance','inactive') NOT NULL DEFAULT 'active',
   `amenities` json DEFAULT NULL,
   `pin_x` decimal(6,3) DEFAULT NULL,
   `pin_y` decimal(6,3) DEFAULT NULL,

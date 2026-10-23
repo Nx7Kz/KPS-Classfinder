@@ -2081,7 +2081,9 @@
               <select id="roomStatus" class="form-select">
                 <option value="active">เปิดใช้งาน</option>
                 <option value="maintenance">ปิดปรับปรุง</option>
+                <option value="inactive">ปิดใช้งาน (ซ่อนจากแอป)</option>
               </select>
+              <div class="form-text">ปิดปรับปรุง = แอปยังแสดงห้องแต่ขึ้นว่าปิด • ปิดใช้งาน = ซ่อนห้องจากแอปผู้ใช้ (เห็นเฉพาะในแดชบอร์ด)</div>
             </div>
           </div>
 
@@ -3667,7 +3669,10 @@
         const isPinned = room.pin_x !== null && room.pin_x !== undefined;
         const typeCapacity = [room.room_type, room.capacity ? `${room.capacity} ที่นั่ง` : null]
           .filter(Boolean).join(' • ') || '<span class="tw-text-outline">-</span>';
-        const statusBadge = room.status === 'maintenance'
+        const statusBadge = room.status === 'inactive'
+          ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-outline"></span>ปิดใช้งาน</span>`
+          : room.status === 'maintenance'
           ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-amber-100 tw-text-amber-800 dark:tw-bg-amber-500/15 dark:tw-text-amber-300 tw-font-medium">
               <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-amber-600 dark:tw-bg-amber-300"></span>ปิดปรับปรุง</span>`
           : `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-green-100 tw-text-green-800 dark:tw-bg-green-500/15 dark:tw-text-green-300 tw-font-medium">
@@ -3684,7 +3689,7 @@
           <td class="tw-py-3.5 tw-px-4 tw-font-semibold tw-text-on-surface">${escapeHtml(room.room_code || '-')}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center"><span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
           <td class="tw-py-3.5 tw-px-4 tw-text-on-surface-variant">${typeCapacity}</td>
-          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}${room.status !== 'maintenance' && room.open_status ? `<div class="tw-mt-1">${openStatusChip(room.open_status)}</div>` : ''}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}${room.status === 'active' && room.open_status ? `<div class="tw-mt-1">${openStatusChip(room.open_status)}</div>` : ''}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center">${pinBadge}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-1.5">
