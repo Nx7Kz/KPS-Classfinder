@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'app_theme.dart';
 import 'motion.dart';
+import 'open_status.dart';
 import 'room_list_screen.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
@@ -128,6 +129,7 @@ class _BuildingCard extends StatelessWidget {
     final location = building['location']?.toString();
     final floorCount = building['floor_count']?.toString() ?? '0';
     final roomCount = building['room_count']?.toString() ?? '0';
+    final openStatus = buildingOpenStatus(building);
 
     return Material(
       color: AppColors.surface,
@@ -199,6 +201,7 @@ class _BuildingCard extends StatelessWidget {
                       children: [
                         _StatChip(icon: Icons.layers_outlined, label: '$floorCount ชั้น'),
                         _StatChip(icon: Icons.meeting_room_outlined, label: '$roomCount ห้อง'),
+                        if (openStatus.isKnown) StatusPill.openStatus(openStatus),
                       ],
                     ),
                   ],

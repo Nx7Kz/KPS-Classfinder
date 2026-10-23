@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'app_theme.dart';
 import 'motion.dart';
+import 'open_status.dart';
 import 'room_utils.dart';
 
 /// หัวข้อใหญ่ของแต่ละแท็บ
@@ -150,23 +151,39 @@ class IconBadge extends StatelessWidget {
   }
 }
 
+enum _PillTone { normal, warning, muted }
+
 /// ป้ายสถานะเล็ก ๆ เช่น "ปิดปรับปรุง"
 class StatusPill extends StatelessWidget {
   final String label;
   final IconData? icon;
-  final bool _warning;
+  final _PillTone _tone;
 
-  const StatusPill({super.key, required this.label, this.icon}) : _warning = false;
+  const StatusPill({super.key, required this.label, this.icon}) : _tone = _PillTone.normal;
 
   const StatusPill.maintenance({super.key})
       : label = 'ปิดปรับปรุง',
         icon = Icons.build_rounded,
-        _warning = true;
+        _tone = _PillTone.warning;
+
+  /// ป้าย "เปิดอยู่" (เขียว) / "ปิดอยู่" (เทา) จากเวลาทำการ [short] = ข้อความสั้นสำหรับรายการ
+  StatusPill.openStatus(OpenStatus status, {super.key, bool short = false})
+      : label = short ? status.shortLabel : status.label,
+        icon = Icons.schedule_rounded,
+        _tone = status.state == OpenState.open ? _PillTone.normal : _PillTone.muted;
 
   @override
   Widget build(BuildContext context) {
-    final color = _warning ? AppColors.warning : AppColors.primary;
-    final background = _warning ? AppColors.warningTint : AppColors.tint;
+    final color = switch (_tone) {
+      _PillTone.warning => AppColors.warning,
+      _PillTone.muted => AppColors.muted,
+      _PillTone.normal => AppColors.primary,
+    };
+    final background = switch (_tone) {
+      _PillTone.warning => AppColors.warningTint,
+      _PillTone.muted => AppColors.fill,
+      _PillTone.normal => AppColors.tint,
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -215,6 +232,7 @@ class RoomTile extends StatelessWidget {
       floorLabel(floorOf(room)),
     ].join(' · ');
     final summary = roomSummary(room);
+    final openStatus = roomOpenStatus(room);
 
     final tile = Pressable(
       child: Material(
@@ -249,6 +267,10 @@ class RoomTile extends StatelessWidget {
                             const StatusPill(label: '360°', icon: Icons.threesixty_rounded),
                           ],
                           if (isMaintenance(room)) ...[const SizedBox(width: 8), const StatusPill.maintenance()],
+                          if (openStatus.isKnown && !isMaintenance(room)) ...[
+                            const SizedBox(width: 8),
+                            StatusPill.openStatus(openStatus, short: true),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 2),

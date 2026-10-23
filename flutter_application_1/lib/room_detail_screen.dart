@@ -6,6 +6,7 @@ import 'api_client.dart';
 import 'app_theme.dart';
 import 'map_screen.dart';
 import 'motion.dart';
+import 'open_status.dart';
 import 'panorama_screen.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
@@ -148,6 +149,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     final roomType = room['room_type']?.toString();
     final capacity = room['capacity']?.toString();
     final amenities = amenitiesOf(room);
+    final openStatus = roomOpenStatus(room);
+    final hours = effectiveHours(room);
 
     return Scaffold(
       appBar: AppBar(
@@ -210,12 +213,37 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               StatusPill(label: floorLabel(floor), icon: Icons.layers_rounded),
               if (roomType != null && roomType.isNotEmpty)
                 StatusPill(label: roomType, icon: Icons.category_rounded),
-              if (!isMaintenance(room))
-                const StatusPill(label: 'เปิดใช้งาน', icon: Icons.check_circle_rounded)
+              if (isMaintenance(room))
+                const StatusPill.maintenance()
+              else if (openStatus.isKnown)
+                StatusPill.openStatus(openStatus)
               else
-                const StatusPill.maintenance(),
+                const StatusPill(label: 'เปิดใช้งาน', icon: Icons.check_circle_rounded),
             ],
           ),
+          if (openStatus.isClosure) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.warningTint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.event_busy_rounded, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      openStatus.detail == null ? 'วันนี้ปิดทำการเป็นกรณีพิเศษ' : 'วันนี้ปิดทำการ: ${openStatus.detail}',
+                      style: TextStyle(color: AppColors.ink, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (isMaintenance(room)) ...[
             const SizedBox(height: 16),
             Container(
@@ -268,6 +296,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
               ],
             ),
           ),
+          if (hours != null) ...[
+            const SectionTitle('เวลาทำการ'),
+            _HoursCard(rows: weeklyHoursRows(hours), inheritsBuilding: room['open_hours'] == null),
+          ],
           if (amenities.isNotEmpty) ...[
             const SectionTitle('สิ่งอำนวยความสะดวก'),
             Wrap(
@@ -719,6 +751,63 @@ class _InfoRow extends StatelessWidget {
               style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ตารางเวลาทำการรายสัปดาห์ (จันทร์ → อาทิตย์) ไฮไลต์แถววันนี้
+class _HoursCard extends StatelessWidget {
+  final List<HoursRow> rows;
+  final bool inheritsBuilding;
+
+  const _HoursCard({required this.rows, required this.inheritsBuilding});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: appCardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (final row in rows)
+            Container(
+              color: row.isToday ? AppColors.tint : null,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 84,
+                    child: Text(
+                      row.day,
+                      style: TextStyle(
+                        color: row.isToday ? AppColors.primary : AppColors.ink,
+                        fontSize: 14.5,
+                        fontWeight: row.isToday ? FontWeight.w800 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (row.isToday) const StatusPill(label: 'วันนี้'),
+                  const Spacer(),
+                  Text(
+                    row.text,
+                    style: TextStyle(
+                      color: row.isClosed ? AppColors.muted : AppColors.ink,
+                      fontSize: 14.5,
+                      fontWeight: row.isToday ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (inheritsBuilding)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+              child: Text('ใช้ตามเวลาทำการของอาคาร', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+            ),
         ],
       ),
     );

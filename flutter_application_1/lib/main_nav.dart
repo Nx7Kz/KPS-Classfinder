@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'map_screen.dart';
 import 'motion.dart';
+import 'open_status.dart';
 import 'places_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
@@ -15,7 +16,7 @@ class MainNav extends StatefulWidget {
   State<MainNav> createState() => _MainNavState();
 }
 
-class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
+class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   // จางเข้าเบา ๆ ตอนสลับแท็บ (ใช้ controller ตัวเดียว ไม่สร้างแท็บใหม่ สถานะในแท็บจึงไม่หาย)
@@ -36,7 +37,21 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // วันปิดพิเศษใช้คำนวณสถานะเปิด/ปิดของห้อง โหลดตอนเปิดแอป และโหลดใหม่ทุกครั้งที่กลับมาใช้แอป
+    ClosureStore.refresh();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ClosureStore.refresh();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _fade.dispose();
     super.dispose();
   }

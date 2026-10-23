@@ -67,6 +67,11 @@ class Api {
     return _asList(_decode(await _get('api/buildings')));
   }
 
+  /// วันปิดทำการพิเศษที่ยังไม่สิ้นสุด (ทั้งมหาวิทยาลัย/อาคาร/ห้อง)
+  static Future<List<Map<String, dynamic>>> closures() async {
+    return _asList(_decode(await _get('api/closures')));
+  }
+
   static Future<List<Map<String, dynamic>>> roomsInBuilding(String buildingName) async {
     return _asList(_decode(await _get('api/building/${Uri.encodeComponent(buildingName)}')));
   }
