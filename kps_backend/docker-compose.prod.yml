@@ -1,0 +1,56 @@
+# ใช้บน VPS:  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# ต่างจาก docker-compose.yml (เครื่องพัฒนา): รหัสลับอยู่ใน .env, ไม่เปิดพอร์ต MySQL/phpMyAdmin สู่อินเทอร์เน็ต,
+# และมี Caddy เป็นด่านหน้าทำ HTTPS ให้อัตโนมัติ
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?ต้องตั้ง MYSQL_ROOT_PASSWORD ใน .env}
+      SESSION_SECRET: ${SESSION_SECRET:?ต้องตั้ง SESSION_SECRET ใน .env}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ต้องตั้ง ADMIN_PASSWORD ใน .env}
+    volumes:
+      - ./public/panoramas:/app/public/panoramas
+      - ./public/floorplans:/app/public/floorplans
+      - ./public/covers:/app/public/covers
+      - ./public/tour-images:/app/public/tour-images
+      - ./backup/backups:/app/backups
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?ต้องตั้ง MYSQL_ROOT_PASSWORD ใน .env}
+      MYSQL_DATABASE: kps_classfinder
+    # ไม่มี ports: ฐานข้อมูลเข้าถึงได้เฉพาะ backend ภายในเครือข่าย Docker
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?ต้องตั้ง DOMAIN ใน .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

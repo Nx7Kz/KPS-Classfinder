@@ -33,10 +33,10 @@ app.use(express.json());
 // ใช้ pool แทน connection เดี่ยว เพราะ MySQL container อาจพร้อมช้ากว่า backend ตอน docker compose up ครั้งแรก
 // pool จะขอ connection ใหม่ต่อ query แทนที่จะค้างสถานะ error ไว้ถาวร
 const DB_CONFIG = {
-    host: 'db',
-    user: 'root',
-    password: '',
-    database: 'kps_classfinder',
+    host: process.env.DB_HOST || 'db',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'kps_classfinder',
 };
 const db = mysql.createPool({
     ...DB_CONFIG,
@@ -509,7 +509,69 @@ const apiLimiter = rateLimit({
     message: { error: 'ส่งคำขอถี่เกินไป กรุณารอสักครู่แล้วลองใหม่' },
 });
 
-const sessionStore = new session.MemoryStore();
+// เก็บ session ในฐานข้อมูล เพื่อให้รีสตาร์ท/อัปเดตเซิร์ฟเวอร์แล้วผู้ดูแลไม่ต้องล็อกอินใหม่
+class MysqlSessionStore extends session.Store {
+    constructor(pool) {
+        super();
+        this.pool = pool;
+        this.ready = null;
+        setInterval(() => this.run('DELETE FROM admin_sessions WHERE expires_at < ?', [Date.now()]).catch(() => {}), 60 * 60 * 1000).unref();
+    }
+
+    // MySQL อาจพร้อมช้ากว่า backend ตอนเริ่มระบบ จึงสร้างตารางตอนใช้งานครั้งแรกและลองใหม่ถ้ายังไม่สำเร็จ
+    ensureTable() {
+        if (!this.ready) {
+            this.ready = this.pool.query(`CREATE TABLE IF NOT EXISTS admin_sessions (
+                sid VARCHAR(128) NOT NULL PRIMARY KEY,
+                data MEDIUMTEXT NOT NULL,
+                expires_at BIGINT NOT NULL,
+                INDEX idx_admin_sessions_expires (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`).catch((err) => { this.ready = null; throw err; });
+        }
+        return this.ready;
+    }
+
+    async run(sql, params) {
+        await this.ensureTable();
+        return this.pool.query(sql, params);
+    }
+
+    static expiresAt(sess) {
+        const expires = sess?.cookie?.expires ? new Date(sess.cookie.expires).getTime() : NaN;
+        return Number.isFinite(expires) ? expires : Date.now() + 24 * 60 * 60 * 1000;
+    }
+
+    get(sid, callback) {
+        this.run('SELECT data FROM admin_sessions WHERE sid = ? AND expires_at > ?', [sid, Date.now()])
+            .then(([rows]) => callback(null, rows.length ? JSON.parse(rows[0].data) : null), callback);
+    }
+
+    set(sid, sess, callback) {
+        this.run('REPLACE INTO admin_sessions (sid, data, expires_at) VALUES (?, ?, ?)', [sid, JSON.stringify(sess), MysqlSessionStore.expiresAt(sess)])
+            .then(() => callback && callback(null), err => callback && callback(err));
+    }
+
+    touch(sid, sess, callback) {
+        this.run('UPDATE admin_sessions SET expires_at = ? WHERE sid = ?', [MysqlSessionStore.expiresAt(sess), sid])
+            .then(() => callback && callback(null), err => callback && callback(err));
+    }
+
+    destroy(sid, callback) {
+        this.run('DELETE FROM admin_sessions WHERE sid = ?', [sid])
+            .then(() => callback && callback(null), err => callback && callback(err));
+    }
+
+    async countLoggedIn() {
+        const [[row]] = await this.run(`SELECT COUNT(*) AS total FROM admin_sessions WHERE expires_at > ? AND data LIKE '%"userId"%'`, [Date.now()]);
+        return Number(row.total);
+    }
+}
+
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+    console.error('❌ ต้องตั้งค่า SESSION_SECRET เมื่อรันแบบ production');
+    process.exit(1);
+}
+const sessionStore = new MysqlSessionStore(pdb);
 app.use(session({
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'kps-classfinder-dev-secret',
@@ -518,6 +580,8 @@ app.use(session({
     rolling: true, // ต่ออายุ session ทุกครั้งที่ใช้งาน (หมดอายุเมื่อไม่มีการใช้งานตามเวลาที่ผู้ดูแลตั้ง)
     cookie: {
         httpOnly: true,
+        sameSite: 'lax',
+        secure: 'auto', // ส่งเฉพาะ HTTPS เมื่อเชื่อมผ่าน reverse proxy ที่ส่ง X-Forwarded-Proto (ใช้ http บนเครื่องพัฒนาได้ตามปกติ)
         maxAge: 8 * 60 * 60 * 1000, // ค่าเริ่มต้นสำหรับ session ที่ยังไม่ล็อกอิน
     },
 }));
@@ -1071,14 +1135,9 @@ app.put('/api/admin/security/settings', requireUserAdmin, asyncRoute(async (req,
     res.json({ message: 'บันทึกการตั้งค่าความปลอดภัยสำเร็จ!', settings: securitySettings });
 }));
 
-// นับ session ที่ยังใช้งานได้จริงของผู้ดูแล (MemoryStore เก็บในหน่วยความจำ เริ่มระบบใหม่แล้วทุกคนต้องล็อกอินใหม่)
+// นับ session ที่ล็อกอินอยู่และยังไม่หมดอายุ
 function countActiveSessions() {
-    return new Promise((resolve) => {
-        sessionStore.all((err, sessions) => {
-            if (err || !sessions) return resolve(0);
-            resolve(Object.values(sessions).filter(item => item && item.userId).length);
-        });
-    });
+    return sessionStore.countLoggedIn().catch(() => 0);
 }
 
 app.get('/api/admin/security/audit', requireUserAdmin, asyncRoute(async (req, res) => {
@@ -1340,6 +1399,7 @@ async function buildSqlDump() {
         ];
         for (const row of tableRows) {
             const table = Object.values(row)[0];
+            if (table === 'admin_sessions') continue; // เซสชันล็อกอินไม่ใช่ข้อมูลที่ต้องสำรอง
             const quoted = `\`${table.replaceAll('`', '``')}\``;
             const [createRows] = await connection.query(`SHOW CREATE TABLE ${quoted}`);
             parts.push(`DROP TABLE IF EXISTS ${quoted};`, `${createRows[0]['Create Table']};`);
@@ -1481,6 +1541,7 @@ async function runRecoveryDrill(name) {
         const counts = {};
         for (const row of tableRows) {
             const table = Object.values(row)[0];
+            if (table === 'admin_sessions') continue;
             const [[count]] = await connection.query(`SELECT COUNT(*) AS total FROM \`${table}\``);
             counts[table] = Number(count.total);
         }
