@@ -1221,7 +1221,7 @@ class _PinMarker extends StatelessWidget {
       width: _hitSize,
       height: _hitSize,
       child: AnimatedBuilder(
-        animation: Listenable.merge([controller, AppPrefs.alwaysShowLabels]),
+        animation: Listenable.merge([controller, AppPrefs.alwaysShowLabels, AppPrefs.mapLabelLarge]),
         builder: (_, _) {
           final scale = controller.value.getMaxScaleOnAxis();
           // ตั้งค่า "แสดงชื่อห้องตลอดเวลา" เปิดอยู่ = ป้ายชัดเต็มที่ทุกระดับซูม
@@ -1291,6 +1291,7 @@ class _PinMarker extends StatelessWidget {
   Widget _buildLabel(double labelOpacity) {
     final code = room['room_code']?.toString() ?? '';
     if (code.isEmpty || (!selected && labelOpacity <= 0)) return const SizedBox.shrink();
+    final large = AppPrefs.mapLabelLarge.value;
 
     final label = selected
         ? Container(
@@ -1299,7 +1300,7 @@ class _PinMarker extends StatelessWidget {
             child: Text(
               code,
               maxLines: 1,
-              style: TextStyle(color: AppColors.background, fontSize: 12, fontWeight: FontWeight.w700),
+              style: TextStyle(color: AppColors.background, fontSize: large ? 15 : 12, fontWeight: FontWeight.w700),
             ),
           )
         : Opacity(
@@ -1315,7 +1316,7 @@ class _PinMarker extends StatelessWidget {
               child: Text(
                 code,
                 maxLines: 1,
-                style: TextStyle(color: AppColors.ink, fontSize: 11, fontWeight: FontWeight.w700),
+                style: TextStyle(color: AppColors.ink, fontSize: large ? 14 : 11, fontWeight: FontWeight.w700),
               ),
             ),
           );

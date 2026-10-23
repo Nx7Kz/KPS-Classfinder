@@ -143,6 +143,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: () => AppPrefs.setAlwaysShowLabels(!value),
                       ),
                     ),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: AppPrefs.mapLabelLarge,
+                      builder: (_, large, _) => _SettingRow(
+                        icon: Icons.format_size_rounded,
+                        title: 'ขนาดตัวอักษรบนแผนที่',
+                        subtitle: large ? 'ใหญ่ (อ่านง่ายขึ้น)' : 'ปกติ',
+                        trailing: _SizeToggle(large: large, onChanged: AppPrefs.setMapLabelLarge),
+                      ),
+                    ),
                   ],
                 ),
                 _Heading(
@@ -320,6 +329,42 @@ class _ThemePicker extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// สลับขนาดตัวอักษร ปกติ / ใหญ่
+class _SizeToggle extends StatelessWidget {
+  final bool large;
+  final ValueChanged<bool> onChanged;
+
+  const _SizeToggle({required this.large, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget option(String label, bool value) {
+      final active = large == value;
+      return GestureDetector(
+        onTap: () => onChanged(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? AppColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: active ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 3, offset: const Offset(0, 1))] : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(color: active ? AppColors.primary : AppColors.muted, fontSize: 12.5, fontWeight: active ? FontWeight.w800 : FontWeight.w600),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: AppColors.line.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(10)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [option('ปกติ', false), option('ใหญ่', true)]),
     );
   }
 }

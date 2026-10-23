@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'announcements.dart';
 import 'api_client.dart';
 import 'app_tabs.dart';
 import 'app_theme.dart';
@@ -45,12 +46,19 @@ class _SearchScreenState extends State<SearchScreen> {
     super.initState();
     _loadBuildings();
     RoomStore.revision.addListener(_loadSaved);
+    ClosureStore.revision.addListener(_onClosuresChanged);
     _loadSaved();
+  }
+
+  // วันปิดพิเศษโหลดเสร็จ/เปลี่ยน -> คำนวณประกาศใหม่
+  void _onClosuresChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     RoomStore.revision.removeListener(_loadSaved);
+    ClosureStore.revision.removeListener(_onClosuresChanged);
     _debounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
@@ -156,6 +164,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final searching = _query.isNotEmpty;
+    final announcements = buildAnnouncements(_buildings);
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -164,6 +173,16 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           AppTopBar(
             actions: [
+              IconButton(
+                tooltip: 'ประกาศ',
+                onPressed: () => openAnnouncements(context),
+                icon: Badge(
+                  isLabelVisible: announcements.isNotEmpty,
+                  label: Text('${announcements.length}'),
+                  backgroundColor: announcements.any((item) => item.urgent) ? AppColors.warning : AppColors.primary,
+                  child: Icon(Icons.notifications_none_rounded, color: AppColors.muted),
+                ),
+              ),
               IconButton(
                 tooltip: 'ห้องที่บันทึกไว้',
                 onPressed: () => openSaved(context),
@@ -203,6 +222,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (searching)
                     ..._buildResults()
                   else ...[
+                    ..._buildAnnouncements(announcements),
                     ..._buildBuildingShortcuts(),
                     ..._buildFavorites(),
                     ..._buildRecents(),
@@ -300,6 +320,25 @@ class _SearchScreenState extends State<SearchScreen> {
         },
         onOpen: (room) => openRoom(context, room),
       ),
+    ];
+  }
+
+  /// ประกาศสำคัญ (วันปิดทำการ/ห้องปิดปรับปรุง) แสดงสูงสุด 2 รายการ ที่เหลือดูในหน้าประกาศ
+  List<Widget> _buildAnnouncements(List<Announcement> items) {
+    if (items.isEmpty) return const [];
+    return [
+      SectionTitle(
+        'ประกาศ',
+        trailing: _LinkButton(label: items.length > 2 ? 'ดูทั้งหมด (${items.length})' : 'ดูทั้งหมด', onTap: () => openAnnouncements(context)),
+      ),
+      for (final item in items.take(2))
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: AnnouncementTile(
+            item: item,
+            onTap: item.building == null ? () => openAnnouncements(context) : () => openAnnouncementTarget(context, item),
+          ),
+        ),
     ];
   }
 

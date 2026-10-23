@@ -160,6 +160,22 @@ OpenStatus buildingOpenStatus(Map<String, dynamic> building, {DateTime? at}) => 
       at: at,
     );
 
+/// วันปิดพิเศษที่กำลังเกิดขึ้นหรือจะมาถึงภายใน [withinDays] วัน (เวลาไทย) เรียงตามวันเริ่ม
+List<Map<String, dynamic>> upcomingClosures({DateTime? at, int withinDays = 14}) {
+  final now = _bangkok(at);
+  final today = _dateKey(now);
+  final limit = _dateKey(now.add(Duration(days: withinDays)));
+  final list = [
+    for (final closure in ClosureStore.items)
+      if ((closure['end_date']?.toString() ?? '').compareTo(today) >= 0 && (closure['start_date']?.toString() ?? '').compareTo(limit) <= 0) closure,
+  ];
+  list.sort((a, b) => (a['start_date']?.toString() ?? '').compareTo(b['start_date']?.toString() ?? ''));
+  return list;
+}
+
+/// วันที่ไทยปัจจุบันรูปแบบ YYYY-MM-DD
+String todayKeyBangkok({DateTime? at}) => _dateKey(_bangkok(at));
+
 /// สรุปเวลาทำการสั้น ๆ เช่น "จ.–ศ. 08:00–16:30 • ส.–อา. ปิด" (วันติดกันที่เวลาเหมือนกันรวมเป็นช่วงเดียว)
 String summarizeHours(Map<String, dynamic> hours) {
   const shortDays = {1: 'จ.', 2: 'อ.', 3: 'พ.', 4: 'พฤ.', 5: 'ศ.', 6: 'ส.', 0: 'อา.'};
