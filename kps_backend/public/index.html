@@ -1929,7 +1929,14 @@
           <div id="panoViewerBox" style="width:100%; height:68vh; min-height:320px;"></div>
         </div>
         <div class="modal-footer justify-content-between">
-          <a id="panoViewOriginal" href="#" target="_blank" rel="noopener" class="small">เปิดภาพต้นฉบับในแท็บใหม่</a>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button type="button" id="panoSetInitial" class="btn btn-sm btn-primary d-none" onclick="setPanoInitialView()">
+              <span class="material-symbols-outlined" style="font-size:1.1rem; vertical-align:middle;">my_location</span> ตั้งมุมนี้เป็นมุมเริ่มต้น
+            </button>
+            <button type="button" id="panoClearInitial" class="btn btn-sm btn-outline-secondary d-none" onclick="clearPanoInitialView()">ล้างมุมเริ่มต้น</button>
+            <span id="panoInitialState" class="small text-secondary"></span>
+            <a id="panoViewOriginal" href="#" target="_blank" rel="noopener" class="small">เปิดภาพต้นฉบับในแท็บใหม่</a>
+          </div>
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
         </div>
       </div>
@@ -4634,7 +4641,11 @@
       const room = rooms.find(item => Number(item.id) === Number(pano.room_id));
       document.getElementById('panoViewTitle').textContent = `${panoramaName(pano)}${room ? ` — ${room.room_code}` : ''}`;
       document.getElementById('panoViewOriginal').href = pano.image_url;
-      return panoViewer.setPanorama(pano.image_url, { showLoader: true }).then(() => {
+      refreshPanoInitialControls(pano);
+      const hasInitial = pano.initial_yaw !== null && pano.initial_yaw !== undefined && pano.initial_pitch !== null && pano.initial_pitch !== undefined;
+      const options = { showLoader: true };
+      if (hasInitial) options.position = { yaw: `${Number(pano.initial_yaw)}deg`, pitch: `${Number(pano.initial_pitch)}deg` };
+      return panoViewer.setPanorama(pano.image_url, options).then(() => {
         panoViewerMarkers.clearMarkers();
         for (const hotspot of pano.hotspots) {
           const target = panoramas.find(item => Number(item.id) === Number(hotspot.target_panorama_id));
@@ -4649,6 +4660,43 @@
           });
         }
       });
+    }
+
+    // ---- มุมเริ่มต้นของภาพ: หมุนภาพให้ได้มุมที่ต้องการ แล้วกด "ตั้งมุมนี้เป็นมุมเริ่มต้น" ----
+    function refreshPanoInitialControls(pano) {
+      const canEdit = can('panoramas.hotspots');
+      const hasInitial = pano.initial_yaw !== null && pano.initial_yaw !== undefined;
+      document.getElementById('panoSetInitial').classList.toggle('d-none', !canEdit);
+      document.getElementById('panoClearInitial').classList.toggle('d-none', !canEdit || !hasInitial);
+      document.getElementById('panoInitialState').textContent = hasInitial
+        ? `มุมเริ่มต้น: yaw ${Number(pano.initial_yaw).toFixed(0)}°, pitch ${Number(pano.initial_pitch).toFixed(0)}°`
+        : 'ยังไม่ได้ตั้งมุมเริ่มต้น (แอปจะเปิดที่กลางภาพ)';
+    }
+
+    async function saveInitialView(yaw, pitch) {
+      try {
+        const data = await api(`/api/panoramas/${panoViewerCurrentId}/initial-view`, jsonRequest('PUT', { yaw, pitch }));
+        await loadPanoramas();
+        const pano = panoramas.find(item => Number(item.id) === Number(panoViewerCurrentId));
+        if (pano) refreshPanoInitialControls(pano);
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
+    function setPanoInitialView() {
+      if (!panoViewer || panoViewerCurrentId === null) return;
+      const position = panoViewer.getPosition();
+      let yaw = (position.yaw * 180) / Math.PI;
+      yaw = ((yaw + 180) % 360 + 360) % 360 - 180;
+      const pitch = Math.max(-90, Math.min(90, (position.pitch * 180) / Math.PI));
+      return saveInitialView(Number(yaw.toFixed(2)), Number(pitch.toFixed(2)));
+    }
+
+    function clearPanoInitialView() {
+      if (panoViewerCurrentId === null) return;
+      return saveInitialView(null, null);
     }
 
     async function openPanoViewer(panoramaId) {

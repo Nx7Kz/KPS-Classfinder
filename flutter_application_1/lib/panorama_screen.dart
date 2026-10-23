@@ -108,8 +108,12 @@ class _PanoramaScreenState extends State<PanoramaScreen> {
     _controller.setZoom(next);
   }
 
+  /// มุมเริ่มต้นที่แอดมินตั้งไว้ในแดชบอร์ด (yaw = longitude, pitch = latitude) ถ้าไม่ได้ตั้งใช้กลางภาพ
+  double get _initialYaw => double.tryParse('${_current['initial_yaw']}') ?? 0;
+  double get _initialPitch => double.tryParse('${_current['initial_pitch']}') ?? 0;
+
   void _resetView() {
-    _controller.setView(0, 0);
+    _controller.setView(_initialYaw, _initialPitch);
     _controller.setZoom(1);
   }
 
@@ -229,6 +233,8 @@ class _PanoramaScreenState extends State<PanoramaScreen> {
             key: ValueKey('${panorama['id']}-$_gyro'),
             minZoom: _minZoom,
             maxZoom: _maxZoom,
+            longitude: _initialYaw,
+            latitude: _initialPitch,
             hotspots: _buildHotspots(),
             panoramaController: _controller,
             sensorControl: _gyro ? SensorControl.orientation : SensorControl.none,

@@ -3010,7 +3010,7 @@ app.get('/api/rooms/:roomId/panoramas', asyncRoute(async (req, res) => {
     if (roomId === null) return res.json([]);
 
     const [panoramas] = await pdb.query(
-        `SELECT id, room_id, image_url, position_label, sort_order, created_at
+        `SELECT id, room_id, image_url, position_label, sort_order, initial_yaw, initial_pitch, created_at
          FROM panoramas WHERE room_id = ? ORDER BY sort_order, id`, [roomId]);
     if (panoramas.length === 0) return res.json([]);
 
@@ -3078,6 +3078,29 @@ app.put('/api/panoramas/:id', requirePerm('panoramas.hotspots'), asyncRoute(asyn
 
     logActivity(req, { action: 'update', entity: 'panorama', entityId: id, detail: `แก้ไขภาพ 360° #${id}` });
     res.json({ message: 'อัปเดตภาพพาโนรามาสำเร็จ!' });
+}));
+
+// ตั้ง/ล้างมุมเริ่มต้นของภาพ (yaw/pitch เป็นองศา, ส่ง null ทั้งคู่ = กลับไปใช้มุมกลางภาพ)
+app.put('/api/panoramas/:id/initial-view', requirePerm('panoramas.hotspots'), asyncRoute(async (req, res) => {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) throw new HttpError(400, 'รหัสภาพไม่ถูกต้อง');
+
+    const { yaw, pitch } = req.body || {};
+    const clearing = (yaw === null || yaw === undefined) && (pitch === null || pitch === undefined);
+    if (!clearing) {
+        const validationError = validateHotspotInput({ yaw, pitch, icon_type: 'arrow', label: null });
+        if (validationError) throw new HttpError(400, validationError);
+    }
+
+    const [result] = await pdb.query('UPDATE panoramas SET initial_yaw = ?, initial_pitch = ? WHERE id = ?',
+        clearing ? [null, null, id] : [Number(yaw), Number(pitch), id]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบภาพพาโนรามานี้');
+
+    logActivity(req, {
+        action: 'update', entity: 'panorama', entityId: id,
+        detail: clearing ? `ล้างมุมเริ่มต้นภาพ 360° #${id}` : `ตั้งมุมเริ่มต้นภาพ 360° #${id}`,
+    });
+    res.json({ message: clearing ? 'ล้างมุมเริ่มต้นแล้ว' : 'ตั้งมุมเริ่มต้นสำเร็จ!' });
 }));
 
 app.delete('/api/panoramas/:id', requirePerm('panoramas.delete'), asyncRoute(async (req, res) => {
@@ -4111,6 +4134,11 @@ async function ensureDashboardSchema(attempt = 1) {
         for (const [column, definition] of [['map_url', 'VARCHAR(500) DEFAULT NULL'], ['latitude', 'DOUBLE DEFAULT NULL'], ['longitude', 'DOUBLE DEFAULT NULL']]) {
             const [found] = await pdb.query('SHOW COLUMNS FROM buildings LIKE ?', [column]);
             if (found.length === 0) await pdb.query(`ALTER TABLE buildings ADD COLUMN ${column} ${definition}`);
+        }
+        // มุมเริ่มต้นของภาพ 360° (องศา) ที่ผู้ใช้เห็นตอนเปิดภาพ เพิ่มให้ฐานข้อมูลเดิม
+        for (const column of ['initial_yaw', 'initial_pitch']) {
+            const [found] = await pdb.query('SHOW COLUMNS FROM panoramas LIKE ?', [column]);
+            if (found.length === 0) await pdb.query(`ALTER TABLE panoramas ADD COLUMN ${column} DOUBLE DEFAULT NULL`);
         }
         await loadClosures();
         await seedAdminRoles();
