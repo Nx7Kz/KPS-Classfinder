@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'api_config.dart';
+import 'app_prefs.dart';
 import 'app_theme.dart';
 import 'main_nav.dart';
 
@@ -8,6 +9,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConfig.load();
   await ThemeController.load();
+  await AppPrefs.load();
   runApp(const MyApp());
 }
 

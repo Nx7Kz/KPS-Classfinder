@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'app_prefs.dart';
 import 'app_theme.dart';
 import 'motion.dart';
 import 'panorama_screen.dart';
@@ -1220,10 +1221,13 @@ class _PinMarker extends StatelessWidget {
       width: _hitSize,
       height: _hitSize,
       child: AnimatedBuilder(
-        animation: controller,
+        animation: Listenable.merge([controller, AppPrefs.alwaysShowLabels]),
         builder: (_, _) {
           final scale = controller.value.getMaxScaleOnAxis();
-          final labelOpacity = ((scale - _labelFrom) / (_labelFull - _labelFrom)).clamp(0.0, 1.0);
+          // ตั้งค่า "แสดงชื่อห้องตลอดเวลา" เปิดอยู่ = ป้ายชัดเต็มที่ทุกระดับซูม
+          final labelOpacity = AppPrefs.alwaysShowLabels.value
+              ? 1.0
+              : ((scale - _labelFrom) / (_labelFull - _labelFrom)).clamp(0.0, 1.0);
           return Transform.scale(scale: 1 / scale, child: _buildPin(labelOpacity));
         },
       ),
