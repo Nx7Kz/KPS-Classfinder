@@ -116,6 +116,45 @@ class Api {
     return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
   }
 
+  /// ส่งรายงานข้อมูลไม่ถูกต้องให้ผู้ดูแล (ไม่ต้องล็อกอิน) ระบุห้อง/อาคารได้หรือไม่ระบุก็ได้
+  /// ข้อความผิดพลาดจากเซิร์ฟเวอร์ (กรอกไม่ครบ ส่งถี่เกินไป ฯลฯ) ส่งต่อเป็น ApiException ภาษาไทย
+  static Future<void> sendReport({
+    required String category,
+    required String message,
+    String? contact,
+    Object? roomId,
+    Object? buildingId,
+  }) async {
+    final uri = ApiConfig.endpoint('api/reports');
+    http.Response response;
+    try {
+      response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=utf-8'},
+            body: jsonEncode({
+              'category': category,
+              'message': message,
+              if (contact != null && contact.trim().isNotEmpty) 'contact': contact.trim(),
+              'room_id': ?roomId,
+              'building_id': ?buildingId,
+            }),
+          )
+          .timeout(_timeout);
+    } on TimeoutException {
+      throw const ApiException('เซิร์ฟเวอร์ตอบสนองช้าเกินไป ลองใหม่อีกครั้ง', isConnection: true);
+    } catch (_) {
+      throw const ApiException('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่', isConnection: true);
+    }
+    if (response.statusCode == 200) return;
+    String? serverMessage;
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is Map) serverMessage = decoded['error']?.toString();
+    } catch (_) {}
+    throw ApiException(serverMessage ?? 'ส่งรายงานไม่สำเร็จ (${response.statusCode})');
+  }
+
   static String assetUrl(String path) => ApiConfig.endpoint(path).toString();
 
   /// ทดสอบว่าเซิร์ฟเวอร์ที่ระบุตอบกลับได้ ใช้ในหน้าตั้งค่า

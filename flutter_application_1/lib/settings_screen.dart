@@ -4,6 +4,8 @@ import 'api_client.dart';
 import 'api_config.dart';
 import 'app_prefs.dart';
 import 'app_theme.dart';
+import 'guide_screen.dart';
+import 'report_sheet.dart';
 import 'room_store.dart';
 import 'widgets.dart';
 
@@ -188,6 +190,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         done: 'ล้างประวัติแล้ว',
                         count: _recentCount,
                       ),
+                    ),
+                  ],
+                ),
+                const _Heading('ช่วยเหลือ'),
+                _Group(
+                  children: [
+                    _SettingRow(
+                      icon: Icons.help_outline_rounded,
+                      title: 'คู่มือการใช้งานและคำถามที่พบบ่อย',
+                      subtitle: 'วิธีค้นหาห้อง ดูแผนที่ ภาพ 360° และแก้ปัญหา',
+                      onTap: () => openGuide(context),
+                    ),
+                    _SettingRow(
+                      icon: Icons.flag_outlined,
+                      title: 'แจ้งข้อมูลไม่ถูกต้อง',
+                      subtitle: 'แจ้งผู้ดูแลเมื่อพบข้อมูลห้อง ตำแหน่ง หรือเวลาไม่ตรง',
+                      onTap: () => showReportSheet(context),
                     ),
                   ],
                 ),

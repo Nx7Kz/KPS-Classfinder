@@ -10,6 +10,7 @@ import 'open_status.dart';
 import 'panorama_screen.dart';
 import 'room_detail_screen.dart';
 import 'room_list_screen.dart';
+import 'report_sheet.dart';
 import 'room_utils.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
@@ -181,6 +182,11 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
                           ..._buildFloors(rooms),
                           ..._buildFacilities(rooms),
                         ],
+                        const SizedBox(height: 24),
+                        ReportLinkCard(
+                          title: 'ข้อมูลอาคารนี้ไม่ตรง?',
+                          onTap: () => showReportSheet(context, building: widget.building),
+                        ),
                       ],
                     );
                   },

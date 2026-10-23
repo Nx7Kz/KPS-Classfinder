@@ -517,6 +517,9 @@
           <!-- ซ่อนเมนู Virtual Tour ไว้ก่อน (ยังไม่พร้อมเปิดให้ใช้จริง) หน้า page-tour และ tour/admin.js ยังอยู่ครบ
                เปิดกลับมาได้ทันทีด้วยการเอาคอมเมนต์นี้ออก -->
           <!-- <button type="button" data-page="tour" onclick="showPage('tour')" class="tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer"><span class="material-symbols-outlined tw-text-[1.25rem]">signpost</span><span>Virtual Tour</span></button> -->
+          <button type="button" data-page="reports" onclick="showPage('reports')" class="need-buildings-read tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
+            <span class="material-symbols-outlined tw-text-[1.25rem]">feedback</span><span>Reports</span>
+          </button>
           <button type="button" data-page="logs" onclick="showPage('logs')" class="need-logs-any tw-appearance-none tw-border-0 tw-text-left tw-w-full tw-flex tw-items-center tw-gap-3 tw-px-3.5 tw-py-2.5 tw-rounded-lg tw-bg-transparent tw-text-on-surface-variant tw-font-label-md tw-text-label-md tw-font-medium hover:tw-bg-surface-container-high tw-transition-colors tw-cursor-pointer">
             <span class="material-symbols-outlined tw-text-[1.25rem]">schedule</span><span>System Logs</span>
           </button>
@@ -1130,6 +1133,26 @@
         </section>
 
         <!-- ============ PAGE: System Logs (Tailwind ตามดีไซน์ code.html) ============ -->
+        <section id="page-reports" class="page-section d-none tw-flex tw-flex-col tw-gap-6">
+          <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4 tw-pb-2">
+            <div>
+              <div class="tw-flex tw-items-baseline tw-gap-2 tw-flex-wrap">
+                <h2 class="tw-text-display-lg tw-font-display-lg tw-font-bold tw-text-on-surface tw-m-0">รายงานจากผู้ใช้</h2>
+                <span class="tw-text-headline-md tw-font-headline-md tw-text-outline tw-font-normal">(User Reports)</span>
+              </div>
+              <p class="tw-text-body-md tw-font-body-md tw-text-on-surface-variant tw-mt-1 tw-mb-0">ผู้ใช้แอปแจ้งว่าข้อมูลห้อง ตำแหน่งหมุด เวลาทำการ หรือภาพ 360° ไม่ถูกต้อง ตรวจแล้วเปลี่ยนสถานะเพื่อติดตามงาน</p>
+            </div>
+            <div class="tw-flex tw-gap-3">
+              <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-px-4 tw-py-2.5 tw-border tw-border-outline-variant/30 tw-text-center"><div class="tw-text-label-sm tw-text-outline">รอตรวจ</div><div id="reportKpiNew" class="tw-text-headline-md tw-font-bold tw-text-error">-</div></div>
+              <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-px-4 tw-py-2.5 tw-border tw-border-outline-variant/30 tw-text-center"><div class="tw-text-label-sm tw-text-outline">ทั้งหมด</div><div id="reportKpiTotal" class="tw-text-headline-md tw-font-bold tw-text-on-surface">-</div></div>
+            </div>
+          </div>
+          <div id="reportTabs" class="tw-flex tw-flex-wrap tw-gap-2"></div>
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+            <div id="reportList"></div>
+          </section>
+        </section>
+
         <section id="page-logs" class="page-section d-none tw-flex tw-flex-col tw-gap-6">
           <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center tw-justify-between tw-gap-4 tw-pb-2">
             <div>
@@ -2407,6 +2430,7 @@
       'floor-plans': 'Floor Plans',
       'panoramas': '360 Panorama Editor',
       'tour': 'Virtual Tour (เดินชมอาคาร 360°)',
+      'reports': 'Reports',
       'logs': 'System Logs',
       'settings': 'Settings',
     };
@@ -2416,6 +2440,7 @@
       'floor-plans': 'แผนผังชั้น',
       'panoramas': 'ภาพ 360° ของห้อง',
       'tour': 'เดินชมอาคาร',
+      'reports': 'รายงานจากผู้ใช้แอป',
       'logs': 'บันทึกกิจกรรม',
       'settings': 'ตั้งค่าบัญชี',
     };
@@ -2452,6 +2477,7 @@
       if (page === 'floor-plans') loadFloorPlansPage();
       if (page === 'panoramas') loadPanoramasPage();
       if (page === 'tour') loadTourPage();
+      if (page === 'reports') loadReports('');
       if (page === 'logs') loadLogs(0);
       if (page === 'settings') loadSettingsPage();
     }
@@ -2549,7 +2575,7 @@
       delete: 'danger', upload: 'info', import: 'dark', export: 'dark', change_password: 'dark',
     };
     const ENTITY_LABELS = {
-      session: 'การเข้าสู่ระบบ', room: 'ห้องเรียน', building: 'อาคาร', floor_plan: 'แผนผังชั้น', closure: 'วันปิดทำการ',
+      session: 'การเข้าสู่ระบบ', room: 'ห้องเรียน', building: 'อาคาร', floor_plan: 'แผนผังชั้น', closure: 'วันปิดทำการ', report: 'รายงานผู้ใช้',
       panorama: 'ภาพ 360°', hotspot: 'จุดเชื่อม', admin: 'บัญชีผู้ดูแล',
       tour_point: 'จุดเดินชม', tour_link: 'เส้นทางเดินชม',
     };
@@ -6945,6 +6971,103 @@
       if (wrap && !wrap.contains(event.target)) document.getElementById('notifPanel').classList.add('tw-hidden');
     });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') document.getElementById('notifPanel').classList.add('tw-hidden'); });
+
+    // ============ รายงานจากผู้ใช้แอป (Reports) ============
+    const REPORT_STATUS_META = {
+      new: { label: 'ใหม่', chip: 'tw-bg-error-container tw-text-on-error-container' },
+      in_progress: { label: 'กำลังดำเนินการ', chip: 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant' },
+      resolved: { label: 'แก้ไขแล้ว', chip: 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' },
+      dismissed: { label: 'ไม่ดำเนินการ', chip: 'tw-bg-surface-container-high tw-text-on-surface-variant' },
+    };
+    const REPORT_CATEGORY_ICONS = {
+      wrong_info: 'edit_note', wrong_location: 'pin_drop', wrong_status: 'schedule', wrong_360: 'photo_camera', other: 'chat',
+    };
+    let reportFilter = '';
+    let reportItems = [];
+
+    async function loadReports(filter) {
+      if (filter !== undefined) reportFilter = filter;
+      const list = document.getElementById('reportList');
+      list.innerHTML = '<div class="tw-p-10 tw-text-center tw-text-outline">กำลังโหลด...</div>';
+      try {
+        const data = await api(`/api/admin/reports${reportFilter ? `?status=${reportFilter}` : ''}`);
+        reportItems = data.items;
+        renderReportTabs(data.counts);
+        renderReports();
+      } catch (error) {
+        if (error instanceof SessionExpiredError) return;
+        list.innerHTML = `<div class="tw-p-10 tw-text-center tw-text-error">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderReportTabs(counts) {
+      const tabs = [['', 'ทั้งหมด', counts.total], ['new', 'ใหม่', counts.new], ['in_progress', 'กำลังดำเนินการ', counts.in_progress], ['resolved', 'แก้ไขแล้ว', counts.resolved], ['dismissed', 'ไม่ดำเนินการ', counts.dismissed]];
+      document.getElementById('reportTabs').innerHTML = tabs.map(([key, label, count]) => `
+        <button type="button" onclick="loadReports('${key}')" class="tw-appearance-none tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-1.5 tw-rounded-full tw-border ${reportFilter === key ? 'tw-bg-primary-container tw-text-on-primary tw-border-primary-container tw-font-semibold' : 'tw-bg-surface-container-lowest tw-text-on-surface-variant tw-border-outline-variant/50 hover:tw-bg-surface-container'} tw-text-label-md tw-transition-colors">
+          ${label}<span class="tw-text-label-sm ${reportFilter === key ? 'tw-opacity-80' : 'tw-text-outline'}">${count}</span></button>`).join('');
+      document.getElementById('reportKpiNew').textContent = counts.new;
+      document.getElementById('reportKpiTotal').textContent = counts.total;
+    }
+
+    function renderReports() {
+      const list = document.getElementById('reportList');
+      if (reportItems.length === 0) {
+        list.innerHTML = `<div class="tw-py-14 tw-px-6 tw-text-center">
+          <span class="material-symbols-outlined tw-text-[2.5rem] tw-text-primary">task_alt</span>
+          <div class="tw-text-label-md tw-font-semibold tw-text-on-surface tw-mt-2">ไม่มีรายงานในหมวดนี้</div>
+          <div class="tw-text-body-sm tw-text-outline tw-mt-0.5">ผู้ใช้แอปส่งรายงานได้จากหน้ารายละเอียดห้องและหน้าตั้งค่า</div></div>`;
+        return;
+      }
+      list.innerHTML = reportItems.map((item) => {
+        const meta = REPORT_STATUS_META[item.status] || REPORT_STATUS_META.new;
+        const options = Object.entries(REPORT_STATUS_META).map(([value, m]) => `<option value="${value}" ${value === item.status ? 'selected' : ''}>${m.label}</option>`).join('');
+        return `
+        <div class="tw-flex tw-flex-col md:tw-flex-row md:tw-items-start tw-gap-4 tw-px-5 tw-py-4 tw-border-b tw-border-outline-variant/20 last:tw-border-b-0 ${item.status === 'new' ? 'tw-bg-error-container/10' : ''}">
+          <span class="tw-w-10 tw-h-10 tw-rounded-lg tw-bg-surface-container tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.25rem]">${REPORT_CATEGORY_ICONS[item.category] || 'chat'}</span></span>
+          <div class="tw-flex-1 tw-min-w-0">
+            <div class="tw-flex tw-items-center tw-gap-2 tw-flex-wrap">
+              <span class="tw-font-semibold tw-text-on-surface">${escapeHtml(item.target_label)}</span>
+              <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-surface-container tw-text-on-surface-variant">${escapeHtml(item.category_label)}</span>
+              <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-medium ${meta.chip}">${meta.label}</span>
+            </div>
+            <p class="tw-text-body-md tw-text-on-surface tw-mt-1.5 tw-mb-0" style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(item.message)}</p>
+            <div class="tw-text-label-sm tw-text-outline tw-mt-2 tw-flex tw-flex-wrap tw-gap-x-4 tw-gap-y-1">
+              <span class="tw-inline-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.95rem]">schedule</span>${escapeHtml(formatDateTime(item.created_at))}</span>
+              ${item.contact ? `<span class="tw-inline-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.95rem]">contact_phone</span>${escapeHtml(item.contact)}</span>` : '<span>ไม่ได้ระบุช่องทางติดต่อ</span>'}
+              ${item.handled_by ? `<span class="tw-inline-flex tw-items-center tw-gap-1"><span class="material-symbols-outlined tw-text-[0.95rem]">person</span>ดำเนินการโดย ${escapeHtml(item.handled_by)}</span>` : ''}
+            </div>
+          </div>
+          <div class="tw-flex tw-items-center tw-gap-2 tw-shrink-0">
+            <select onchange="setReportStatus(${Number(item.id)}, this.value)" aria-label="สถานะรายงาน" class="need-buildings-create tw-appearance-none tw-pl-3 tw-pr-8 tw-py-1.5 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface tw-cursor-pointer focus:tw-outline-none focus:tw-border-primary">${options}</select>
+            <button type="button" onclick="deleteReport(${Number(item.id)})" aria-label="ลบรายงาน" class="need-buildings-delete tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2 tw-py-1.5 tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[1.1rem]">delete</span></button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function setReportStatus(id, status) {
+      try {
+        await api(`/api/admin/reports/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+        await loadReports();
+        loadNotifications();
+        showStatus('อัปเดตสถานะรายงานแล้ว');
+      } catch (error) {
+        reportError(error);
+        loadReports();
+      }
+    }
+
+    async function deleteReport(id) {
+      if (!confirm('ต้องการลบรายงานนี้ใช่หรือไม่?')) return;
+      try {
+        await api(`/api/admin/reports/${id}`, { method: 'DELETE' });
+        await loadReports();
+        loadNotifications();
+        showStatus('ลบรายงานแล้ว');
+      } catch (error) {
+        reportError(error);
+      }
+    }
 
     // ============ Settings: change password ============
     async function changePassword(event) {

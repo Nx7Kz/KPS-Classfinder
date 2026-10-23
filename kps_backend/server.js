@@ -1774,6 +1774,15 @@ async function buildNotifications(user) {
         }
     }
 
+    // --- รายงานข้อมูลไม่ถูกต้องจากผู้ใช้แอปที่ยังไม่ได้ตรวจ (ผู้ที่ดูข้อมูลอาคารได้) ---
+    if (can('buildings.read')) {
+        const [[pending]] = await pdb.query("SELECT COUNT(*) AS total FROM reports WHERE status = 'new'");
+        if (pending.total > 0) {
+            add(`reports_new:${pending.total}`, 'warning', 'feedback', `มีรายงานจากผู้ใช้ที่ยังไม่ได้ตรวจ ${pending.total} เรื่อง`,
+                'ผู้ใช้แอปแจ้งว่าข้อมูลห้อง/อาคารอาจไม่ถูกต้อง', { page: 'reports' });
+        }
+    }
+
     // --- เรื่องของผู้จัดการระบบ ---
     if (manage) {
         const weak = await findDefaultPasswordAccounts();
@@ -2623,6 +2632,95 @@ app.delete('/api/admin/closures/:id', requirePerm('buildings.create'), asyncRout
     await loadClosures();
     logActivity(req, { action: 'delete', entity: 'closure', entityId: Number(req.params.id) || null, detail: 'ลบวันปิดทำการ' });
     res.json({ message: 'ลบวันปิดทำการแล้ว' });
+}));
+
+// ==========================================
+// 🌟 รายงานข้อมูลไม่ถูกต้องจากผู้ใช้แอป 🌟
+// ==========================================
+// ผู้ใช้ทั่วไปส่งได้โดยไม่ต้องล็อกอิน (จำกัดต่อ IP) ผู้ดูแลดู/เปลี่ยนสถานะได้ในหน้า Reports ของแดชบอร์ด
+const REPORT_CATEGORIES = {
+    wrong_info: 'ข้อมูลห้องไม่ถูกต้อง',
+    wrong_location: 'ตำแหน่งหมุดไม่ตรง',
+    wrong_status: 'สถานะ/เวลาทำการไม่ตรง',
+    wrong_360: 'ภาพ 360° มีปัญหา',
+    other: 'อื่น ๆ',
+};
+const REPORT_STATUSES = new Set(['new', 'in_progress', 'resolved', 'dismissed']);
+const REPORT_MESSAGE_MIN = 5;
+const REPORT_MESSAGE_MAX = 500;
+
+const reportLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'ส่งรายงานถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง' },
+});
+
+app.post('/api/reports', reportLimiter, asyncRoute(async (req, res) => {
+    const { category, message, contact, room_id: roomInput, building_id: buildingInput } = req.body || {};
+    if (typeof category !== 'string' || !Object.hasOwn(REPORT_CATEGORIES, category)) throw new HttpError(400, 'กรุณาเลือกหัวข้อที่ต้องการแจ้ง');
+    const text = typeof message === 'string' ? message.trim() : '';
+    if (text.length < REPORT_MESSAGE_MIN) throw new HttpError(400, `กรุณาอธิบายอย่างน้อย ${REPORT_MESSAGE_MIN} ตัวอักษร`);
+    if (text.length > REPORT_MESSAGE_MAX) throw new HttpError(400, `อธิบายได้ไม่เกิน ${REPORT_MESSAGE_MAX} ตัวอักษร`);
+    const contactText = typeof contact === 'string' ? contact.trim().slice(0, 120) : '';
+
+    let roomId = null;
+    let buildingId = null;
+    let label = 'ทั่วไป (ไม่ระบุห้อง)';
+    if (roomInput) {
+        const [[room]] = await pdb.query(
+            `SELECT rooms.id, rooms.room_code, rooms.floor, rooms.building_id, buildings.name AS building_name
+             FROM rooms JOIN buildings ON buildings.id = rooms.building_id WHERE rooms.id = ?`, [roomInput]);
+        if (!room) throw new HttpError(404, 'ไม่พบห้องที่ระบุ');
+        roomId = room.id;
+        buildingId = room.building_id;
+        label = `${room.room_code} • ${room.building_name} ชั้น ${room.floor}`;
+    } else if (buildingInput) {
+        const [[building]] = await pdb.query('SELECT id, name FROM buildings WHERE id = ?', [buildingInput]);
+        if (!building) throw new HttpError(404, 'ไม่พบอาคารที่ระบุ');
+        buildingId = building.id;
+        label = building.name;
+    }
+
+    const [result] = await pdb.query(
+        'INSERT INTO reports (category, message, contact, room_id, building_id, target_label) VALUES (?, ?, ?, ?, ?, ?)',
+        [category, text, contactText || null, roomId, buildingId, label.slice(0, 255)]);
+    logActivity({ ip: clientIp(req) }, { action: 'create', entity: 'report', entityId: result.insertId, username: 'ผู้ใช้แอป', detail: `${REPORT_CATEGORIES[category]}: ${label}` });
+    res.json({ message: 'ส่งรายงานแล้ว ขอบคุณที่ช่วยแจ้ง' });
+}));
+
+app.get('/api/admin/reports', requirePerm('buildings.read'), asyncRoute(async (req, res) => {
+    const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const where = REPORT_STATUSES.has(status) ? 'WHERE status = ?' : '';
+    const [items] = await pdb.query(
+        `SELECT id, category, message, contact, room_id, building_id, target_label, status, handled_by, handled_at, created_at
+         FROM reports ${where} ORDER BY (status = 'new') DESC, id DESC LIMIT 200`, where ? [status] : []);
+    const [counts] = await pdb.query('SELECT status, COUNT(*) AS total FROM reports GROUP BY status');
+    const byStatus = { new: 0, in_progress: 0, resolved: 0, dismissed: 0 };
+    for (const row of counts) byStatus[row.status] = Number(row.total);
+    res.json({
+        items: items.map(item => ({ ...item, category_label: REPORT_CATEGORIES[item.category] || item.category })),
+        counts: { ...byStatus, total: Object.values(byStatus).reduce((sum, value) => sum + value, 0) },
+    });
+}));
+
+app.patch('/api/admin/reports/:id', requirePerm('buildings.create'), asyncRoute(async (req, res) => {
+    const status = req.body?.status;
+    if (!REPORT_STATUSES.has(status)) throw new HttpError(400, 'สถานะไม่ถูกต้อง');
+    const [result] = await pdb.query(
+        `UPDATE reports SET status = ?, handled_by = ?, handled_at = ${status === 'new' ? 'NULL' : 'NOW()'} WHERE id = ?`,
+        [status, status === 'new' ? null : req.user.username, req.params.id]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบรายงานนี้');
+    logActivity(req, { action: 'update', entity: 'report', entityId: Number(req.params.id) || null, detail: `เปลี่ยนสถานะรายงานเป็น ${status}` });
+    res.json({ message: 'อัปเดตสถานะแล้ว' });
+}));
+
+app.delete('/api/admin/reports/:id', requirePerm('buildings.delete'), asyncRoute(async (req, res) => {
+    const [result] = await pdb.query('DELETE FROM reports WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบรายงานนี้');
+    logActivity(req, { action: 'delete', entity: 'report', entityId: Number(req.params.id) || null, detail: 'ลบรายงานจากผู้ใช้' });
+    res.json({ message: 'ลบรายงานแล้ว' });
 }));
 
 app.post('/api/admin/buildings/:id/cover',requirePerm('buildings.create', 'floorplans.write', 'panoramas.upload'), handleUpload(coverUploader, 'image', 10), asyncRoute(async (req, res) => {
@@ -3708,6 +3806,23 @@ app.use((err, req, res, next) => {
 // ==========================================
 // ต้องตรงกับส่วน "Dashboard tables" ใน db/init.sql ทุกตารางใช้ IF NOT EXISTS จึงรันซ้ำได้ปลอดภัย
 const DASHBOARD_TABLES = [
+    `CREATE TABLE IF NOT EXISTS reports (
+        id INT NOT NULL AUTO_INCREMENT,
+        category VARCHAR(30) NOT NULL,
+        message TEXT NOT NULL,
+        contact VARCHAR(120) DEFAULT NULL,
+        room_id INT DEFAULT NULL,
+        building_id INT DEFAULT NULL,
+        target_label VARCHAR(255) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'new',
+        handled_by VARCHAR(100) DEFAULT NULL,
+        handled_at TIMESTAMP NULL DEFAULT NULL,
+        created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_reports_status_created (status, created_at),
+        CONSTRAINT fk_reports_room FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE SET NULL,
+        CONSTRAINT fk_reports_building FOREIGN KEY (building_id) REFERENCES buildings (id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
     `CREATE TABLE IF NOT EXISTS closures (
         id INT NOT NULL AUTO_INCREMENT,
         building_id INT DEFAULT NULL,

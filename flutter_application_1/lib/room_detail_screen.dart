@@ -8,6 +8,7 @@ import 'map_screen.dart';
 import 'motion.dart';
 import 'open_status.dart';
 import 'panorama_screen.dart';
+import 'report_sheet.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
 import 'skeleton.dart';
@@ -290,6 +291,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                       const SizedBox(height: 10),
                       HoursCard(rows: weeklyHoursRows(hours), inheritsBuilding: room['open_hours'] == null),
                     ],
+                    const SizedBox(height: 22),
+                    ReportLinkCard(onTap: () => showReportSheet(context, room: room)),
                   ],
                 ),
               ),
