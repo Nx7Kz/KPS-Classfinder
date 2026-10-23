@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_tabs.dart';
 import 'app_theme.dart';
 import 'map_screen.dart';
 import 'motion.dart';
@@ -42,6 +43,14 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin, 
     // วันปิดพิเศษใช้คำนวณสถานะเปิด/ปิดของห้อง โหลดตอนเปิดแอป และโหลดใหม่ทุกครั้งที่กลับมาใช้แอป
     ClosureStore.refresh();
     WidgetsBinding.instance.addObserver(this);
+    AppTabs.request.addListener(_onTabRequest);
+  }
+
+  void _onTabRequest() {
+    final index = AppTabs.request.value;
+    if (index == null) return;
+    AppTabs.request.value = null;
+    if (index < _screens.length) _onTab(index);
   }
 
   @override
@@ -51,6 +60,7 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin, 
 
   @override
   void dispose() {
+    AppTabs.request.removeListener(_onTabRequest);
     WidgetsBinding.instance.removeObserver(this);
     _fade.dispose();
     super.dispose();

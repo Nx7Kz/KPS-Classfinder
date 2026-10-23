@@ -79,6 +79,9 @@ class AppSearchField extends StatelessWidget {
   final FocusNode? focusNode;
   final bool autofocus;
 
+  /// ทรงแคปซูลพื้นขาวขอบบาง (หน้าค้นหาหลัก) ปิด = ทรงเดิมพื้นเทาอ่อน
+  final bool pill;
+
   const AppSearchField({
     super.key,
     required this.controller,
@@ -87,10 +90,16 @@ class AppSearchField extends StatelessWidget {
     this.onSubmitted,
     this.focusNode,
     this.autofocus = false,
+    this.pill = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    OutlineInputBorder pillBorder(Color color, [double width = 1]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(999),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -102,6 +111,11 @@ class AppSearchField extends StatelessWidget {
       onTapOutside: (_) => FocusScope.of(context).unfocus(),
       decoration: InputDecoration(
         hintText: hint,
+        fillColor: pill ? AppColors.surface : null,
+        contentPadding: pill ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16) : null,
+        border: pill ? pillBorder(AppColors.line) : null,
+        enabledBorder: pill ? pillBorder(AppColors.line) : null,
+        focusedBorder: pill ? pillBorder(AppColors.primary, 1.5) : null,
         prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary),
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,

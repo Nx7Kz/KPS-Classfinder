@@ -48,6 +48,9 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
+    // ส่วน "เลือกจากอาคาร" อยู่เหนือห้องโปรด (ในเทสต์ไม่มีเซิร์ฟเวอร์จึงเป็นกล่องข้อผิดพลาดที่ดันลงไป) ต้องเลื่อนลงไปหา
+    // หน้านี้มีแถวชิปเลื่อนแนวนอนด้วย จึงระบุตัวเลื่อนหลัก (ListView แนวตั้ง) เอง
+    await tester.scrollUntilVisible(find.text('ห้องโปรด'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('ห้องโปรด'), findsOneWidget);
     expect(find.text('LH3-201'), findsOneWidget);
 
