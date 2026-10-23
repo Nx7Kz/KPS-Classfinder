@@ -776,6 +776,23 @@
           </section>
 
           <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
+            <div class="tw-px-6 tw-py-4 tw-flex tw-items-center tw-justify-between tw-gap-3 tw-flex-wrap tw-border-b tw-border-outline-variant/20">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                <span class="material-symbols-outlined tw-text-primary tw-text-[1.375rem]">event_busy</span>
+                <div>
+                  <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">วันปิดทำการพิเศษ</h3>
+                  <p class="tw-text-body-sm tw-text-outline tw-m-0">วันหยุด วันสอบ หรือช่วงปิดซ่อม — ทับเวลาทำการปกติของอาคาร/ห้อง</p>
+                </div>
+                <span id="closureCountPill" class="tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-on-surface-variant tw-font-medium">-</span>
+              </div>
+              <button type="button" onclick="openClosureModal()" class="need-buildings-create tw-appearance-none tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-rounded-lg tw-bg-primary-container tw-text-on-primary tw-text-label-md tw-font-label-md tw-font-semibold hover:tw-bg-primary tw-transition-all active:tw-scale-[0.98] tw-shadow-sm">
+                <span class="material-symbols-outlined tw-text-[1.125rem]">add</span><span>เพิ่มวันปิด</span>
+              </button>
+            </div>
+            <div id="closureList"></div>
+          </section>
+
+          <section class="tw-bg-surface-container-lowest tw-rounded-xl tw-border tw-border-outline-variant/30 tw-overflow-hidden tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
             <div class="tw-p-6 tw-border-b tw-border-outline-variant/20 tw-flex tw-flex-col xl:tw-flex-row xl:tw-items-center tw-justify-between tw-gap-4">
               <div class="tw-flex tw-flex-col sm:tw-flex-row tw-items-stretch sm:tw-items-center tw-gap-4 tw-flex-1">
                 <div class="tw-w-full sm:tw-w-64">
@@ -2040,6 +2057,15 @@
 
           </div>
 
+          <div class="m-section"><div class="m-section-title"><span class="material-symbols-outlined">schedule</span>เวลาทำการ</div>
+            <select id="roomHoursMode" class="form-select mb-2" onchange="syncRoomHoursMode()" aria-label="รูปแบบเวลาทำการของห้อง">
+              <option value="building">ใช้ตามเวลาของอาคาร</option>
+              <option value="custom">กำหนดเวลาเฉพาะห้องนี้</option>
+            </select>
+            <div id="roomHoursHint" class="form-text mb-2"></div>
+            <div id="roomHoursEditor" class="d-none"></div>
+          </div>
+
           <div class="m-section"><div class="m-section-title"><span class="material-symbols-outlined">chair</span>สิ่งอำนวยความสะดวก</div>
           <div class="row g-3">
             <div class="col-6 col-md-3">
@@ -2086,9 +2112,57 @@
     </div>
   </div>
 
+  <!-- ============ Modal: วันปิดทำการพิเศษ ============ -->
+  <div class="modal fade" id="closureModal" tabindex="-1" aria-labelledby="closureModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" id="closureForm" onsubmit="saveClosure(event)">
+        <div class="modal-header">
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">event_busy</span></div><div><h2 class="modal-title m-title" id="closureModalTitle">เพิ่มวันปิดทำการ</h2><p class="m-sub">ปิดทั้งมหาวิทยาลัย ทั้งอาคาร หรือเฉพาะห้อง ในช่วงวันที่กำหนด</p></div></div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="closureScope" class="form-label">ขอบเขต</label>
+            <select id="closureScope" class="form-select" onchange="onClosureScopeChange()">
+              <option value="all">ทั้งมหาวิทยาลัย</option>
+              <option value="building">ทั้งอาคาร</option>
+              <option value="room">เฉพาะห้อง</option>
+            </select>
+          </div>
+          <div id="closureBuildingWrap" class="mb-3 d-none">
+            <label for="closureBuilding" class="form-label">อาคาร</label>
+            <select id="closureBuilding" class="form-select" onchange="if (document.getElementById('closureScope').value === 'room') loadClosureRooms()"></select>
+          </div>
+          <div id="closureRoomWrap" class="mb-3 d-none">
+            <label for="closureRoom" class="form-label">ห้อง</label>
+            <select id="closureRoom" class="form-select"></select>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label for="closureStart" class="form-label">ตั้งแต่วันที่</label>
+              <input id="closureStart" type="date" class="form-control" required onchange="if (document.getElementById('closureEnd').value < this.value) document.getElementById('closureEnd').value = this.value">
+            </div>
+            <div class="col-6">
+              <label for="closureEnd" class="form-label">ถึงวันที่</label>
+              <input id="closureEnd" type="date" class="form-control" required>
+            </div>
+          </div>
+          <div>
+            <label for="closureReason" class="form-label">เหตุผล (ไม่บังคับ)</label>
+            <input id="closureReason" class="form-control" maxlength="255" placeholder="เช่น วันหยุดชดเชย, สอบกลางภาค, ซ่อมระบบไฟ">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button id="saveClosureButton" type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ============ Modal: Building ============ -->
   <div class="modal fade" id="buildingModal" tabindex="-1" aria-labelledby="buildingModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
       <form class="modal-content" id="buildingForm" onsubmit="saveBuilding(event)">
         <div class="modal-header">
           <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">apartment</span></div><div><h2 class="modal-title m-title" id="buildingModalTitle">เพิ่มอาคาร</h2><p class="m-sub">รหัส ชื่อ ที่ตั้ง และรูปปกอาคารที่แสดงในแอป</p></div></div>
@@ -2113,6 +2187,14 @@
               <label for="buildingLocation" class="form-label">ตำแหน่งที่ตั้ง (ไม่บังคับ)</label>
               <input id="buildingLocation" class="form-control">
             </div>
+          </div>
+          <div class="need-buildings-create m-section">
+            <div class="m-section-title"><span class="material-symbols-outlined">schedule</span>เวลาทำการ <span class="text-secondary small fw-normal">(ห้องในอาคารใช้เวลานี้ ถ้าไม่ได้กำหนดเอง)</span></div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="buildingHoursEnabled" onchange="toggleHoursEditor('building')">
+              <label class="form-check-label" for="buildingHoursEnabled">กำหนดเวลาทำการของอาคาร</label>
+            </div>
+            <div id="buildingHoursEditor" class="d-none"></div>
           </div>
           <!-- รูปปกอาคาร: อัปโหลด/ลบได้ทันที (ไม่ต้องกดบันทึก) แสดงบนการ์ดอาคารในแอป -->
           <div id="buildingCoverSection" class="need-image-write m-section d-none">
@@ -2467,7 +2549,7 @@
       delete: 'danger', upload: 'info', import: 'dark', export: 'dark', change_password: 'dark',
     };
     const ENTITY_LABELS = {
-      session: 'การเข้าสู่ระบบ', room: 'ห้องเรียน', building: 'อาคาร', floor_plan: 'แผนผังชั้น',
+      session: 'การเข้าสู่ระบบ', room: 'ห้องเรียน', building: 'อาคาร', floor_plan: 'แผนผังชั้น', closure: 'วันปิดทำการ',
       panorama: 'ภาพ 360°', hotspot: 'จุดเชื่อม', admin: 'บัญชีผู้ดูแล',
       tour_point: 'จุดเดินชม', tour_link: 'เส้นทางเดินชม',
     };
@@ -2918,6 +3000,283 @@
       }
     }
 
+    // ============ เวลาทำการ + วันปิดพิเศษ ============
+    // open_hours = { mon: { open: '08:00', close: '16:30' }, tue: null, ... } (null = ปิดวันนั้น) ส่วน null ทั้งก้อน = ไม่กำหนด
+    const HOURS_DAYS = [['mon', 'จันทร์', 'จ.'], ['tue', 'อังคาร', 'อ.'], ['wed', 'พุธ', 'พ.'], ['thu', 'พฤหัสบดี', 'พฤ.'], ['fri', 'ศุกร์', 'ศ.'], ['sat', 'เสาร์', 'ส.'], ['sun', 'อาทิตย์', 'อา.']];
+    const HOURS_DEFAULT = { open: '08:00', close: '16:30' };
+
+    function hoursEditorHtml(prefix) {
+      const rows = HOURS_DAYS.map(([key, label]) => `
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap flex-sm-nowrap">
+          <div class="form-check mb-0" style="width: 6.75rem; flex-shrink: 0;">
+            <input class="form-check-input" type="checkbox" id="${prefix}Hours_${key}_on" onchange="syncHoursRow('${prefix}', '${key}')">
+            <label class="form-check-label" for="${prefix}Hours_${key}_on">${label}</label>
+          </div>
+          <input type="time" class="form-control form-control-sm" id="${prefix}Hours_${key}_open" style="max-width: 9rem;" aria-label="เวลาเปิด${label}">
+          <span class="text-secondary small">ถึง</span>
+          <input type="time" class="form-control form-control-sm" id="${prefix}Hours_${key}_close" style="max-width: 9rem;" aria-label="เวลาปิด${label}">
+          <span class="small text-secondary" id="${prefix}Hours_${key}_closed">ปิดทำการ</span>
+        </div>`).join('');
+      return `${rows}
+        <div class="d-flex flex-wrap gap-2 mt-1">
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyHoursPreset('${prefix}', 'weekdays')">จ.–ศ. 08:00–16:30</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyHoursPreset('${prefix}', 'daily')">ทุกวัน 08:00–20:00</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyHoursPreset('${prefix}', 'copy')">ใช้เวลาของวันจันทร์กับทุกวัน</button>
+        </div>`;
+    }
+
+    function syncHoursRow(prefix, key) {
+      const on = document.getElementById(`${prefix}Hours_${key}_on`).checked;
+      document.getElementById(`${prefix}Hours_${key}_open`).classList.toggle('d-none', !on);
+      document.getElementById(`${prefix}Hours_${key}_close`).classList.toggle('d-none', !on);
+      document.getElementById(`${prefix}Hours_${key}_open`).nextElementSibling.classList.toggle('d-none', !on);
+      document.getElementById(`${prefix}Hours_${key}_closed`).classList.toggle('d-none', on);
+    }
+
+    // hours = null ใช้ค่าเริ่มต้น จ.–ศ. 08:00–16:30 (ใช้ตอนเปิดสวิตช์ครั้งแรก)
+    function setHoursEditor(prefix, hours) {
+      const source = hours || Object.fromEntries(HOURS_DAYS.map(([key]) => [key, ['sat', 'sun'].includes(key) ? null : HOURS_DEFAULT]));
+      HOURS_DAYS.forEach(([key]) => {
+        const day = source[key];
+        document.getElementById(`${prefix}Hours_${key}_on`).checked = Boolean(day);
+        document.getElementById(`${prefix}Hours_${key}_open`).value = day ? day.open : HOURS_DEFAULT.open;
+        document.getElementById(`${prefix}Hours_${key}_close`).value = day ? day.close : HOURS_DEFAULT.close;
+        syncHoursRow(prefix, key);
+      });
+    }
+
+    function readHoursEditor(prefix) {
+      const result = {};
+      for (const [key, label] of HOURS_DAYS) {
+        if (!document.getElementById(`${prefix}Hours_${key}_on`).checked) {
+          result[key] = null;
+          continue;
+        }
+        const open = document.getElementById(`${prefix}Hours_${key}_open`).value;
+        const close = document.getElementById(`${prefix}Hours_${key}_close`).value;
+        if (!open || !close) throw new Error(`กรุณากรอกเวลาเปิด-ปิดของวัน${label}`);
+        if (open >= close) throw new Error(`วัน${label}: เวลาปิดต้องอยู่หลังเวลาเปิด`);
+        result[key] = { open, close };
+      }
+      return result;
+    }
+
+    function applyHoursPreset(prefix, preset) {
+      if (preset === 'weekdays') {
+        setHoursEditor(prefix, Object.fromEntries(HOURS_DAYS.map(([key]) => [key, ['sat', 'sun'].includes(key) ? null : HOURS_DEFAULT])));
+      } else if (preset === 'daily') {
+        setHoursEditor(prefix, Object.fromEntries(HOURS_DAYS.map(([key]) => [key, { open: '08:00', close: '20:00' }])));
+      } else {
+        const open = document.getElementById(`${prefix}Hours_mon_open`).value || HOURS_DEFAULT.open;
+        const close = document.getElementById(`${prefix}Hours_mon_close`).value || HOURS_DEFAULT.close;
+        setHoursEditor(prefix, Object.fromEntries(HOURS_DAYS.map(([key]) => [key, { open, close }])));
+      }
+    }
+
+    // สรุปเวลาทำการเป็นข้อความสั้น เช่น "จ.–ศ. 08:00–16:30 • ส.–อา. ปิด"
+    function summarizeHours(hours) {
+      if (!hours) return 'ไม่ได้กำหนด';
+      const signature = day => (day ? `${day.open}–${day.close}` : 'ปิด');
+      const groups = [];
+      HOURS_DAYS.forEach(([key, , short]) => {
+        const sig = signature(hours[key]);
+        const last = groups[groups.length - 1];
+        if (last && last.sig === sig) last.end = short;
+        else groups.push({ sig, start: short, end: short });
+      });
+      return groups.map(group => `${group.start === group.end ? group.start : `${group.start}–${group.end}`} ${group.sig}`).join(' • ');
+    }
+
+    function toggleHoursEditor(prefix) {
+      const enabled = document.getElementById(`${prefix}HoursEnabled`).checked;
+      document.getElementById(`${prefix}HoursEditor`).classList.toggle('d-none', !enabled);
+      if (enabled && !document.getElementById(`${prefix}HoursEditor`).dataset.ready) {
+        document.getElementById(`${prefix}HoursEditor`).dataset.ready = '1';
+        setHoursEditor(prefix, null);
+      }
+    }
+
+    // ตั้งค่าส่วนเวลาทำการของอาคารตอนเปิดฟอร์ม (hours = null คือยังไม่กำหนด)
+    function loadBuildingHoursForm(hours) {
+      document.getElementById('buildingHoursEnabled').checked = Boolean(hours);
+      document.getElementById('buildingHoursEditor').classList.toggle('d-none', !hours);
+      document.getElementById('buildingHoursEditor').dataset.ready = '1';
+      setHoursEditor('building', hours);
+    }
+
+    function readBuildingHours() {
+      return document.getElementById('buildingHoursEnabled').checked ? readHoursEditor('building') : null;
+    }
+
+    // ห้อง: เลือก "ตามอาคาร" (open_hours = null) หรือ "กำหนดเอง"
+    function loadRoomHoursForm(hours) {
+      const building = buildings.find(item => item.name === currentBuilding());
+      document.getElementById('roomHoursMode').value = hours ? 'custom' : 'building';
+      document.getElementById('roomHoursHint').textContent = building && building.open_hours
+        ? `เวลาของอาคาร: ${summarizeHours(building.open_hours)}`
+        : 'อาคารนี้ยังไม่ได้กำหนดเวลาทำการ (ห้องจะแสดงว่า "ไม่ระบุเวลาทำการ" จนกว่าจะกำหนด)';
+      document.getElementById('roomHoursEditor').dataset.ready = '1';
+      setHoursEditor('room', hours);
+      syncRoomHoursMode();
+    }
+
+    function syncRoomHoursMode() {
+      document.getElementById('roomHoursEditor').classList.toggle('d-none', document.getElementById('roomHoursMode').value !== 'custom');
+    }
+
+    function readRoomHours() {
+      return document.getElementById('roomHoursMode').value === 'custom' ? readHoursEditor('room') : null;
+    }
+
+    // ป้ายสถานะเปิด/ปิดที่คำนวณโดยเซิร์ฟเวอร์ (เวลาไทย) — แสดงในตารางอาคาร/ห้อง
+    function openStatusChip(status, compact = false) {
+      if (!status) return '';
+      const tones = {
+        open: 'tw-text-green-700 dark:tw-text-green-300',
+        closed: 'tw-text-amber-700 dark:tw-text-amber-300',
+        unknown: 'tw-text-outline',
+      };
+      const icon = status.state === 'open' ? 'schedule' : status.state === 'closed' ? 'door_front' : 'schedule';
+      const detail = status.detail ? ` (${status.detail})` : '';
+      return `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-text-label-sm tw-font-label-sm ${tones[status.state] || tones.unknown} ${compact ? '' : 'tw-font-medium'}">
+        <span class="material-symbols-outlined tw-text-[0.875rem]">${icon}</span>${escapeHtml(status.label + detail)}</span>`;
+    }
+
+    // ---------- วันปิดทำการพิเศษ ----------
+    let closures = [];
+    let closuresLoaded = false;
+    let closureModal;
+
+    function todayBangkok() {
+      return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+    }
+
+    function formatThaiDate(value) {
+      const date = new Date(`${value}T00:00:00+07:00`);
+      return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' });
+    }
+
+    async function loadClosures() {
+      const box = document.getElementById('closureList');
+      if (!box) return;
+      try {
+        closures = await api('/api/closures');
+        renderClosures();
+      } catch (error) {
+        if (!(error instanceof SessionExpiredError)) box.innerHTML = '<div class="tw-p-6 tw-text-center tw-text-error">โหลดรายการวันปิดทำการไม่สำเร็จ</div>';
+      }
+    }
+
+    function closureScopeLabel(closure) {
+      if (closure.room_id) return `ห้อง ${closure.room_code || ''}${closure.building_name ? ` • ${closure.building_name}` : ''}`;
+      if (closure.building_id) return closure.building_name || 'อาคาร';
+      return 'ทั้งมหาวิทยาลัย';
+    }
+
+    function renderClosures() {
+      const box = document.getElementById('closureList');
+      const today = todayBangkok();
+      document.getElementById('closureCountPill').textContent = `${closures.length} รายการ`;
+      if (closures.length === 0) {
+        box.innerHTML = `<div class="tw-py-10 tw-px-6 tw-text-center">
+          <span class="material-symbols-outlined tw-text-[2.25rem] tw-text-outline">event_available</span>
+          <div class="tw-text-label-md tw-font-semibold tw-text-on-surface tw-mt-2">ยังไม่มีวันปิดทำการพิเศษ</div>
+          <div class="tw-text-body-sm tw-text-outline tw-mt-0.5">เพิ่มวันหยุด วันสอบ หรือช่วงปิดซ่อมได้ที่ปุ่ม "เพิ่มวันปิด"</div></div>`;
+        return;
+      }
+      box.innerHTML = closures.map((closure) => {
+        const active = today >= closure.start_date && today <= closure.end_date;
+        const range = closure.start_date === closure.end_date
+          ? formatThaiDate(closure.start_date)
+          : `${formatThaiDate(closure.start_date)} – ${formatThaiDate(closure.end_date)}`;
+        return `
+        <div class="tw-flex tw-items-center tw-gap-3 tw-px-6 tw-py-3.5 tw-border-b tw-border-outline-variant/20 last:tw-border-b-0">
+          <span class="tw-w-9 tw-h-9 tw-rounded-lg ${active ? 'tw-bg-error-container tw-text-on-error-container' : 'tw-bg-surface-container tw-text-on-surface-variant'} tw-flex tw-items-center tw-justify-center tw-shrink-0">
+            <span class="material-symbols-outlined tw-text-[1.25rem]">event_busy</span></span>
+          <div class="tw-flex-1 tw-min-w-0">
+            <div class="tw-flex tw-items-center tw-gap-2 tw-flex-wrap">
+              <span class="tw-font-semibold tw-text-on-surface">${escapeHtml(range)}</span>
+              <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-surface-container tw-text-on-surface-variant">${escapeHtml(closureScopeLabel(closure))}</span>
+              ${active ? '<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-medium tw-bg-error-container tw-text-on-error-container">กำลังปิดอยู่</span>' : '<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-surface-container tw-text-outline">กำลังจะถึง</span>'}
+            </div>
+            <div class="tw-text-body-sm tw-text-outline tw-mt-0.5">${escapeHtml(closure.reason || 'ไม่ได้ระบุเหตุผล')}</div>
+          </div>
+          <button type="button" onclick="deleteClosure(${Number(closure.id)})" class="need-buildings-create tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-error/30 tw-text-error hover:tw-bg-error-container/30 tw-transition-colors">ลบ</button>
+        </div>`;
+      }).join('');
+    }
+
+    function openClosureModal() {
+      document.getElementById('closureForm').reset();
+      document.getElementById('closureStart').value = todayBangkok();
+      document.getElementById('closureEnd').value = todayBangkok();
+      document.getElementById('closureBuilding').innerHTML = buildings.map(item => `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`).join('');
+      document.getElementById('closureScope').value = 'all';
+      onClosureScopeChange();
+      closureModal.show();
+    }
+
+    async function onClosureScopeChange() {
+      const scope = document.getElementById('closureScope').value;
+      document.getElementById('closureBuildingWrap').classList.toggle('d-none', scope === 'all');
+      document.getElementById('closureRoomWrap').classList.toggle('d-none', scope !== 'room');
+      if (scope === 'room') await loadClosureRooms();
+    }
+
+    async function loadClosureRooms() {
+      const select = document.getElementById('closureRoom');
+      const building = buildings.find(item => Number(item.id) === Number(document.getElementById('closureBuilding').value));
+      select.innerHTML = '<option value="">กำลังโหลด...</option>';
+      if (!building) return;
+      try {
+        const list = await api(`/api/building/${encodeURIComponent(building.name)}`);
+        select.innerHTML = list.sort(roomSort).map(room => `<option value="${Number(room.id)}">ชั้น ${escapeHtml(room.floor)} • ${escapeHtml(room.room_code)}</option>`).join('')
+          || '<option value="">อาคารนี้ยังไม่มีห้อง</option>';
+      } catch (error) {
+        select.innerHTML = '<option value="">โหลดห้องไม่สำเร็จ</option>';
+        reportError(error);
+      }
+    }
+
+    async function saveClosure(event) {
+      event.preventDefault();
+      const scope = document.getElementById('closureScope').value;
+      const button = document.getElementById('saveClosureButton');
+      const payload = {
+        building_id: scope === 'all' ? null : Number(document.getElementById('closureBuilding').value) || null,
+        room_id: scope === 'room' ? Number(document.getElementById('closureRoom').value) || null : null,
+        start_date: document.getElementById('closureStart').value,
+        end_date: document.getElementById('closureEnd').value,
+        reason: document.getElementById('closureReason').value.trim(),
+      };
+      if (scope === 'room' && !payload.room_id) return showStatus('กรุณาเลือกห้อง', 'warning');
+      setBusy(button, true, 'กำลังบันทึก...', 'บันทึก');
+      try {
+        const data = await api('/api/admin/closures', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        closureModal.hide();
+        await loadClosures();
+        await loadBuildings();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      } finally {
+        setBusy(button, false, '', 'บันทึก');
+      }
+    }
+
+    async function deleteClosure(id) {
+      const closure = closures.find(item => Number(item.id) === Number(id));
+      if (!closure || !confirm(`ต้องการลบวันปิดทำการ "${closureScopeLabel(closure)}" ใช่หรือไม่?`)) return;
+      try {
+        const data = await api(`/api/admin/closures/${id}`, { method: 'DELETE' });
+        await loadClosures();
+        await loadBuildings();
+        showStatus(data.message);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+
     // ============ Buildings ============
     async function loadBuildings() {
       document.getElementById('buildingTableBody').innerHTML = skeletonTableRows(5, 2);
@@ -2927,6 +3286,10 @@
         buildings = await response.json();
         renderBuildings();
         renderBuildingSelect();
+        if (!closuresLoaded) {
+          closuresLoaded = true;
+          loadClosures();
+        }
         if (pendingBuildingName) {
           document.getElementById('buildingSelect').value = pendingBuildingName;
           pendingBuildingName = null;
@@ -2958,6 +3321,9 @@
               ${building.cover_image ? `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2 tw-py-0.5 tw-rounded-md tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline">
                 <span class="material-symbols-outlined tw-text-[0.875rem]">image</span>มีรูปปก</span>` : ''}
             </div>
+            <div class="tw-mt-1">${building.open_hours
+              ? `${openStatusChip(building.open_status)} <span class="tw-text-label-sm tw-text-outline">• ${escapeHtml(summarizeHours(building.open_hours))}</span>`
+              : '<span class="tw-text-label-sm tw-text-outline">ยังไม่ได้กำหนดเวลาทำการ</span>'}</div>
           </td>
           <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.floor_count)} ชั้น</td>
           <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.room_count)} ห้อง</td>
@@ -2983,6 +3349,7 @@
       document.getElementById('buildingModalTitle').textContent = 'เพิ่มอาคาร';
       document.getElementById('buildingId').value = '';
       document.getElementById('buildingForm').reset();
+      loadBuildingHoursForm(null);
       showBuildingCover(null);
       buildingModal.show();
     }
@@ -3059,6 +3426,7 @@
       document.getElementById('buildingName').value = building.name || '';
       document.getElementById('buildingDescription').value = building.description || '';
       document.getElementById('buildingLocation').value = building.location || '';
+      loadBuildingHoursForm(building.open_hours);
       showBuildingCover(building);
       buildingModal.show();
     }
@@ -3067,11 +3435,18 @@
       event.preventDefault();
       const id = document.getElementById('buildingId').value;
       const saveButton = document.getElementById('saveBuildingButton');
+      let openHours;
+      try {
+        openHours = readBuildingHours();
+      } catch (error) {
+        return showStatus(error.message, 'warning');
+      }
       const payload = {
         code: document.getElementById('buildingCode').value.trim(),
         name: document.getElementById('buildingName').value.trim(),
         description: document.getElementById('buildingDescription').value.trim(),
         location: document.getElementById('buildingLocation').value.trim(),
+        open_hours: openHours,
       };
 
       saveButton.disabled = true;
@@ -3252,7 +3627,7 @@
           <td class="tw-py-3.5 tw-px-4 tw-font-semibold tw-text-on-surface">${escapeHtml(room.room_code || '-')}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center"><span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
           <td class="tw-py-3.5 tw-px-4 tw-text-on-surface-variant">${typeCapacity}</td>
-          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}${room.status !== 'maintenance' && room.open_status ? `<div class="tw-mt-1">${openStatusChip(room.open_status)}</div>` : ''}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center">${pinBadge}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-1.5">
@@ -3338,6 +3713,7 @@
       document.getElementById('roomFloor').value = '1';
       document.getElementById('roomStatus').value = 'active';
       setRoomTypeField('');
+      loadRoomHoursForm(null);
       document.getElementById('formBuildingName').textContent = currentBuilding();
       currentPinX = null;
       currentPinY = null;
@@ -3389,6 +3765,7 @@
       document.getElementById('amenityOutlets').value = amenities.outlets ?? '';
       document.getElementById('amenityAc').value = amenities.ac ?? '';
       document.getElementById('amenityWifi').value = amenities.wifi ?? '';
+      loadRoomHoursForm(room.open_hours);
       document.getElementById('formBuildingName').textContent = currentBuilding();
       currentPinX = room.pin_x !== null && room.pin_x !== undefined ? Number(room.pin_x) : null;
       currentPinY = room.pin_y !== null && room.pin_y !== undefined ? Number(room.pin_y) : null;
@@ -3463,6 +3840,12 @@
       const saveButton = document.getElementById('saveButton');
 
       if (!roomCode) return;
+      let openHours;
+      try {
+        openHours = readRoomHours();
+      } catch (error) {
+        return showStatus(error.message, 'warning');
+      }
       saveButton.disabled = true;
       saveButton.textContent = 'กำลังบันทึก...';
 
@@ -3488,6 +3871,7 @@
         capacity: capacityValue !== '' ? Number(capacityValue) : null,
         status: document.getElementById('roomStatus').value,
         amenities: Object.keys(amenities).length > 0 ? amenities : null,
+        open_hours: openHours,
       };
 
       try {
@@ -6608,6 +6992,9 @@
       });
       roomModal =new bootstrap.Modal(document.getElementById('roomModal'));
       buildingModal = new bootstrap.Modal(document.getElementById('buildingModal'));
+      closureModal = new bootstrap.Modal(document.getElementById('closureModal'));
+      document.getElementById('buildingHoursEditor').innerHTML = hoursEditorHtml('building');
+      document.getElementById('roomHoursEditor').innerHTML = hoursEditorHtml('room');
       floorPlanModal = new bootstrap.Modal(document.getElementById('floorPlanModal'));
       panoUploadModal = new bootstrap.Modal(document.getElementById('panoUploadModal'));
       hotspotModal = new bootstrap.Modal(document.getElementById('hotspotModal'));

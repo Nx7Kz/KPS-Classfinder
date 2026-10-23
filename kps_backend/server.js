@@ -1956,11 +1956,135 @@ const TOUR_IMAGE_RULE = UPLOAD_RULES[3];
 // 🌟 API สำหรับแอป (อ่านอย่างเดียว) 🌟
 // ==========================================
 
+// ==========================================
+// 🌟 เวลาทำการของอาคาร/ห้อง + วันปิดพิเศษ 🌟
+// ==========================================
+// open_hours เก็บเป็น JSON รายวัน { mon: { open: '08:00', close: '20:00' }, tue: null, ... } (null = ปิดวันนั้น)
+// ห้องที่ไม่ได้กำหนดเอง (open_hours เป็น NULL) ใช้เวลาของอาคาร ถ้าอาคารก็ไม่กำหนดสถานะจะเป็น "ไม่ระบุ"
+const WEEK_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const WEEK_LABELS_TH = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+let closuresCache = [];
+
+function parseOpenHours(value) {
+    if (value === null || value === undefined) return null;
+    let parsed = value;
+    if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch (err) { return null; }
+    }
+    return parsed && typeof parsed === 'object' ? parsed : null;
+}
+
+// คืน { value } เมื่อถูกต้อง (null = ไม่กำหนดเวลาทำการ) หรือ { error }
+function sanitizeOpenHours(input) {
+    if (input === null || input === undefined) return { value: null };
+    if (typeof input !== 'object' || Array.isArray(input)) return { error: 'รูปแบบเวลาทำการไม่ถูกต้อง' };
+    const result = {};
+    for (let index = 0; index < WEEK_KEYS.length; index += 1) {
+        const key = WEEK_KEYS[index];
+        const day = input[key];
+        if (day === null || day === undefined) {
+            result[key] = null;
+            continue;
+        }
+        if (typeof day !== 'object' || !TIME_PATTERN.test(day.open) || !TIME_PATTERN.test(day.close)) {
+            return { error: `เวลาทำการของ${WEEK_LABELS_TH[index]}ไม่ถูกต้อง (ต้องเป็นรูปแบบ HH:MM)` };
+        }
+        if (day.open >= day.close) return { error: `${WEEK_LABELS_TH[index]}: เวลาปิดต้องอยู่หลังเวลาเปิด` };
+        result[key] = { open: day.open, close: day.close };
+    }
+    return { value: result };
+}
+
+function isValidDateString(value) {
+    if (typeof value !== 'string' || !DATE_PATTERN.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+// วัน/เวลาตามเขตเวลาไทย (UTC+7 ไม่มี DST) ไม่ขึ้นกับเขตเวลาของเครื่องเซิร์ฟเวอร์
+function bangkokParts(at = new Date()) {
+    const shifted = new Date(at.getTime() + 7 * 3600 * 1000);
+    return { date: shifted.toISOString().slice(0, 10), day: shifted.getUTCDay(), minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes() };
+}
+
+function shiftDate(dateString, offset) {
+    const shifted = new Date(`${dateString}T00:00:00Z`);
+    shifted.setUTCDate(shifted.getUTCDate() + offset);
+    return { date: shifted.toISOString().slice(0, 10), day: shifted.getUTCDay() };
+}
+
+const timeToMinutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+
+// วันปิดที่ตรงวันนั้น: ระดับห้องเด่นกว่าระดับอาคาร และระดับอาคารเด่นกว่าทั้งมหาวิทยาลัย
+function findClosure(dateString, roomId, buildingId) {
+    let best = null;
+    let bestRank = 0;
+    for (const closure of closuresCache) {
+        if (dateString < closure.start_date || dateString > closure.end_date) continue;
+        let rank = 1;
+        if (closure.room_id) rank = closure.room_id === roomId ? 3 : 0;
+        else if (closure.building_id) rank = closure.building_id === buildingId ? 2 : 0;
+        if (rank > bestRank) {
+            best = closure;
+            bestRank = rank;
+        }
+    }
+    return best;
+}
+
+function getOpenStatus({ status = 'active', hours = null, roomId = null, buildingId = null }, at = new Date()) {
+    if (status === 'maintenance') return { state: 'closed', reason: 'maintenance', label: 'ปิดปรับปรุง' };
+    const now = bangkokParts(at);
+    const closure = findClosure(now.date, roomId, buildingId);
+    if (closure) {
+        return { state: 'closed', reason: 'closure', label: 'ปิดทำการ', detail: closure.reason || null, until: closure.end_date };
+    }
+    if (!hours) return { state: 'unknown', label: 'ไม่ระบุเวลาทำการ' };
+
+    const today = hours[WEEK_KEYS[now.day]];
+    if (today && now.minutes >= timeToMinutes(today.open) && now.minutes < timeToMinutes(today.close)) {
+        return { state: 'open', label: `เปิดอยู่ · ปิด ${today.close} น.`, closes_at: today.close };
+    }
+    for (let offset = 0; offset <= 7; offset += 1) {
+        const target = offset === 0 ? { date: now.date, day: now.day } : shiftDate(now.date, offset);
+        const slot = hours[WEEK_KEYS[target.day]];
+        if (!slot) continue;
+        if (offset === 0 && now.minutes >= timeToMinutes(slot.open)) continue; // เลยเวลาปิดของวันนี้ไปแล้ว
+        if (offset > 0 && findClosure(target.date, roomId, buildingId)) continue;
+        const when = offset === 0 ? 'วันนี้' : offset === 1 ? 'พรุ่งนี้' : WEEK_LABELS_TH[target.day];
+        return { state: 'closed', reason: 'hours', label: `ปิดอยู่ · เปิด${when} ${slot.open} น.`, opens_at: slot.open, opens_in_days: offset };
+    }
+    return { state: 'closed', reason: 'hours', label: 'ปิดทำการ' };
+}
+
+// เติมเวลาทำการและสถานะ "เปิดอยู่ตอนนี้" ให้แถวห้องจาก ROOM_SELECT_BASE
+function decorateRoom(row) {
+    const own = parseOpenHours(row.open_hours);
+    const building = parseOpenHours(row.building_open_hours);
+    return {
+        ...row,
+        open_hours: own,
+        building_open_hours: building,
+        open_status: getOpenStatus({ status: row.status, hours: own || building, roomId: row.id, buildingId: row.building_id }),
+    };
+}
+
+async function loadClosures() {
+    const [rows] = await pdb.query(
+        `SELECT id, building_id, room_id, DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date, reason
+         FROM closures WHERE end_date >= CURDATE() - INTERVAL 2 DAY ORDER BY start_date, id`);
+    closuresCache = rows;
+}
+
 // 🌟 rooms ตอนนี้ผูกกับ buildings ผ่าน building_id (FK) แทนการเก็บชื่อตึกซ้ำในทุกแถว
 // query กลางนี้ join กลับมาเป็น building_name ให้ shape ของ JSON เหมือนเดิมทุกจุดที่แอป Flutter เรียกใช้อยู่
 const ROOM_SELECT_BASE = `
     SELECT rooms.id, rooms.room_code, buildings.name AS building_name, rooms.floor,
            rooms.pin_x, rooms.pin_y, rooms.room_type, rooms.capacity, rooms.status, rooms.amenities,
+           rooms.open_hours, buildings.open_hours AS building_open_hours,
            rooms.building_id,
            (SELECT COUNT(*) FROM panoramas WHERE panoramas.room_id = rooms.id) AS panorama_count,
            (SELECT tp.id FROM tour_points tp WHERE tp.room_id = rooms.id AND tp.x IS NOT NULL
@@ -2017,7 +2141,7 @@ app.get('/api/rooms/search', (req, res) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        res.json(results);
+        res.json(results.map(decorateRoom));
     });
 });
 
@@ -2036,7 +2160,7 @@ app.get('/api/search/:room', (req, res) => {
         }
 
         // ถ้าเจอ ให้ส่งข้อมูลกลับไป
-        res.json(results[0]);
+        res.json(decorateRoom(results[0]));
     });
 });
 
@@ -2051,7 +2175,7 @@ app.get('/api/building/:name', (req, res) => {
         }
 
         // ส่งข้อมูลกลับไปเป็น Array (รายการห้องทั้งหมด)
-        res.json(results);
+        res.json(results.map(decorateRoom));
     });
 });
 
@@ -2164,6 +2288,9 @@ app.post('/api/rooms', requirePerm('buildings.create'), (req, res) => {
         return res.status(400).json({ error: validationError });
     }
 
+    const hoursResult = sanitizeOpenHours(req.body?.open_hours);
+    if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
+
     const trimmedCode = room_code.trim();
     const trimmedBuilding = building_name.trim();
     const trimmedFloor = floor.trim();
@@ -2181,13 +2308,14 @@ app.post('/api/rooms', requirePerm('buildings.create'), (req, res) => {
             }
 
             const sql = `
-                INSERT INTO rooms (room_code, building_id, floor, pin_x, pin_y, room_type, capacity, status, amenities)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO rooms (room_code, building_id, floor, pin_x, pin_y, room_type, capacity, status, amenities, open_hours)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 trimmedCode, buildingId, trimmedFloor, pin_x ?? null, pin_y ?? null,
                 room_type || null, capacity ?? null, status || 'active',
                 amenities ? JSON.stringify(amenities) : null,
+                hoursResult.value ? JSON.stringify(hoursResult.value) : null,
             ];
             db.query(sql, params, (err, results) => {
                 if (err) return res.status(500).json({ error: err.message });
@@ -2211,6 +2339,11 @@ app.put('/api/rooms/:id', requirePerm('buildings.create'), (req, res) => {
         return res.status(400).json({ error: validationError });
     }
 
+    // ไม่ส่ง open_hours มา = คงค่าเดิม (เช่น ไคลเอนต์รุ่นเก่า) ส่ง null = กลับไปใช้เวลาของอาคาร
+    const hasHours = Boolean(req.body) && 'open_hours' in req.body;
+    const hoursResult = sanitizeOpenHours(req.body?.open_hours);
+    if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
+
     const trimmedCode = room_code.trim();
     const trimmedBuilding = building_name.trim();
     const trimmedFloor = floor.trim();
@@ -2229,13 +2362,15 @@ app.put('/api/rooms/:id', requirePerm('buildings.create'), (req, res) => {
 
             const sql = `
                 UPDATE rooms
-                SET room_code=?, building_id=?, floor=?, pin_x=?, pin_y=?, room_type=?, capacity=?, status=?, amenities=?
+                SET room_code=?, building_id=?, floor=?, pin_x=?, pin_y=?, room_type=?, capacity=?, status=?, amenities=?${hasHours ? ', open_hours=?' : ''}
                 WHERE id=?
             `;
             const params = [
                 trimmedCode, buildingId, trimmedFloor, pin_x ?? null, pin_y ?? null,
                 room_type || null, capacity ?? null, status || 'active',
-                amenities ? JSON.stringify(amenities) : null, roomId,
+                amenities ? JSON.stringify(amenities) : null,
+                ...(hasHours ? [hoursResult.value ? JSON.stringify(hoursResult.value) : null] : []),
+                roomId,
             ];
             db.query(sql, params, (err, results) => {
                 if (err) return res.status(500).json({ error: err.message });
@@ -2323,7 +2458,7 @@ function validateBuildingInput({ code, name }) {
 app.get('/api/buildings', (req, res) => {
     const sql = `
         SELECT buildings.id, buildings.code, buildings.name, buildings.description, buildings.location,
-               buildings.cover_image,
+               buildings.cover_image, buildings.open_hours,
                COUNT(rooms.id) AS room_count,
                COUNT(DISTINCT rooms.floor) AS floor_count,
                SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
@@ -2337,7 +2472,10 @@ app.get('/api/buildings', (req, res) => {
     `;
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(results);
+        res.json(results.map((building) => {
+            const hours = parseOpenHours(building.open_hours);
+            return { ...building, open_hours: hours, open_status: getOpenStatus({ hours, buildingId: building.id }) };
+        }));
     });
 });
 
@@ -2347,9 +2485,12 @@ app.post('/api/buildings', requirePerm('buildings.create'), (req, res) => {
     if (validationError) {
         return res.status(400).json({ error: validationError });
     }
+    const hoursResult = sanitizeOpenHours(req.body?.open_hours);
+    if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
 
-    const sql = 'INSERT INTO buildings (code, name, description, location) VALUES (?, ?, ?, ?)';
-    db.query(sql, [code.trim(), name.trim(), description || null, location || null], (err, results) => {
+    const sql = 'INSERT INTO buildings (code, name, description, location, open_hours) VALUES (?, ?, ?, ?, ?)';
+    const hoursJson = hoursResult.value ? JSON.stringify(hoursResult.value) : null;
+    db.query(sql, [code.trim(), name.trim(), description || null, location || null, hoursJson], (err, results) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(409).json({ error: 'มีรหัสหรือชื่ออาคารนี้อยู่แล้ว' });
@@ -2372,8 +2513,17 @@ app.put('/api/buildings/:id', requirePerm('buildings.create'), (req, res) => {
         return res.status(400).json({ error: validationError });
     }
 
-    const sql = 'UPDATE buildings SET code=?, name=?, description=?, location=? WHERE id=?';
-    db.query(sql, [code.trim(), name.trim(), description || null, location || null, buildingId], (err) => {
+    const hasHours = Boolean(req.body) && 'open_hours' in req.body;
+    const hoursResult = sanitizeOpenHours(req.body?.open_hours);
+    if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
+
+    const sql = `UPDATE buildings SET code=?, name=?, description=?, location=?${hasHours ? ', open_hours=?' : ''} WHERE id=?`;
+    const params = [
+        code.trim(), name.trim(), description || null, location || null,
+        ...(hasHours ? [hoursResult.value ? JSON.stringify(hoursResult.value) : null] : []),
+        buildingId,
+    ];
+    db.query(sql, params, (err) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(409).json({ error: 'มีรหัสหรือชื่ออาคารนี้อยู่แล้ว' });
@@ -2417,7 +2567,62 @@ app.delete('/api/buildings/:id', requirePerm('buildings.delete'), asyncRoute(asy
 }));
 
 // 🌟 รูปปกอาคาร (แสดงบนการ์ดอาคารในแอป) อัปโหลดใหม่ = แทนที่รูปเดิมและลบไฟล์เก่า 🌟
-app.post('/api/admin/buildings/:id/cover', requirePerm('buildings.create', 'floorplans.write', 'panoramas.upload'), handleUpload(coverUploader, 'image', 10), asyncRoute(async (req, res) => {
+// วันปิดทำการพิเศษ (วันหยุด สอบ ซ่อมบำรุง): ทั้งมหาวิทยาลัย / ทั้งอาคาร / เฉพาะห้อง — ใช้ทับเวลาทำการปกติ
+// อ่านได้สาธารณะ (เฉพาะรายการที่ยังไม่สิ้นสุด) เพื่อให้แอปแสดงประกาศได้
+app.get('/api/closures', asyncRoute(async (req, res) => {
+    const [rows] = await pdb.query(
+        `SELECT c.id, c.building_id, c.room_id, DATE_FORMAT(c.start_date, '%Y-%m-%d') AS start_date,
+                DATE_FORMAT(c.end_date, '%Y-%m-%d') AS end_date, c.reason, b.name AS building_name, r.room_code
+         FROM closures c
+         LEFT JOIN buildings b ON b.id = c.building_id
+         LEFT JOIN rooms r ON r.id = c.room_id
+         WHERE c.end_date >= ? ORDER BY c.start_date, c.id`, [bangkokParts().date]);
+    res.json(rows);
+}));
+
+app.post('/api/admin/closures', requirePerm('buildings.create'), asyncRoute(async (req, res) => {
+    const { building_id: buildingInput, room_id: roomInput, start_date: startDate, end_date: endDate, reason } = req.body || {};
+    if (!isValidDateString(startDate) || !isValidDateString(endDate)) throw new HttpError(400, 'รูปแบบวันที่ไม่ถูกต้อง');
+    if (endDate < startDate) throw new HttpError(400, 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น');
+    const cleanReason = typeof reason === 'string' ? reason.trim().slice(0, 255) : '';
+
+    let buildingId = null;
+    let roomId = null;
+    let scope = 'ทั้งมหาวิทยาลัย';
+    if (roomInput) {
+        const [[room]] = await pdb.query(
+            'SELECT rooms.id, rooms.room_code, rooms.building_id FROM rooms WHERE rooms.id = ?', [roomInput]);
+        if (!room) throw new HttpError(404, 'ไม่พบห้องนี้');
+        roomId = room.id;
+        buildingId = room.building_id;
+        scope = `ห้อง ${room.room_code}`;
+    } else if (buildingInput) {
+        const [[building]] = await pdb.query('SELECT id, name FROM buildings WHERE id = ?', [buildingInput]);
+        if (!building) throw new HttpError(404, 'ไม่พบอาคารนี้');
+        buildingId = building.id;
+        scope = building.name;
+    }
+
+    const [result] = await pdb.query(
+        'INSERT INTO closures (building_id, room_id, start_date, end_date, reason) VALUES (?, ?, ?, ?, ?)',
+        [buildingId, roomId, startDate, endDate, cleanReason || null]);
+    await loadClosures();
+    logActivity(req, {
+        action: 'create', entity: 'closure', entityId: result.insertId,
+        detail: `เพิ่มวันปิดทำการ ${scope} ${startDate}${endDate !== startDate ? ` ถึง ${endDate}` : ''}${cleanReason ? ` (${cleanReason})` : ''}`,
+    });
+    res.json({ message: 'เพิ่มวันปิดทำการแล้ว', id: result.insertId });
+}));
+
+app.delete('/api/admin/closures/:id', requirePerm('buildings.create'), asyncRoute(async (req, res) => {
+    const [result] = await pdb.query('DELETE FROM closures WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบรายการนี้');
+    await loadClosures();
+    logActivity(req, { action: 'delete', entity: 'closure', entityId: Number(req.params.id) || null, detail: 'ลบวันปิดทำการ' });
+    res.json({ message: 'ลบวันปิดทำการแล้ว' });
+}));
+
+app.post('/api/admin/buildings/:id/cover',requirePerm('buildings.create', 'floorplans.write', 'panoramas.upload'), handleUpload(coverUploader, 'image', 10), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.params.id);
     if (buildingId === null) throw new HttpError(400, 'รหัสอาคารไม่ถูกต้อง');
     if (!req.file) throw new HttpError(400, 'กรุณาแนบไฟล์รูปปกอาคาร');
@@ -3500,6 +3705,19 @@ app.use((err, req, res, next) => {
 // ==========================================
 // ต้องตรงกับส่วน "Dashboard tables" ใน db/init.sql ทุกตารางใช้ IF NOT EXISTS จึงรันซ้ำได้ปลอดภัย
 const DASHBOARD_TABLES = [
+    `CREATE TABLE IF NOT EXISTS closures (
+        id INT NOT NULL AUTO_INCREMENT,
+        building_id INT DEFAULT NULL,
+        room_id INT DEFAULT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        reason VARCHAR(255) DEFAULT NULL,
+        created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_closures_dates (start_date, end_date),
+        CONSTRAINT fk_closures_building FOREIGN KEY (building_id) REFERENCES buildings (id) ON DELETE CASCADE,
+        CONSTRAINT fk_closures_room FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
     `CREATE TABLE IF NOT EXISTS floor_plans (
         id INT NOT NULL AUTO_INCREMENT,
         building_id INT NOT NULL,
@@ -3680,6 +3898,12 @@ async function ensureDashboardSchema(attempt = 1) {
         if (coverColumn.length === 0) {
             await pdb.query('ALTER TABLE buildings ADD COLUMN cover_image VARCHAR(500) DEFAULT NULL');
         }
+        // เวลาทำการ (JSON รายวัน) ของอาคารและห้อง เพิ่มให้ฐานข้อมูลเดิม
+        for (const table of ['buildings', 'rooms']) {
+            const [hoursColumn] = await pdb.query(`SHOW COLUMNS FROM ${table} LIKE 'open_hours'`);
+            if (hoursColumn.length === 0) await pdb.query(`ALTER TABLE ${table} ADD COLUMN open_hours JSON DEFAULT NULL`);
+        }
+        await loadClosures();
         await seedAdminRoles();
         await seedAdminUsers();
         await pdb.query('UPDATE admin_users SET password_changed_at = NOW() WHERE password_changed_at IS NULL');
