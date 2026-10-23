@@ -2462,6 +2462,9 @@ app.get('/api/buildings', (req, res) => {
                COUNT(rooms.id) AS room_count,
                COUNT(DISTINCT rooms.floor) AS floor_count,
                SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
+               -- จำนวนห้องในอาคารที่มีภาพ 360° อย่างน้อย 1 ภาพ (แอปใช้แสดงป้าย 360° บนการ์ดอาคาร)
+               (SELECT COUNT(DISTINCT p.room_id) FROM panoramas p JOIN rooms r ON r.id = p.room_id
+                WHERE r.building_id = buildings.id) AS panorama_room_count,
                -- ภาพสำรองเมื่อยังไม่มีรูปปก: แผนผังชั้น 1 (ถ้าไม่มีใช้ชั้นแรกที่มี)
                (SELECT fp.image_url FROM floor_plans fp WHERE fp.building_id = buildings.id
                 ORDER BY fp.floor = '1' DESC, fp.floor LIMIT 1) AS floor_plan_image

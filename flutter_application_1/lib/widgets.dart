@@ -505,7 +505,10 @@ Future<bool> confirmDialog(
 class AppTopBar extends StatelessWidget {
   final List<Widget> actions;
 
-  const AppTopBar({super.key, this.actions = const []});
+  /// ใส่แล้วแสดงสองบรรทัด: "KPS CLASSFINDER" ตัวเล็กด้านบน + [title] ตัวหนาเขียวด้านล่าง
+  final String? title;
+
+  const AppTopBar({super.key, this.actions = const [], this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -525,10 +528,24 @@ class AppTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'KPS ClassFinder',
-              style: TextStyle(color: AppColors.primary, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2),
-            ),
+            child: title == null
+                ? Text(
+                    'KPS ClassFinder',
+                    style: TextStyle(color: AppColors.primary, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'KPS CLASSFINDER',
+                        style: TextStyle(color: AppColors.muted, fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1),
+                      ),
+                      Text(
+                        title!,
+                        style: TextStyle(color: AppColors.primary, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.2, height: 1.2),
+                      ),
+                    ],
+                  ),
           ),
           ...actions,
         ],

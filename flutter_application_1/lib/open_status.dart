@@ -160,6 +160,25 @@ OpenStatus buildingOpenStatus(Map<String, dynamic> building, {DateTime? at}) => 
       at: at,
     );
 
+/// สรุปเวลาทำการสั้น ๆ เช่น "จ.–ศ. 08:00–16:30 • ส.–อา. ปิด" (วันติดกันที่เวลาเหมือนกันรวมเป็นช่วงเดียว)
+String summarizeHours(Map<String, dynamic> hours) {
+  const shortDays = {1: 'จ.', 2: 'อ.', 3: 'พ.', 4: 'พฤ.', 5: 'ศ.', 6: 'ส.', 0: 'อา.'};
+  final groups = <({String signature, String start, String end})>[];
+  for (final index in _displayOrder) {
+    final slot = _slot(hours, index);
+    final signature = slot == null ? 'ปิด' : '${slot['open']}–${slot['close']}';
+    final day = shortDays[index]!;
+    if (groups.isNotEmpty && groups.last.signature == signature) {
+      groups[groups.length - 1] = (signature: signature, start: groups.last.start, end: day);
+    } else {
+      groups.add((signature: signature, start: day, end: day));
+    }
+  }
+  return groups
+      .map((g) => '${g.start == g.end ? g.start : '${g.start}–${g.end}'} ${g.signature}')
+      .join(' • ');
+}
+
 /// หนึ่งแถวของตารางเวลาทำการรายสัปดาห์
 class HoursRow {
   final String day;
