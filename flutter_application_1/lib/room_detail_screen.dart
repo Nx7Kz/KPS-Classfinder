@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -629,8 +630,8 @@ class _MiniMapState extends State<_MiniMap> {
               clipBehavior: Clip.hardEdge,
               children: [
                 Positioned.fill(
-                  child: Image.network(
-                    plan.imageUrl,
+                  child: Image(
+                    image: CachedNetworkImageProvider(plan.imageUrl),
                     fit: BoxFit.fill,
                     errorBuilder: (_, _, _) => Center(
                       child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 36),

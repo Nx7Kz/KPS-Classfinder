@@ -4,11 +4,13 @@ import 'app_tabs.dart';
 import 'app_theme.dart';
 import 'map_screen.dart';
 import 'motion.dart';
+import 'offline_sync.dart';
 import 'open_status.dart';
 import 'places_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'tour_screen.dart';
+import 'widgets.dart';
 
 class MainNav extends StatefulWidget {
   const MainNav({super.key});
@@ -42,6 +44,8 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin, 
     super.initState();
     // วันปิดพิเศษใช้คำนวณสถานะเปิด/ปิดของห้อง โหลดตอนเปิดแอป และโหลดใหม่ทุกครั้งที่กลับมาใช้แอป
     ClosureStore.refresh();
+    // ข้อมูลที่ซิงค์ไว้เก่ากว่า 24 ชม. -> ซิงค์เฉพาะข้อมูลตัวหนังสือเงียบ ๆ เพื่อให้ใช้ออฟไลน์ได้เป็นปัจจุบัน
+    OfflineSync.autoIfStale();
     WidgetsBinding.instance.addObserver(this);
     AppTabs.request.addListener(_onTabRequest);
   }
@@ -82,9 +86,16 @@ class _MainNavState extends State<MainNav> with SingleTickerProviderStateMixin, 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: FadeTransition(
-          opacity: CurvedAnimation(parent: _fade, curve: Curves.easeOut),
-          child: IndexedStack(index: _selectedIndex, children: _screens),
+        child: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: FadeTransition(
+                opacity: CurvedAnimation(parent: _fade, curve: Curves.easeOut),
+                child: IndexedStack(index: _selectedIndex, children: _screens),
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: DecoratedBox(

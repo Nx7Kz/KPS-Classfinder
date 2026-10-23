@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -424,8 +425,8 @@ class _Hero extends StatelessWidget {
       image = Container(
         color: hasCover ? AppColors.fill : const Color(0xFFF7F8F6),
         padding: hasCover ? EdgeInsets.zero : const EdgeInsets.all(12),
-        child: Image.network(
-          Api.assetUrl(hasCover ? cover : plan!),
+        child: Image(
+          image: CachedNetworkImageProvider(Api.assetUrl(hasCover ? cover : plan!)),
           fit: hasCover ? BoxFit.cover : BoxFit.contain,
           loadingBuilder: (context, child, progress) => progress == null ? child : const Shimmer(child: SkeletonBox(radius: 0)),
           errorBuilder: (_, _, _) => Center(child: Icon(Icons.apartment_rounded, color: AppColors.muted, size: 48)),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
@@ -1013,8 +1014,8 @@ class _FloorPlanViewState extends State<_FloorPlanView> with SingleTickerProvide
                     children: [
                       Positioned.fromRect(
                         rect: _imageRect,
-                        child: Image.network(
-                          plan.imageUrl,
+                        child: Image(
+                          image: CachedNetworkImageProvider(plan.imageUrl),
                           fit: BoxFit.fill,
                           errorBuilder: (_, _, _) => Center(
                             child: Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 40),

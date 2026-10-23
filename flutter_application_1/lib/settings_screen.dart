@@ -5,6 +5,8 @@ import 'api_config.dart';
 import 'app_prefs.dart';
 import 'app_theme.dart';
 import 'guide_screen.dart';
+import 'offline_cache.dart';
+import 'offline_sync.dart';
 import 'report_sheet.dart';
 import 'room_store.dart';
 import 'widgets.dart';
@@ -152,6 +154,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         title: 'ขนาดตัวอักษรบนแผนที่',
                         subtitle: large ? 'ใหญ่ (อ่านง่ายขึ้น)' : 'ปกติ',
                         trailing: _SizeToggle(large: large, onChanged: AppPrefs.setMapLabelLarge),
+                      ),
+                    ),
+                  ],
+                ),
+                const _Heading('ใช้งานออฟไลน์'),
+                _Group(
+                  children: [
+                    const _SyncRow(),
+                    _SettingRow(
+                      icon: Icons.delete_sweep_outlined,
+                      title: 'ล้างข้อมูลออฟไลน์',
+                      subtitle: 'ลบข้อมูลและรูปแผนผังที่เก็บไว้ (ซิงค์ใหม่ได้ทุกเมื่อ)',
+                      onTap: () => _clear(
+                        title: 'ล้างข้อมูลออฟไลน์?',
+                        message: 'ข้อมูลอาคาร ห้อง และรูปแผนผังที่เก็บไว้ในเครื่องจะถูกลบ ห้องโปรดและประวัติไม่ถูกลบ',
+                        action: OfflineSync.clearAll,
+                        done: 'ล้างข้อมูลออฟไลน์แล้ว',
+                        count: 1,
                       ),
                     ),
                   ],
@@ -348,6 +368,102 @@ class _ThemePicker extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// แถวซิงค์ข้อมูลออฟไลน์: บอกเวลาซิงค์ล่าสุด กด "ซิงค์ใหม่" ดึงข้อมูล+รูปแผนผังทั้งหมด มีแถบความคืบหน้า
+class _SyncRow extends StatefulWidget {
+  const _SyncRow();
+
+  @override
+  State<_SyncRow> createState() => _SyncRowState();
+}
+
+class _SyncRowState extends State<_SyncRow> {
+  DateTime? _last;
+  int _images = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    OfflineSync.progress.addListener(_onProgress);
+    _loadInfo();
+  }
+
+  @override
+  void dispose() {
+    OfflineSync.progress.removeListener(_onProgress);
+    super.dispose();
+  }
+
+  void _onProgress() {
+    if (!mounted) return;
+    setState(() {});
+    if (OfflineSync.progress.value == null) _loadInfo(); // ซิงค์เสร็จ -> อ่านเวลาล่าสุดใหม่
+  }
+
+  Future<void> _loadInfo() async {
+    final last = await OfflineCache.lastSync();
+    final images = await OfflineCache.imageCount();
+    if (mounted) {
+      setState(() {
+        _last = last;
+        _images = images;
+      });
+    }
+  }
+
+  Future<void> _sync() async {
+    try {
+      final result = await OfflineSync.run();
+      if (!mounted) return;
+      final failed = result.failedImages > 0 ? ' (โหลดรูปไม่สำเร็จ ${result.failedImages})' : '';
+      showAppSnack(
+        context,
+        'ซิงค์เสร็จ: ${result.buildings} อาคาร • ${result.rooms} ห้อง • ${result.floorPlans} แผนผัง • รูป ${result.images} ไฟล์$failed',
+      );
+    } on ApiException catch (error) {
+      if (mounted) showAppSnack(context, error.message);
+    } catch (_) {
+      if (mounted) showAppSnack(context, 'ซิงค์ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = OfflineSync.progress.value;
+    final running = progress != null;
+    final subtitle = running
+        ? progress.label
+        : (_last == null
+            ? 'ยังไม่เคยซิงค์ กดเพื่อเก็บข้อมูลไว้ดูตอนไม่มีอินเทอร์เน็ต'
+            : 'ซิงค์ล่าสุด ${formatSyncTime(_last!)}${_images > 0 ? ' • รูปแผนผัง $_images ไฟล์' : ''}');
+
+    return Column(
+      children: [
+        _SettingRow(
+          icon: Icons.cloud_download_outlined,
+          title: 'ซิงค์ข้อมูลและแผนผัง',
+          subtitle: subtitle,
+          trailing: running
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, value: progress.fraction),
+                )
+              : TextButton(onPressed: _sync, child: const Text('ซิงค์ใหม่')),
+          onTap: running ? null : _sync,
+        ),
+        if (running)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(72, 0, 16, 14),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(value: progress.fraction, minHeight: 5, backgroundColor: AppColors.line),
+            ),
+          ),
+      ],
     );
   }
 }

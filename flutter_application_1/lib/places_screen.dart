@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
@@ -315,8 +316,8 @@ class _Thumbnail extends StatelessWidget {
       image = Container(
         color: hasCover ? AppColors.fill : const Color(0xFFF7F8F6),
         padding: hasCover ? EdgeInsets.zero : const EdgeInsets.all(4),
-        child: Image.network(
-          Api.assetUrl(hasCover ? cover : plan!),
+        child: Image(
+          image: CachedNetworkImageProvider(Api.assetUrl(hasCover ? cover : plan!)),
           fit: hasCover ? BoxFit.cover : BoxFit.contain,
           loadingBuilder: (context, child, progress) =>
               progress == null ? child : const Shimmer(child: SkeletonBox(radius: 0)),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'app_theme.dart';
 import 'motion.dart';
+import 'offline_cache.dart';
 import 'open_status.dart';
 import 'room_utils.dart';
 
@@ -161,6 +162,41 @@ class IconBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
       child: Icon(icon, color: color ?? AppColors.primary, size: size * 0.5),
+    );
+  }
+}
+
+/// แถบเตือนใต้แถบสถานะเมื่อแอปเชื่อมต่อเซิร์ฟเวอร์ไม่ได้และกำลังแสดงข้อมูลที่แคชไว้ (หายเองเมื่อโหลดสดได้อีกครั้ง)
+class OfflineBanner extends StatelessWidget {
+  const OfflineBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<DateTime?>(
+      valueListenable: OfflineCache.offlineSince,
+      builder: (context, since, _) => AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        alignment: Alignment.topCenter,
+        child: since == null
+            ? const SizedBox(width: double.infinity)
+            : Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                color: AppColors.warningTint,
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 17, color: AppColors.warning),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'ออฟไลน์ • แสดงข้อมูลที่บันทึกไว้เมื่อ ${formatSyncTime(since)}',
+                        style: TextStyle(color: AppColors.ink, fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }

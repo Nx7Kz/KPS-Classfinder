@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
+import 'offline_cache.dart';
 
 /// ข้อผิดพลาดที่มีข้อความภาษาไทยพร้อมแสดงให้ผู้ใช้เห็นได้เลย
 class ApiException implements Exception {
@@ -58,34 +59,82 @@ class Api {
     }
   }
 
+  /// GET แล้วคืน JSON พร้อมเก็บแคชไว้ ถ้าเชื่อมต่อเซิร์ฟเวอร์ไม่ได้และเคยแคชคำขอนี้ไว้ จะคืนข้อมูลที่แคชแทน
+  /// (และตั้ง [OfflineCache.offlineSince] ให้หน้าจอแสดงแถบ "ออฟไลน์") ถ้าไม่เคยแคชก็โยนข้อผิดพลาดเหมือนเดิม
+  static Future<dynamic> _getJson(String path, [Map<String, String>? query]) async {
+    final key = _cacheKey(path, query);
+    try {
+      final response = await _get(path, query);
+      final decoded = _decode(response);
+      await OfflineCache.put(key, utf8.decode(response.bodyBytes));
+      OfflineCache.offlineSince.value = null;
+      return decoded;
+    } on ApiException catch (error) {
+      if (!error.isConnection) rethrow;
+      final cached = await OfflineCache.get(key);
+      if (cached == null) rethrow;
+      OfflineCache.offlineSince.value = cached.at;
+      return jsonDecode(cached.body);
+    }
+  }
+
+  static String _cacheKey(String path, Map<String, String>? query) {
+    if (query == null || query.isEmpty) return path;
+    final entries = query.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    return '$path?${entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
+  }
+
   static List<Map<String, dynamic>> _asList(dynamic decoded) {
     if (decoded is! List) throw const ApiException('รูปแบบข้อมูลจากเซิร์ฟเวอร์ไม่ถูกต้อง');
     return decoded.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
   static Future<List<Map<String, dynamic>>> buildings() async {
-    return _asList(_decode(await _get('api/buildings')));
+    return _asList(await _getJson('api/buildings'));
   }
 
   /// วันปิดทำการพิเศษที่ยังไม่สิ้นสุด (ทั้งมหาวิทยาลัย/อาคาร/ห้อง)
   static Future<List<Map<String, dynamic>>> closures() async {
-    return _asList(_decode(await _get('api/closures')));
+    return _asList(await _getJson('api/closures'));
   }
 
   static Future<List<Map<String, dynamic>>> roomsInBuilding(String buildingName) async {
-    return _asList(_decode(await _get('api/building/${Uri.encodeComponent(buildingName)}')));
+    return _asList(await _getJson('api/building/${Uri.encodeComponent(buildingName)}'));
   }
 
+  /// ค้นห้อง ถ้าเชื่อมต่อไม่ได้จะค้นจากข้อมูลห้องที่แคชไว้ในเครื่องแทน (ถ้ามี)
   static Future<List<Map<String, dynamic>>> searchRooms(String query) async {
-    return _asList(_decode(await _get('api/rooms/search', {'q': query})));
+    try {
+      final results = _asList(_decode(await _get('api/rooms/search', {'q': query})));
+      OfflineCache.offlineSince.value = null;
+      return results;
+    } on ApiException catch (error) {
+      if (!error.isConnection) rethrow;
+      final rooms = await OfflineCache.cachedRooms();
+      if (rooms.isEmpty) rethrow;
+      final buildings = await OfflineCache.get('api/buildings');
+      OfflineCache.offlineSince.value = buildings?.at;
+      return searchRoomsLocal(rooms, query);
+    }
   }
 
   /// คืน null เมื่อชั้นนั้นยังไม่มีแผนที่ (404) แต่ถ้าเชื่อมต่อไม่ได้จะโยน ApiException
   static Future<FloorPlan?> floorPlan(String building, String floor) async {
-    final response = await _get('api/floorplan', {'building': building, 'floor': floor});
-    if (response.statusCode == 404) return null;
-
-    final decoded = _decode(response);
+    final key = _cacheKey('api/floorplan', {'building': building, 'floor': floor});
+    dynamic decoded;
+    try {
+      final response = await _get('api/floorplan', {'building': building, 'floor': floor});
+      if (response.statusCode == 404) return null;
+      decoded = _decode(response);
+      await OfflineCache.put(key, utf8.decode(response.bodyBytes));
+      OfflineCache.offlineSince.value = null;
+    } on ApiException catch (error) {
+      if (!error.isConnection) rethrow;
+      final cached = await OfflineCache.get(key);
+      if (cached == null) rethrow;
+      OfflineCache.offlineSince.value = cached.at;
+      decoded = jsonDecode(cached.body);
+    }
     if (decoded is! Map) return null;
 
     final path = decoded['image']?.toString();
@@ -100,7 +149,7 @@ class Api {
   }
 
   static Future<List<Map<String, dynamic>>> panoramas(Object roomId) async {
-    return _asList(_decode(await _get('api/rooms/$roomId/panoramas')));
+    return _asList(await _getJson('api/rooms/$roomId/panoramas'));
   }
 
   /// อาคารที่มีจุดเดินชม 360° แล้ว (แท็บ "เดินชม")
