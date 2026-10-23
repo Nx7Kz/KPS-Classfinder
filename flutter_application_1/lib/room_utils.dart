@@ -26,6 +26,18 @@ String floorLabel(String floor) {
 
 bool isMaintenance(Map<String, dynamic> room) => room['status']?.toString() == 'maintenance';
 
+/// งดใช้งาน = ผู้ดูแลระบุว่าห้องใช้ไม่ได้ชั่วคราว (ต่างจากปิดปรับปรุง) พร้อมสาเหตุ (ถ้ามี)
+bool isSuspended(Map<String, dynamic> room) => room['status']?.toString() == 'suspended';
+
+/// ห้องที่ผู้ดูแลตั้งสถานะว่าใช้งานไม่ได้อยู่ (ปิดปรับปรุงหรืองดใช้งาน)
+bool isUnavailable(Map<String, dynamic> room) => isMaintenance(room) || isSuspended(room);
+
+/// สาเหตุของสถานะห้อง (เช่น "ซ่อมเครื่องปรับอากาศ") คืน null ถ้าไม่ได้ระบุ
+String? statusReasonOf(Map<String, dynamic> room) {
+  final reason = room['status_reason']?.toString().trim();
+  return reason == null || reason.isEmpty ? null : reason;
+}
+
 /// ไอคอนตามประเภทห้อง (ลิฟต์ ห้องน้ำ ห้องบรรยาย ฯลฯ) ใช้บนการ์ดห้อง ถ้าไม่รู้จักประเภทใช้ไอคอนประตู
 IconData roomIcon(Map<String, dynamic> room) {
   final text = '${room['room_type'] ?? ''} ${room['room_code'] ?? ''}';

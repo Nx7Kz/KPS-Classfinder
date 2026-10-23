@@ -201,7 +201,7 @@ class OfflineBanner extends StatelessWidget {
   }
 }
 
-enum _PillTone { normal, warning, muted }
+enum _PillTone { normal, warning, danger, muted }
 
 /// ป้ายสถานะเล็ก ๆ เช่น "ปิดปรับปรุง"
 class StatusPill extends StatelessWidget {
@@ -216,6 +216,11 @@ class StatusPill extends StatelessWidget {
         icon = Icons.build_rounded,
         _tone = _PillTone.warning;
 
+  const StatusPill.suspended({super.key})
+      : label = 'งดใช้งาน',
+        icon = Icons.block_rounded,
+        _tone = _PillTone.danger;
+
   /// ป้าย "เปิดอยู่" (เขียว) / "ปิดอยู่" (เทา) จากเวลาทำการ [short] = ข้อความสั้นสำหรับรายการ
   StatusPill.openStatus(OpenStatus status, {super.key, bool short = false})
       : label = short ? status.shortLabel : status.label,
@@ -226,11 +231,13 @@ class StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (_tone) {
       _PillTone.warning => AppColors.warning,
+      _PillTone.danger => AppColors.danger,
       _PillTone.muted => AppColors.muted,
       _PillTone.normal => AppColors.primary,
     };
     final background = switch (_tone) {
       _PillTone.warning => AppColors.warningTint,
+      _PillTone.danger => AppColors.dangerTint,
       _PillTone.muted => AppColors.fill,
       _PillTone.normal => AppColors.tint,
     };
@@ -319,7 +326,8 @@ class RoomTile extends StatelessWidget {
                             const StatusPill(label: '360°', icon: Icons.threesixty_rounded),
                           ],
                           if (isMaintenance(room)) ...[const SizedBox(width: 8), const StatusPill.maintenance()],
-                          if (openStatus.isKnown && !isMaintenance(room)) ...[
+                          if (isSuspended(room)) ...[const SizedBox(width: 8), const StatusPill.suspended()],
+                          if (openStatus.isKnown && !isUnavailable(room)) ...[
                             const SizedBox(width: 8),
                             StatusPill.openStatus(openStatus, short: true),
                           ],

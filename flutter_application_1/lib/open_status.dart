@@ -106,12 +106,15 @@ Map<String, dynamic>? _slot(Map<String, dynamic> hours, int weekdayIndex) {
 
 OpenStatus computeOpenStatus({
   String? status,
+  String? statusReason,
   Map<String, dynamic>? hours,
   int? roomId,
   int? buildingId,
   DateTime? at,
 }) {
-  if (status == 'maintenance') return const OpenStatus(OpenState.closed, 'ปิดปรับปรุง', 'ปิดปรับปรุง');
+  final reason = statusReason == null || statusReason.trim().isEmpty ? null : statusReason.trim();
+  if (status == 'maintenance') return OpenStatus(OpenState.closed, 'ปิดปรับปรุง', 'ปิดปรับปรุง', detail: reason);
+  if (status == 'suspended') return OpenStatus(OpenState.closed, 'งดใช้งาน', 'งดใช้งาน', detail: reason);
   if (status == 'inactive') return const OpenStatus(OpenState.closed, 'ปิดใช้งาน', 'ปิดใช้งาน');
 
   final now = _bangkok(at);
@@ -149,6 +152,7 @@ OpenStatus computeOpenStatus({
 
 OpenStatus roomOpenStatus(Map<String, dynamic> room, {DateTime? at}) => computeOpenStatus(
       status: room['status']?.toString(),
+      statusReason: room['status_reason']?.toString(),
       hours: effectiveHours(room),
       roomId: _id(room['id']),
       buildingId: _id(room['building_id']),

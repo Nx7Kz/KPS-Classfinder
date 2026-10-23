@@ -106,6 +106,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
       '${room['building_name'] ?? '-'} · ${floorLabel(floorOf(room))}',
       ?roomSummary(room),
       if (isMaintenance(room)) '(ปิดปรับปรุงอยู่ในขณะนี้)',
+      if (isSuspended(room)) '(งดใช้งานอยู่ในขณะนี้${statusReasonOf(room) == null ? '' : ': ${statusReasonOf(room)}'})',
       '',
       'ดูตำแหน่งบนแผนที่ได้ในแอป KPS ClassFinder',
     ];
@@ -206,6 +207,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                         if (hasRoomType) StatusPill(label: roomType, icon: Icons.category_rounded),
                         if (isMaintenance(room))
                           const StatusPill.maintenance()
+                        else if (isSuspended(room))
+                          const StatusPill.suspended()
                         else if (openStatus.isKnown)
                           StatusPill.openStatus(openStatus)
                         else
@@ -221,7 +224,21 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                     ],
                     if (isMaintenance(room)) ...[
                       const SizedBox(height: 16),
-                      const _Notice(icon: Icons.build_rounded, text: 'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้'),
+                      _Notice(
+                        icon: Icons.build_rounded,
+                        text: statusReasonOf(room) == null
+                            ? 'ห้องนี้กำลังปิดปรับปรุง อาจไม่สามารถใช้งานได้ในขณะนี้'
+                            : 'ห้องนี้กำลังปิดปรับปรุง: ${statusReasonOf(room)}',
+                      ),
+                    ],
+                    if (isSuspended(room)) ...[
+                      const SizedBox(height: 16),
+                      _Notice(
+                        icon: Icons.block_rounded,
+                        text: statusReasonOf(room) == null
+                            ? 'ห้องนี้งดใช้งานชั่วคราว ไม่สามารถใช้งานได้ในขณะนี้'
+                            : 'ห้องนี้งดใช้งานชั่วคราว: ${statusReasonOf(room)}',
+                      ),
                     ],
                     const SizedBox(height: 18),
                     _MiniMap(room: room, onOpen: _openMap),

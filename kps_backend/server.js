@@ -2043,8 +2043,9 @@ function findClosure(dateString, roomId, buildingId) {
     return best;
 }
 
-function getOpenStatus({ status = 'active', hours = null, roomId = null, buildingId = null }, at = new Date()) {
-    if (status === 'maintenance') return { state: 'closed', reason: 'maintenance', label: 'ปิดปรับปรุง' };
+function getOpenStatus({ status = 'active', statusReason = null, hours = null, roomId = null, buildingId = null }, at = new Date()) {
+    if (status === 'maintenance') return { state: 'closed', reason: 'maintenance', label: 'ปิดปรับปรุง', detail: statusReason || null };
+    if (status === 'suspended') return { state: 'closed', reason: 'suspended', label: 'งดใช้งาน', detail: statusReason || null };
     if (status === 'inactive') return { state: 'closed', reason: 'inactive', label: 'ปิดใช้งาน' };
     const now = bangkokParts(at);
     const closure = findClosure(now.date, roomId, buildingId);
@@ -2077,7 +2078,7 @@ function decorateRoom(row) {
         ...row,
         open_hours: own,
         building_open_hours: building,
-        open_status: getOpenStatus({ status: row.status, hours: own || building, roomId: row.id, buildingId: row.building_id }),
+        open_status: getOpenStatus({ status: row.status, statusReason: row.status_reason, hours: own || building, roomId: row.id, buildingId: row.building_id }),
     };
 }
 
@@ -2093,7 +2094,7 @@ async function loadClosures() {
 // query กลางนี้ join กลับมาเป็น building_name ให้ shape ของ JSON เหมือนเดิมทุกจุดที่แอป Flutter เรียกใช้อยู่
 const ROOM_SELECT_BASE = `
     SELECT rooms.id, rooms.room_code, buildings.name AS building_name, rooms.floor,
-           rooms.pin_x, rooms.pin_y, rooms.room_type, rooms.capacity, rooms.status, rooms.amenities,
+           rooms.pin_x, rooms.pin_y, rooms.room_type, rooms.capacity, rooms.status, rooms.status_reason, rooms.amenities,
            rooms.open_hours, buildings.open_hours AS building_open_hours,
            rooms.building_id,
            (SELECT COUNT(*) FROM panoramas WHERE panoramas.room_id = rooms.id) AS panorama_count,
@@ -2221,7 +2222,9 @@ app.get('/api/floorplan', (req, res) => {
 const ROOM_CODE_MAX_LENGTH = 255;
 const FLOOR_MAX_LENGTH = 50;
 const ROOM_TYPE_MAX_LENGTH = 50;
-const ROOM_STATUSES = new Set(['active', 'maintenance', 'inactive']);
+// maintenance = ปิดปรับปรุง, suspended = งดใช้งาน (แอปยังแสดงห้องพร้อมสาเหตุ), inactive = ปิดใช้งาน (ซ่อนจากแอป)
+const ROOM_STATUSES = new Set(['active', 'maintenance', 'suspended', 'inactive']);
+const STATUS_REASON_MAX_LENGTH = 255;
 
 // ตรวจสอบว่าข้อมูลห้องที่ส่งมาครบและถูกต้องหรือไม่ คืนข้อความ error ถ้าไม่ผ่าน หรือ null ถ้าผ่าน
 // ตรวจทีละส่วนแยกจากกัน (ลดความซับซ้อนของ validateRoomInput ด้านล่าง ซึ่งแค่เรียงลำดับเรียกทั้งหมด)
@@ -2258,8 +2261,17 @@ function validateRoomTypeAndCapacity(roomType, capacity) {
     return null;
 }
 
-function validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities }) {
+// สาเหตุของสถานะ (เช่น ทำไมงดใช้งาน) ใช้ได้เมื่อห้องไม่ได้อยู่ในสถานะปกติเท่านั้น
+function cleanStatusReason(status, reason) {
+    if (!status || status === 'active' || typeof reason !== 'string') return null;
+    return reason.trim() || null;
+}
+
+function validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities, status_reason }) {
     if (typeof building_name !== 'string' || building_name.trim() === '') return 'กรุณาระบุอาคาร';
+    if (typeof status_reason === 'string' && status_reason.trim().length > STATUS_REASON_MAX_LENGTH) {
+        return `สาเหตุต้องไม่เกิน ${STATUS_REASON_MAX_LENGTH} ตัวอักษร`;
+    }
     if (status !== null && status !== undefined && status !== '' && !ROOM_STATUSES.has(status)) return 'สถานะห้องไม่ถูกต้อง';
     if (amenities !== null && amenities !== undefined && typeof amenities !== 'object') return 'ข้อมูลสิ่งอำนวยความสะดวกไม่ถูกต้อง';
     return validateRoomCode(room_code)
@@ -2295,9 +2307,9 @@ function findDuplicateRoom(roomCode, buildingId, floor, excludeId, callback) {
 
 // 1. API เพิ่มห้องเรียนใหม่ (Create - รองรับ floor + ฟิลด์ใหม่)
 app.post('/api/rooms', requirePerm('buildings.create'), (req, res) => {
-    const { room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities } = req.body || {};
+    const { room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities, status_reason } = req.body || {};
 
-    const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities });
+    const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities, status_reason });
     if (validationError) {
         return res.status(400).json({ error: validationError });
     }
@@ -2322,12 +2334,12 @@ app.post('/api/rooms', requirePerm('buildings.create'), (req, res) => {
             }
 
             const sql = `
-                INSERT INTO rooms (room_code, building_id, floor, pin_x, pin_y, room_type, capacity, status, amenities, open_hours)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO rooms (room_code, building_id, floor, pin_x, pin_y, room_type, capacity, status, status_reason, amenities, open_hours)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const params = [
                 trimmedCode, buildingId, trimmedFloor, pin_x ?? null, pin_y ?? null,
-                room_type || null, capacity ?? null, status || 'active',
+                room_type || null, capacity ?? null, status || 'active', cleanStatusReason(status, status_reason),
                 amenities ? JSON.stringify(amenities) : null,
                 hoursResult.value ? JSON.stringify(hoursResult.value) : null,
             ];
@@ -2346,9 +2358,9 @@ app.post('/api/rooms', requirePerm('buildings.create'), (req, res) => {
 // 2. API แก้ไขข้อมูล/อัปเดตพิกัดแผนที่ (Update - รองรับ floor + ฟิลด์ใหม่)
 app.put('/api/rooms/:id', requirePerm('buildings.create'), (req, res) => {
     const roomId = req.params.id;
-    const { room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities } = req.body || {};
+    const { room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities, status_reason } = req.body || {};
 
-    const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities });
+    const validationError = validateRoomInput({ room_code, building_name, floor, pin_x, pin_y, room_type, capacity, status, amenities, status_reason });
     if (validationError) {
         return res.status(400).json({ error: validationError });
     }
@@ -2376,12 +2388,12 @@ app.put('/api/rooms/:id', requirePerm('buildings.create'), (req, res) => {
 
             const sql = `
                 UPDATE rooms
-                SET room_code=?, building_id=?, floor=?, pin_x=?, pin_y=?, room_type=?, capacity=?, status=?, amenities=?${hasHours ? ', open_hours=?' : ''}
+                SET room_code=?, building_id=?, floor=?, pin_x=?, pin_y=?, room_type=?, capacity=?, status=?, status_reason=?, amenities=?${hasHours ? ', open_hours=?' : ''}
                 WHERE id=?
             `;
             const params = [
                 trimmedCode, buildingId, trimmedFloor, pin_x ?? null, pin_y ?? null,
-                room_type || null, capacity ?? null, status || 'active',
+                room_type || null, capacity ?? null, status || 'active', cleanStatusReason(status, status_reason),
                 amenities ? JSON.stringify(amenities) : null,
                 ...(hasHours ? [hoursResult.value ? JSON.stringify(hoursResult.value) : null] : []),
                 roomId,
@@ -4148,9 +4160,12 @@ async function ensureDashboardSchema(attempt = 1) {
         }
         // สถานะห้อง "ปิดใช้งาน" (inactive) เพิ่มค่าใน ENUM ให้ฐานข้อมูลเดิม
         const [roomStatus] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status'");
-        if (roomStatus.length > 0 && !String(roomStatus[0].Type).includes("'inactive'")) {
-            await pdb.query("ALTER TABLE rooms MODIFY COLUMN status ENUM('active','maintenance','inactive') NOT NULL DEFAULT 'active'");
+        if (roomStatus.length > 0 && !String(roomStatus[0].Type).includes("'suspended'")) {
+            await pdb.query("ALTER TABLE rooms MODIFY COLUMN status ENUM('active','maintenance','suspended','inactive') NOT NULL DEFAULT 'active'");
         }
+        // สาเหตุของสถานะห้อง (ปิดปรับปรุง/งดใช้งาน) เพิ่มให้ฐานข้อมูลเดิม
+        const [reasonColumn] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status_reason'");
+        if (reasonColumn.length === 0) await pdb.query('ALTER TABLE rooms ADD COLUMN status_reason VARCHAR(255) DEFAULT NULL');
         await loadClosures();
         await seedAdminRoles();
         await seedAdminUsers();

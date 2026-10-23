@@ -2078,12 +2078,17 @@
             </div>
             <div class="col-12 col-md-6">
               <label for="roomStatus" class="form-label">สถานะ</label>
-              <select id="roomStatus" class="form-select">
+              <select id="roomStatus" class="form-select" onchange="syncRoomStatusReason()">
                 <option value="active">เปิดใช้งาน</option>
                 <option value="maintenance">ปิดปรับปรุง</option>
+                <option value="suspended">งดใช้งาน</option>
                 <option value="inactive">ปิดใช้งาน (ซ่อนจากแอป)</option>
               </select>
-              <div class="form-text">ปิดปรับปรุง = แอปยังแสดงห้องแต่ขึ้นว่าปิด • ปิดใช้งาน = ซ่อนห้องจากแอปผู้ใช้ (เห็นเฉพาะในแดชบอร์ด)</div>
+              <div class="form-text">ปิดปรับปรุง / งดใช้งาน = แอปยังแสดงห้องแต่ขึ้นว่าปิด (แสดงสาเหตุให้ผู้ใช้เห็น) • ปิดใช้งาน = ซ่อนห้องจากแอปผู้ใช้ (เห็นเฉพาะในแดชบอร์ด)</div>
+            </div>
+            <div class="col-12 d-none" id="roomStatusReasonGroup">
+              <label for="roomStatusReason" class="form-label">สาเหตุ <span class="text-secondary small">(ไม่บังคับ แสดงให้ผู้ใช้เห็นในแอป)</span></label>
+              <input id="roomStatusReason" class="form-control" maxlength="255" placeholder="เช่น ซ่อมเครื่องปรับอากาศ, ใช้จัดสอบ, น้ำรั่ว">
             </div>
           </div>
 
@@ -3669,7 +3674,10 @@
         const isPinned = room.pin_x !== null && room.pin_x !== undefined;
         const typeCapacity = [room.room_type, room.capacity ? `${room.capacity} ที่นั่ง` : null]
           .filter(Boolean).join(' • ') || '<span class="tw-text-outline">-</span>';
-        const statusBadge = room.status === 'inactive'
+        const statusBadge = room.status === 'suspended'
+          ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-red-100 tw-text-red-800 dark:tw-bg-red-500/15 dark:tw-text-red-300 tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-red-600 dark:tw-bg-red-300"></span>งดใช้งาน</span>`
+          : room.status === 'inactive'
           ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline tw-font-medium">
               <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-outline"></span>ปิดใช้งาน</span>`
           : room.status === 'maintenance'
@@ -3689,7 +3697,7 @@
           <td class="tw-py-3.5 tw-px-4 tw-font-semibold tw-text-on-surface">${escapeHtml(room.room_code || '-')}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center"><span class="tw-inline-flex tw-items-center tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium">ชั้น ${escapeHtml(room.floor || '-')}</span></td>
           <td class="tw-py-3.5 tw-px-4 tw-text-on-surface-variant">${typeCapacity}</td>
-          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}${room.status === 'active' && room.open_status ? `<div class="tw-mt-1">${openStatusChip(room.open_status)}</div>` : ''}</td>
+          <td class="tw-py-3.5 tw-px-4 tw-text-center">${statusBadge}${room.status !== 'active' && room.status_reason ? `<div class="tw-mt-1 tw-text-label-sm tw-text-outline" title="${escapeHtml(room.status_reason)}" style="max-width:11rem; margin-inline:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(room.status_reason)}</div>` : ''}${room.status === 'active' && room.open_status ? `<div class="tw-mt-1">${openStatusChip(room.open_status)}</div>` : ''}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-center">${pinBadge}</td>
           <td class="tw-py-3.5 tw-px-4 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-1.5">
@@ -3768,12 +3776,20 @@
       }
     }
 
+    // ช่อง "สาเหตุ" แสดงเมื่อห้องไม่ได้อยู่ในสถานะเปิดใช้งานปกติ
+    function syncRoomStatusReason() {
+      const status = document.getElementById('roomStatus').value;
+      document.getElementById('roomStatusReasonGroup').classList.toggle('d-none', status === 'active');
+    }
+
     function openCreateModal() {
       document.getElementById('roomModalTitle').textContent = 'เพิ่มห้องเรียน';
       document.getElementById('roomId').value = '';
       document.getElementById('roomForm').reset();
       document.getElementById('roomFloor').value = '1';
       document.getElementById('roomStatus').value = 'active';
+      document.getElementById('roomStatusReason').value = '';
+      syncRoomStatusReason();
       setRoomTypeField('');
       loadRoomHoursForm(null);
       document.getElementById('formBuildingName').textContent = currentBuilding();
@@ -3822,6 +3838,8 @@
       setRoomTypeField(room.room_type);
       document.getElementById('roomCapacity').value = room.capacity ?? '';
       document.getElementById('roomStatus').value = room.status || 'active';
+      document.getElementById('roomStatusReason').value = room.status_reason || '';
+      syncRoomStatusReason();
       const amenities = room.amenities || {};
       document.getElementById('amenitySeats').value = amenities.seats ?? '';
       document.getElementById('amenityOutlets').value = amenities.outlets ?? '';
@@ -3932,6 +3950,7 @@
         room_type: getRoomTypeValue(),
         capacity: capacityValue !== '' ? Number(capacityValue) : null,
         status: document.getElementById('roomStatus').value,
+        status_reason: document.getElementById('roomStatusReason').value.trim(),
         amenities: Object.keys(amenities).length > 0 ? amenities : null,
         open_hours: openHours,
       };

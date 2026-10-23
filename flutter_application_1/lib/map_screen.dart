@@ -1240,7 +1240,9 @@ class _PinMarker extends StatelessWidget {
 
     final maintenance = isMaintenance(room);
     final dotSize = selected ? 26.0 : 18.0;
-    final color = maintenance ? AppColors.warning : (selected ? AppColors.primaryDark : AppColors.primary);
+    final color = isSuspended(room)
+        ? AppColors.danger
+        : (maintenance ? AppColors.warning : (selected ? AppColors.primaryDark : AppColors.primary));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1265,7 +1267,9 @@ class _PinMarker extends StatelessWidget {
               border: Border.all(color: Colors.white, width: 2.5),
               boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
             ),
-            child: maintenance ? Icon(Icons.build_rounded, size: 10, color: AppColors.background) : null,
+            child: isSuspended(room)
+                ? Icon(Icons.block_rounded, size: 10, color: AppColors.background)
+                : (maintenance ? Icon(Icons.build_rounded, size: 10, color: AppColors.background) : null),
           ),
           // ป้าย 360° เล็ก ๆ มุมหมุด บอกว่าห้องนี้มีภาพพาโนรามา
           if (hasPanorama(room))
