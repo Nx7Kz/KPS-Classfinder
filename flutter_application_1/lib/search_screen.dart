@@ -8,7 +8,7 @@ import 'app_theme.dart';
 import 'motion.dart';
 import 'open_status.dart';
 import 'room_detail_screen.dart';
-import 'room_list_screen.dart';
+import 'building_detail_screen.dart';
 import 'room_store.dart';
 import 'room_utils.dart';
 import 'saved_screen.dart';
@@ -575,7 +575,7 @@ class _BuildingShortcut extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => RoomListScreen(buildingName: name, buildingCode: building['code']?.toString())),
+          MaterialPageRoute(builder: (_) => BuildingDetailScreen(building: building)),
         ),
         child: Ink(
           padding: const EdgeInsets.all(14),

@@ -608,3 +608,60 @@ void showAppSnack(BuildContext context, String message) {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 2)));
 }
+
+/// ตารางเวลาทำการรายสัปดาห์ (จันทร์ → อาทิตย์) ไฮไลต์แถววันนี้
+class HoursCard extends StatelessWidget {
+  final List<HoursRow> rows;
+  final bool inheritsBuilding;
+
+  const HoursCard({super.key, required this.rows, this.inheritsBuilding = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: appCardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (final row in rows)
+            Container(
+              color: row.isToday ? AppColors.tint : null,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 84,
+                    child: Text(
+                      row.day,
+                      style: TextStyle(
+                        color: row.isToday ? AppColors.primary : AppColors.ink,
+                        fontSize: 14.5,
+                        fontWeight: row.isToday ? FontWeight.w800 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (row.isToday) const StatusPill(label: 'วันนี้'),
+                  const Spacer(),
+                  Text(
+                    row.text,
+                    style: TextStyle(
+                      color: row.isClosed ? AppColors.muted : AppColors.ink,
+                      fontSize: 14.5,
+                      fontWeight: row.isToday ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (inheritsBuilding)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
+              child: Text('ใช้ตามเวลาทำการของอาคาร', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+            ),
+        ],
+      ),
+    );
+  }
+}
