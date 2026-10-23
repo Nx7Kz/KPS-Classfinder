@@ -16,7 +16,7 @@ import 'skeleton.dart';
 import 'widgets.dart';
 
 /// คำค้นลัดตามประเภทห้อง (ค้นได้จากฟิลด์ประเภทห้องอยู่แล้ว จึงแตะแล้วค้นต่อได้ทันที)
-const _roomTypeShortcuts = ['ห้องบรรยาย', 'ห้องปฏิบัติการ', 'ลิฟต์', 'ห้องน้ำ'];
+const _roomTypeShortcuts = ['ห้องบรรยาย'];
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
