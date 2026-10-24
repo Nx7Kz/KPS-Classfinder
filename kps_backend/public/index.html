@@ -311,8 +311,9 @@
 
     /* หน้าเดินชม 360° */
     /* แผนผังชั้นสูงไม่เกิน 60% ของความสูงจอ (กว้างตามสัดส่วนภาพ) จัดกึ่งกลาง หมุดและเส้นเป็น % ของภาพจึงยังตรงตำแหน่ง */
+    .tour-plan-viewport { overflow: auto; max-height: 72vh; border-radius: 12px; }
     .tour-plan { position: relative; user-select: none; background: #f8faf9; border-radius: 12px; overflow: hidden;
-      width: min(100%, calc(60vh * var(--plan-ratio, 1.5))); margin-inline: auto; }
+      width: calc(min(100%, calc(60vh * var(--plan-ratio, 1.5))) * var(--plan-zoom, 1)); margin-inline: auto; }
     .tour-plan img { display: block; width: 100%; height: auto; }
     .tour-plan svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .tour-plan.is-placing { cursor: crosshair; outline: 3px dashed #15803d; outline-offset: -3px; }
@@ -1110,10 +1111,16 @@
                     <input type="radio" class="btn-check" name="tourMode" id="tourModeLink" onchange="setTourMode('link')">
                     <label class="btn btn-sm btn-outline-secondary" for="tourModeLink">เชื่อม / ตัดเส้น</label>
                   </div>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="ซูมแผนผัง">
+                    <button type="button" class="btn btn-outline-secondary px-3 fw-bold" onclick="zoomTourPlan(-1)" title="ซูมออก" aria-label="ซูมออก">−</button>
+                    <button type="button" class="btn btn-outline-secondary" id="tourZoomLabel" onclick="resetTourZoom()" title="กลับเป็นขนาดพอดี" style="min-width:4.5rem">100%</button>
+                    <button type="button" class="btn btn-outline-secondary px-3 fw-bold" onclick="zoomTourPlan(1)" title="ซูมเข้า" aria-label="ซูมเข้า">+</button>
+                  </div>
                   <span id="tourHint" class="small text-secondary"></span>
                 </div>
                 <div class="card-body">
-                  <div id="tourPlan" class="tour-plan"></div>
+                  <div id="tourPlanViewport" class="tour-plan-viewport"><div id="tourPlan" class="tour-plan"></div></div>
+                  <div class="small text-secondary mt-1">ซูมด้วยปุ่ม + − หรือกด Ctrl ค้างแล้วหมุนลูกกลิ้งเมาส์ • เลื่อนดูส่วนที่ซูมด้วยแถบเลื่อน</div>
                 </div>
               </section>
             </div>

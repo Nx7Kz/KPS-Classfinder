@@ -12,6 +12,7 @@ const tourState = {
   points: [],
   links: [],
   rooms: [],
+  zoom: 1, // ซูมแผนผังในหน้านี้ (1 = พอดีจอ)
   mode: 'select', // 'select' | 'link'
   selectedId: null,
   placingId: null, // จุดที่กำลังรอคลิกวางบนแผนผัง
@@ -39,6 +40,12 @@ function initTourPage() {
     tourLabelState.placing = false;
   });
   document.getElementById('tourPlan').addEventListener('click', onTourPlanClick);
+  // Ctrl + ลูกกลิ้งเมาส์ = ซูมที่ตำแหน่งเมาส์ (ไม่กด Ctrl = เลื่อนหน้าตามปกติ)
+  document.getElementById('tourPlanViewport').addEventListener('wheel', (event) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    zoomTourPlan(event.deltaY < 0 ? 1 : -1, { clientX: event.clientX, clientY: event.clientY });
+  }, { passive: false });
 }
 
 function tourPoint(id) {
@@ -108,7 +115,39 @@ async function loadTourBuilding({ keepFloor = false } = {}) {
   renderTour();
 }
 
+// ซูมแผนผังทีละขั้น คงจุดที่กำลังมองอยู่ (กึ่งกลางจอ หรือตำแหน่งเมาส์) ไว้ที่เดิม
+const TOUR_ZOOM_STEPS = [1, 1.5, 2, 3, 4];
+
+function applyTourZoom(zoom, anchor) {
+  const viewport = document.getElementById('tourPlanViewport');
+  const plan = document.getElementById('tourPlan');
+  const rect = viewport.getBoundingClientRect();
+  const ax = anchor ? anchor.clientX - rect.left : rect.width / 2;
+  const ay = anchor ? anchor.clientY - rect.top : rect.height / 2;
+  const fx = (viewport.scrollLeft + ax) / Math.max(plan.scrollWidth, 1);
+  const fy = (viewport.scrollTop + ay) / Math.max(plan.scrollHeight, 1);
+  tourState.zoom = zoom;
+  plan.style.setProperty('--plan-zoom', zoom);
+  document.getElementById('tourZoomLabel').textContent = `${Math.round(zoom * 100)}%`;
+  viewport.scrollLeft = fx * plan.scrollWidth - ax;
+  viewport.scrollTop = fy * plan.scrollHeight - ay;
+}
+
+function zoomTourPlan(direction, anchor) {
+  const index = TOUR_ZOOM_STEPS.indexOf(tourState.zoom);
+  const next = Math.min(TOUR_ZOOM_STEPS.length - 1, Math.max(0, (index < 0 ? 0 : index) + direction));
+  applyTourZoom(TOUR_ZOOM_STEPS[next], anchor);
+}
+
+function resetTourZoom() {
+  applyTourZoom(1);
+  const viewport = document.getElementById('tourPlanViewport');
+  viewport.scrollLeft = 0;
+  viewport.scrollTop = 0;
+}
+
 function changeTourFloor() {
+  resetTourZoom();
   tourState.placingId = null;
   tourState.linkFromId = null;
   const selected = tourPoint(tourState.selectedId);
