@@ -21,7 +21,7 @@ const tourState = {
 };
 let tourLabelModal;
 let tourLabelViewer = null;
-const tourLabelState = { placing: false, labels: [] }; // labels = ป้ายที่ผู้ดูแลตั้งเองของทุกจุดในอาคาร
+const tourLabelState = { placing: false, labels: [], headingPin: null }; // labels = ป้ายที่ผู้ดูแลตั้งเองของทุกจุดในอาคาร, headingPin = { pointId, x, y } จุดบนแผนผังที่เลือกไว้อ้างอิงทิศ
 
 function initTourPage() {
   const labelModalElement = document.getElementById('tourLabelModal');
@@ -482,18 +482,78 @@ function fillTourHeadingTargets(id) {
   const pinnedRooms = tourState.rooms.filter((room) => room.floor === point.floor && room.pin_x !== null && room.pin_x !== undefined && room.pin_y !== null && room.pin_y !== undefined);
   const select = document.getElementById('tourHeadingTarget');
   const previous = select.value;
-  if (options.length === 0 && pinnedRooms.length === 0) {
+  const hasPlan = tourState.floorPlans.some((plan) => plan.floor === point.floor);
+  if (options.length === 0 && pinnedRooms.length === 0 && !hasPlan) {
     select.innerHTML = '';
     return false;
   }
   fillSelect(select, [
     ...options.map((other) => ({ value: other.id, label: `${tourPointName(other)}${neighbors.includes(other) ? ' (เชื่อมอยู่)' : ''}` })),
     ...pinnedRooms.map((room) => ({ value: `room:${room.id}`, label: `ห้อง ${room.room_code} (หมุดบนแผนผัง)` })),
+    ...(hasPlan ? [{ value: 'plan', label: '📍 จุดที่ฉันคลิกบนแผนผัง…' }] : []),
   ]);
-  const first = options[0] ? String(options[0].id) : `room:${pinnedRooms[0].id}`;
+  const first = options[0] ? String(options[0].id) : (pinnedRooms[0] ? `room:${pinnedRooms[0].id}` : 'plan');
   select.value = previous && [...select.options].some((option) => option.value === previous) ? previous : first;
   document.getElementById('tourHeadingInfo').textContent = `ทิศปัจจุบัน ${Number(point.heading).toFixed(1)}°`;
   return true;
+}
+
+// แผนผังย่อเฉพาะรอบจุดที่ยืนอยู่ (ซูมให้คลิกแม่นขึ้น) ใช้เลือกจุดอ้างอิงทิศเมื่อไม่มีหมุดห้องหรือจุดเดินชมอยู่ในแนวที่ต้องการ
+const HEADING_PLAN_SIZE = { width: 420, height: 280, displayWidth: 900 };
+
+function renderTourHeadingPlan() {
+  const box = document.getElementById('tourHeadingPlanBox');
+  const holder = document.getElementById('tourHeadingPlan');
+  const point = tourLabelViewer?.currentPoint;
+  const wanted = document.getElementById('tourHeadingTarget').value === 'plan' && point;
+  box.classList.toggle('d-none', !wanted);
+  if (!wanted) return;
+  const plan = tourState.floorPlans.find((item) => item.floor === point.floor);
+  if (!plan) {
+    holder.innerHTML = '';
+    return;
+  }
+  const { width, height, displayWidth } = HEADING_PLAN_SIZE;
+  const displayHeight = displayWidth * Number(plan.height) / Number(plan.width);
+  const left = width / 2 - (point.x / 100) * displayWidth;
+  const top = height / 2 - (point.y / 100) * displayHeight;
+  const pin = tourLabelState.headingPin?.pointId === point.id ? tourLabelState.headingPin : null;
+  const line = pin
+    ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="${point.x}" y1="${point.y}" x2="${pin.x}" y2="${pin.y}" stroke="#e11d48" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>`
+    : '';
+  holder.innerHTML = `
+    <div class="plan-inner" style="left:${left}px; top:${top}px; width:${displayWidth}px; height:${displayHeight}px;">
+      <img src="${escapeHtml(plan.image_url)}" alt="แผนผังชั้น ${escapeHtml(point.floor)}">
+      ${line}
+      <span class="plan-dot" style="left:${point.x}%; top:${point.y}%; background:#2563eb;" title="จุดที่ยืนอยู่"></span>
+      ${pin ? `<span class="plan-dot" style="left:${pin.x}%; top:${pin.y}%; background:#e11d48;" title="จุดอ้างอิงทิศ"></span>` : ''}
+    </div>`;
+  holder.onclick = (event) => {
+    const inner = holder.querySelector('.plan-inner');
+    const rect = inner.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    if (x < 0 || x > 100 || y < 0 || y > 100) return;
+    tourLabelState.headingPin = { pointId: point.id, x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) };
+    renderTourHeadingPlan();
+  };
+}
+
+// ปรับทิศละเอียด: delta > 0 = หมุนกรวย (ทิศบนแผนผัง) ตามเข็ม ภาพคงมุมเดิม จึงเห็นกรวยขยับเทียบกับภาพ
+async function nudgeTourHeading(delta) {
+  const viewer = tourLabelViewer;
+  const point = viewer?.currentPoint;
+  if (!point) return;
+  const heading = Math.round((((Number(point.heading) || 0) - delta + 540) % 360 - 180) * 1000) / 1000;
+  const restore = captureTourView();
+  try {
+    const data = await api(`/api/admin/tour/points/${point.id}`, jsonRequest('PUT', { heading }));
+    replaceTourPoint(data.point);
+    renderTour();
+    await mountTourLabelViewer(point.id, restore);
+  } catch (error) {
+    reportError(error);
+  }
 }
 
 async function saveTourHeading() {
@@ -502,7 +562,17 @@ async function saveTourHeading() {
   const point = viewer.currentPoint;
   const rawTarget = document.getElementById('tourHeadingTarget').value;
   if (!rawTarget) return;
-  const target = rawTarget.startsWith('room:') ? { roomId: Number(rawTarget.slice(5)) } : Number(rawTarget);
+  let target;
+  if (rawTarget === 'plan') {
+    const pin = tourLabelState.headingPin;
+    if (!pin || pin.pointId !== point.id) {
+      showStatus('คลิกบนแผนผังเพื่อเลือกจุดอ้างอิงก่อน', 'warning');
+      return;
+    }
+    target = { pin: { x: pin.x, y: pin.y } };
+  } else {
+    target = rawTarget.startsWith('room:') ? { roomId: Number(rawTarget.slice(5)) } : Number(rawTarget);
+  }
   const heading = viewer.headingFacing(target);
   const restore = captureTourView(); // เก็บมุมที่กำลังมองไว้ (ในพิกัดภาพ) ให้ภาพไม่กระโดดหลังเปลี่ยนทิศ
   const button = document.getElementById('tourHeadingSave');
@@ -603,6 +673,7 @@ function renderTourLabelPanel() {
 
   document.getElementById('tourLabelModalTitle').textContent = `ปรับภาพ: ${tourPointName(point)}`;
   const canSetHeading = fillTourHeadingTargets(point.id);
+  renderTourHeadingPlan();
   document.getElementById('tourHeadingSave').disabled = !canSetHeading;
   if (!canSetHeading) {
     document.getElementById('tourHeadingInfo').textContent = 'ต้องมีจุดเดินชมอื่น หรือห้องที่ปักหมุดบนแผนผังชั้นนี้ เพื่อใช้อ้างอิงทิศ';

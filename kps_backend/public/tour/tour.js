@@ -277,7 +277,10 @@ export function createTourViewer(container, tour, options = {}) {
     headingFacing(targetId) {
       const current = this.currentPoint;
       const room = targetId?.roomId !== undefined ? tour.rooms.find((item) => item.id === targetId.roomId) : null;
-      const target = room ? { floor: current.floor, x: room.pin_x, y: room.pin_y } : tour.pointMap.get(targetId);
+      // { pin: { x, y } } = จุดใดก็ได้บนแผนผังชั้นนี้ (เป็น %) ที่ผู้ดูแลคลิกเลือกเอง เช่น แนวบันได
+      const pin = targetId?.pin;
+      const target = pin ? { floor: current.floor, x: pin.x, y: pin.y }
+        : (room ? { floor: current.floor, x: room.pin_x, y: room.pin_y } : tour.pointMap.get(targetId));
       const viewYaw = viewer.getPosition().yaw;
       const wanted = tour.bearing(current, target);
       // กึ่งกลางจอ (yaw บนจอ v) คือ yaw ในภาพ v + heading ซึ่งต้องกลายเป็นทิศ wanted

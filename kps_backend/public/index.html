@@ -328,6 +328,11 @@
     .tour-heading-view { position: relative; height: 420px; border-radius: 12px; overflow: hidden; background: #0d1511; }
     .tour-heading-view.is-placing-label, .tour-heading-view.is-placing-label .psv-container { cursor: crosshair !important; }
     .tour-heading-view.is-placing-label .crosshair { display: none; }
+    .tour-heading-plan { position: relative; width: 100%; max-width: 420px; height: 280px; overflow: hidden; border-radius: 8px; background: #f8faf9; cursor: crosshair; user-select: none; }
+    .tour-heading-plan .plan-inner { position: absolute; }
+    .tour-heading-plan img { display: block; width: 100%; height: auto; pointer-events: none; }
+    .tour-heading-plan svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .tour-heading-plan .plan-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; pointer-events: none; }
     .kps-room-tag { padding: 4px 10px; border: 2px solid #fff; border-radius: 999px; background: #15803d; color: #fff;
       font-weight: 700; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.35); white-space: nowrap; }
     .kps-room-tag.is-maintenance { background: #b45309; }
@@ -2407,8 +2412,15 @@
                 <div class="fw-semibold small mb-1">① ตั้งทิศให้ตรงแผนผัง</div>
                 <div class="small text-secondary mb-1">ลากให้<strong>เส้นสีส้มกลางจอ</strong>ตรงกับจุดอ้างอิง (เช่น ประตูห้องน้ำ) แล้วเลือกจุดนั้นด้านล่าง</div>
                 <div class="input-group input-group-sm">
-                  <select id="tourHeadingTarget" class="form-select"></select>
+                  <select id="tourHeadingTarget" class="form-select" onchange="renderTourHeadingPlan()"></select>
                   <button type="button" class="btn btn-primary" id="tourHeadingSave" onclick="saveTourHeading()">ตั้งทิศ</button>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                  <span class="small text-secondary">ปรับละเอียด (หมุนกรวย):</span>
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(-5)" title="หมุนทวนเข็ม 5°">⟲5°</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(-1)" title="หมุนทวนเข็ม 1°">⟲1°</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(1)" title="หมุนตามเข็ม 1°">⟳1°</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(5)" title="หมุนตามเข็ม 5°">⟳5°</button>
                 </div>
                 <div class="small text-secondary mt-1" id="tourHeadingInfo"></div>
               </div>
@@ -2435,6 +2447,10 @@
                 </div>
               </div>
             </div>
+          </div>
+          <div id="tourHeadingPlanBox" class="border rounded-3 p-2 mb-2 d-none">
+            <div class="small mb-1">คลิกบนแผนผังตรงจุดที่<strong>เส้นสีส้มกลางจอ</strong>ชี้ไป (เช่น ปลายลูกศรบนบันได) — เส้นสีแดงคือทิศที่จะตั้ง แล้วกด "ตั้งทิศ"</div>
+            <div id="tourHeadingPlan" class="tour-heading-plan"></div>
           </div>
           <div id="tourLabelView" class="tour-heading-view"><div class="crosshair"></div></div>
           <p class="small text-secondary mt-2 mb-1" id="tourLabelInfo"></p>
