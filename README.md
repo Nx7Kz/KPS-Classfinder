@@ -56,9 +56,9 @@
 
 ## ดาวน์โหลดและติดตั้งแอป
 
-**[ดาวน์โหลดไฟล์ติดตั้ง (Google Drive)](https://drive.google.com/drive/folders/1QaUFYkkwUnD-RSZK7tL0N0m-1K2xUZpi?usp=sharing)** — ไฟล์ `app-release.apk` สำหรับ Android
+**[ดาวน์โหลดไฟล์ติดตั้ง (Google Drive)](https://drive.google.com/drive/folders/1QaUFYkkwUnD-RSZK7tL0N0m-1K2xUZpi?usp=sharing)** — ไฟล์ `APP-KPSClassFinder.apk` สำหรับ Android
 
-1. ดาวน์โหลดไฟล์ `app-release.apk` ลงมือถือ
+1. ดาวน์โหลดไฟล์ `APP-KPSClassFinder.apk` ลงมือถือ
 2. เปิดไฟล์ ถ้าขึ้นเตือนเรื่องแหล่งที่มา ให้อนุญาต "ติดตั้งแอปจากแหล่งที่ไม่รู้จัก" ให้แอปที่ใช้เปิดไฟล์ (เช่น Chrome หรือ Files)
 3. กดติดตั้ง แล้วเปิดแอป **KPS ClassFinder** ใช้งานได้ทันที ไม่ต้องสมัครหรือเข้าสู่ระบบ (ต้องต่ออินเทอร์เน็ตในการโหลดข้อมูลครั้งแรก)
 
