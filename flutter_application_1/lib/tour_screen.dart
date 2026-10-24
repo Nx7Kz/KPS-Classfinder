@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'api_client.dart';
@@ -16,9 +18,19 @@ import 'widgets.dart';
 const bool kTourEnabled = true;
 
 /// เปิดหน้าเดินชมอาคารแบบ Street View (เริ่มที่จุดหน้าห้อง ถ้าระบุ pointId)
-Future<void> openTour(BuildContext context, {required Object buildingId, String? buildingName, Object? pointId}) {
+Future<void> openTour(BuildContext context, {required Object buildingId, String? buildingName, Object? pointId}) async {
   Haptics.tap();
-  return Navigator.of(context).push(
+  if (kIsWeb) {
+    // WebView ใช้บนเว็บไม่ได้ (ไม่มี implementation) จึงเปิดหน้าเดินชมของเซิร์ฟเวอร์ในแท็บใหม่แทน
+    final url = ApiConfig.endpoint('tour/').replace(
+      queryParameters: {'building': '$buildingId', if (pointId != null) 'point': '$pointId', 'theme': AppColors.dark ? 'dark' : 'light'},
+    );
+    final opened = await launchUrl(url, webOnlyWindowName: '_blank');
+    if (!opened && context.mounted) showAppSnack(context, 'เปิดหน้าเดินชมไม่ได้ ลองใหม่อีกครั้ง');
+    return;
+  }
+  if (!context.mounted) return;
+  await Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => TourViewerScreen(buildingId: buildingId, buildingName: buildingName, pointId: pointId),
     ),

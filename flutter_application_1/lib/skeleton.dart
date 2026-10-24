@@ -16,14 +16,12 @@ class Shimmer extends StatefulWidget {
 }
 
 class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
+  // สร้างเมื่อต้องใช้จริงเท่านั้น (ผู้ใช้ที่ปิดแอนิเมชันจะไม่มีตัวควบคุม) กันสร้างตอน dispose
+  AnimationController? _controller;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -32,14 +30,18 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
     // ผู้ใช้ที่ปิดแอนิเมชันในเครื่อง (การช่วยการเข้าถึง) จะเห็นโครงร่างนิ่ง ๆ ไม่มีแสงวิ่ง
     if (MediaQuery.of(context).disableAnimations) return widget.child;
 
+    final controller = _controller ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
     final base = AppColors.line;
     final highlight = AppColors.dark ? const Color(0xFF34473C) : const Color(0xFFF4F8F5);
 
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       child: widget.child,
       builder: (context, child) {
-        final t = _controller.value * 3 - 1; // เลื่อนจาก -1 ถึง 2 ให้แสงเข้า-ออกนอกขอบได้พอดี
+        final t = controller.value * 3 - 1; // เลื่อนจาก -1 ถึง 2 ให้แสงเข้า-ออกนอกขอบได้พอดี
         return ShaderMask(
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) => LinearGradient(
