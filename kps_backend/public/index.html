@@ -310,7 +310,9 @@
     @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
     /* หน้าเดินชม 360° */
-    .tour-plan { position: relative; user-select: none; background: #f8faf9; border-radius: 12px; overflow: hidden; }
+    /* แผนผังชั้นสูงไม่เกิน 60% ของความสูงจอ (กว้างตามสัดส่วนภาพ) จัดกึ่งกลาง หมุดและเส้นเป็น % ของภาพจึงยังตรงตำแหน่ง */
+    .tour-plan { position: relative; user-select: none; background: #f8faf9; border-radius: 12px; overflow: hidden;
+      width: min(100%, calc(60vh * var(--plan-ratio, 1.5))); margin-inline: auto; }
     .tour-plan img { display: block; width: 100%; height: auto; }
     .tour-plan svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .tour-plan.is-placing { cursor: crosshair; outline: 3px dashed #15803d; outline-offset: -3px; }

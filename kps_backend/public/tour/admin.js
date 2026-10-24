@@ -158,6 +158,11 @@ function renderTourPlan() {
     return;
   }
 
+  // กว้างตามสัดส่วนแผนผัง เพื่อให้แผนผังสูงเกินจอไม่ยืดยาว (ดู .tour-plan ใน index.html)
+  const ratio = Number(plan.width) / Number(plan.height);
+  if (Number.isFinite(ratio) && ratio > 0) container.style.setProperty('--plan-ratio', ratio);
+  else container.style.removeProperty('--plan-ratio');
+
   const onFloor = tourState.points.filter((point) => point.floor === floor && point.x !== null);
   const ids = new Set(onFloor.map((point) => point.id));
   // เส้นในชั้นเดียวกัน (ใช้ viewBox 0-100 ตรงกับ % ของตำแหน่ง)
