@@ -478,6 +478,7 @@ async function mountTourHeadingViewer(id) {
     tourHeadingViewer = createTourViewer(holder, prepareTour(data), {
       startPointId: id,
       mapSize: '140px',
+      useInitialView: false, // ตั้งทิศต้องเริ่มจากมุมกลางภาพเดิม ไม่ให้มุมเริ่มต้นมาเลื่อนมุมมอง
       onNodeChange: (point) => fillTourHeadingTargets(point.id),
     });
   } catch (error) {
@@ -580,6 +581,12 @@ function renderTourLabelPanel() {
   document.getElementById('tourLabelHide').disabled = !hasRoom || Boolean(current?.hidden);
   document.getElementById('tourLabelReset').disabled = !current;
   document.getElementById('tourLabelView').classList.toggle('is-placing-label', tourLabelState.placing);
+  const here = tourPoint(point.id) || point;
+  const hasInitial = here.initial_yaw !== null && here.initial_yaw !== undefined;
+  document.getElementById('tourInitialClear').disabled = !hasInitial;
+  document.getElementById('tourInitialState').textContent = hasInitial
+    ? 'ตั้งมุมเริ่มต้นไว้แล้ว — ผู้ใช้จะเห็นภาพหันไปทางนี้ตอนเข้าเดินชมที่จุดนี้'
+    : 'ยังไม่ได้ตั้งมุมเริ่มต้น (หันตามทิศปกติของภาพ)';
   document.getElementById('tourLabelInfo').textContent = tourLabelState.placing
     ? '📍 คลิกบนภาพตรงตำแหน่งที่ต้องการวางป้ายห้องที่เลือก'
     : 'ป้ายที่ตั้งเองมีผลเฉพาะในภาพของจุดนี้ (แต่ละจุดต้องตั้งแยก)';
@@ -638,4 +645,30 @@ async function sendTourLabel(pointId, roomId, request) {
     reportError(error);
     renderTourLabelPanel();
   }
+}
+
+// ---------- มุมเริ่มต้นของจุด ----------
+// เก็บเป็นพิกัดภาพต้นฉบับ (yaw บนจอ + heading) เช่นเดียวกับป้ายห้อง
+async function saveTourInitialView(pointId, body) {
+  try {
+    const data = await api(`/api/admin/tour/points/${pointId}/initial-view`, jsonRequest('PUT', body));
+    replaceTourPoint(data.point);
+    showStatus(data.message);
+    await mountTourLabelViewer(pointId);
+  } catch (error) {
+    reportError(error);
+  }
+}
+
+async function setTourInitialView() {
+  const point = tourLabelViewer?.currentPoint;
+  if (!point) return;
+  const view = tourLabelViewer.viewer.getPosition();
+  const yaw = wrapTourAngle(view.yaw + (Number(point.heading) || 0) * TOUR_DEG);
+  await saveTourInitialView(point.id, { yaw, pitch: view.pitch });
+}
+
+async function clearTourInitialView() {
+  const pointId = tourLabelPointId();
+  if (pointId) await saveTourInitialView(pointId, { yaw: null, pitch: null });
 }

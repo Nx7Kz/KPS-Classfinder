@@ -3203,7 +3203,7 @@ const TOUR_IMAGE_MAX_WIDTH = 4096; // มือถือส่วนใหญ่
 const TOUR_LABEL_MAX_LENGTH = 100;
 const TOUR_POINT_SELECT = `
     SELECT tp.id, tp.building_id, tp.floor, tp.image_url, tp.x, tp.y, tp.heading, tp.label, tp.room_id,
-           r.room_code, tp.created_at
+           tp.initial_yaw, tp.initial_pitch, r.room_code, tp.created_at
     FROM tour_points tp
     LEFT JOIN rooms r ON r.id = tp.room_id
 `;
@@ -3214,6 +3214,8 @@ function formatTourPoint(row) {
         x: row.x === null ? null : Number(row.x),
         y: row.y === null ? null : Number(row.y),
         heading: Number(row.heading),
+        initial_yaw: row.initial_yaw === null ? null : Number(row.initial_yaw),
+        initial_pitch: row.initial_pitch === null ? null : Number(row.initial_pitch),
     };
 }
 
@@ -3451,6 +3453,28 @@ app.delete('/api/admin/tour/links', requirePerm('panoramas.hotspots'), asyncRout
     if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบเส้นเชื่อมนี้');
     logActivity(req, { action: 'delete', entity: 'tour_link', detail: `ตัดเส้นเชื่อม #${a} ↔ #${b}` });
     res.json({ message: 'ตัดเส้นเชื่อมสำเร็จ!' });
+}));
+
+// มุมเริ่มต้นของจุดเดินชม: ตอนเข้าเดินชมที่จุดนี้ ตัวดูจะหันไปทางนี้ (yaw/pitch เรเดียน ในพิกัดของภาพต้นฉบับ
+// เหมือนป้ายห้อง จึงไม่เพี้ยนเมื่อตั้งทิศของภาพใหม่) ส่ง null ทั้งคู่ = ล้าง กลับไปหันตามทิศปกติ
+app.put('/api/admin/tour/points/:id/initial-view', requirePerm('panoramas.hotspots'), asyncRoute(async (req, res) => {
+    const pointId = parsePositiveInt(req.params.id);
+    if (pointId === null) throw new HttpError(400, 'รหัสจุดไม่ถูกต้อง');
+    const { yaw, pitch } = req.body || {};
+    const clearing = (yaw === null || yaw === undefined) && (pitch === null || pitch === undefined);
+    if (!clearing) {
+        if (!Number.isFinite(Number(yaw)) || Math.abs(Number(yaw)) > Math.PI + 0.001) throw new HttpError(400, 'ค่า yaw ต้องอยู่ระหว่าง -π ถึง π (เรเดียน)');
+        if (!Number.isFinite(Number(pitch)) || Math.abs(Number(pitch)) > Math.PI / 2 + 0.001) throw new HttpError(400, 'ค่า pitch ต้องอยู่ระหว่าง -π/2 ถึง π/2 (เรเดียน)');
+    }
+    const [result] = await pdb.query('UPDATE tour_points SET initial_yaw = ?, initial_pitch = ? WHERE id = ?',
+        clearing ? [null, null, pointId] : [Number(yaw), Number(pitch), pointId]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบจุดเดินชมนี้');
+    logActivity(req, {
+        action: 'update', entity: 'tour_point', entityId: pointId,
+        detail: clearing ? `ล้างมุมเริ่มต้นจุดเดินชม #${pointId}` : `ตั้งมุมเริ่มต้นจุดเดินชม #${pointId}`,
+    });
+    const [rows] = await pdb.query(`${TOUR_POINT_SELECT} WHERE tp.id = ?`, [pointId]);
+    res.json({ message: clearing ? 'ล้างมุมเริ่มต้นแล้ว' : 'ตั้งมุมเริ่มต้นสำเร็จ!', point: formatTourPoint(rows[0]) });
 }));
 
 // ตั้งตำแหน่งป้ายห้องในภาพของจุดเดินชม (yaw/pitch เรเดียน) หรือซ่อนป้ายห้องนั้นในจุดนี้
@@ -4271,6 +4295,11 @@ async function ensureDashboardSchema(attempt = 1) {
         const [roomStatus] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status'");
         if (roomStatus.length > 0 && !String(roomStatus[0].Type).includes("'suspended'")) {
             await pdb.query("ALTER TABLE rooms MODIFY COLUMN status ENUM('active','maintenance','suspended','inactive') NOT NULL DEFAULT 'active'");
+        }
+        // มุมเริ่มต้นของจุดเดินชม เพิ่มให้ฐานข้อมูลเดิม
+        for (const column of ['initial_yaw', 'initial_pitch']) {
+            const [found] = await pdb.query('SHOW COLUMNS FROM tour_points LIKE ?', [column]);
+            if (found.length === 0) await pdb.query(`ALTER TABLE tour_points ADD COLUMN ${column} DOUBLE DEFAULT NULL`);
         }
         // สาเหตุของสถานะห้อง (ปิดปรับปรุง/งดใช้งาน) เพิ่มให้ฐานข้อมูลเดิม
         const [reasonColumn] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status_reason'");

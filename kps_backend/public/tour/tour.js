@@ -218,9 +218,18 @@ export function createTourViewer(container, tour, options = {}) {
     map.setHotspots(spots);
   }
 
+  // มุมเริ่มต้น: ใช้เฉพาะตอนเข้าเดินชมที่จุดแรก (ตอนเดินระหว่างจุดคงทิศที่กำลังมองไว้เพื่อให้ต่อเนื่อง)
+  // initial_yaw เก็บเป็นพิกัดภาพต้นฉบับ ลบ heading ออกให้เป็นพิกัดบนจอ
+  let startViewApplied = false;
   plugin.addEventListener('node-changed', ({ node }) => {
     const point = node.data.point;
     syncMap(point);
+    if (!startViewApplied) {
+      startViewApplied = true;
+      if (options.useInitialView !== false && point.initial_yaw != null && point.initial_pitch != null) {
+        viewer.rotate({ yaw: wrapAngle(point.initial_yaw - rad(point.heading || 0)), pitch: point.initial_pitch });
+      }
+    }
     options.onNodeChange?.(point);
   });
 

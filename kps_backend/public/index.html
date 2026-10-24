@@ -2412,7 +2412,7 @@
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">label</span></div><div><h2 class="modal-title m-title" id="tourLabelModalTitle">ปรับป้ายห้อง</h2><p class="m-sub">วางป้ายห้องให้ตรงกับตำแหน่งจริงในภาพ</p></div></div>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">label</span></div><div><h2 class="modal-title m-title" id="tourLabelModalTitle">ปรับป้ายห้อง</h2><p class="m-sub">วางป้ายห้องและตั้งมุมเริ่มต้นของจุดนี้</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
@@ -2432,6 +2432,11 @@
             </div>
           </div>
           <div id="tourLabelView" class="tour-heading-view"></div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" id="tourInitialSet" onclick="setTourInitialView()">ตั้งมุมที่เห็นอยู่เป็นมุมเริ่มต้นของจุดนี้</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="tourInitialClear" onclick="clearTourInitialView()">ล้างมุมเริ่มต้น</button>
+            <span class="small text-secondary" id="tourInitialState"></span>
+          </div>
           <p class="small text-secondary mt-2 mb-1" id="tourLabelInfo"></p>
           <div id="tourLabelList" class="small"></div>
         </div>
