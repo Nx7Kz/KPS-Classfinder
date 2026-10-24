@@ -52,9 +52,6 @@ const MINIMAP_CSS = `
 .kps-minimap-dot:hover::before { transform: scale(1.25); }
 .kps-minimap-dot.is-current { z-index: 2; cursor: default; }
 .kps-minimap-dot.is-current::before { width: 18px; height: 18px; margin: -9px 0 0 -9px; background: #2563eb; box-shadow: 0 0 0 5px rgba(37,99,235,.28); }
-.kps-minimap-dot.is-current::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
-  border-radius: 50%; border: 2px solid #2563eb; animation: kps-minimap-pulse 1.8s ease-out infinite; pointer-events: none; }
-@keyframes kps-minimap-pulse { from { transform: scale(1); opacity: .7; } to { transform: scale(2.1); opacity: 0; } }
 .kps-minimap-caption { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; padding: 0 10px; display: flex; align-items: center;
   justify-content: space-between; gap: 6px; background: #fff; border-top: 1px solid #e5ebe7; font: 700 11px/1 'IBM Plex Sans Thai', system-ui, sans-serif; color: #334155; }
 .kps-minimap-caption span:last-child { padding: 3px 8px; border-radius: 999px; background: #e7f4ea; color: #15803d; font-weight: 600; font-size: 10px; white-space: nowrap; }

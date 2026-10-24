@@ -2,7 +2,7 @@
   --kps-primary: #15803d;
   --kps-ink: #10241a;
   --kps-muted: #66776d;
-  --kps-surface: rgba(255, 255, 255, 0.94);
+  --kps-surface: rgba(255, 255, 255, 0.97);
   --kps-line: rgba(16, 36, 26, 0.12);
   --kps-warning: #b45309;
   --kps-safe-top: env(safe-area-inset-top, 0px);
@@ -58,7 +58,6 @@ html, body {
   background: var(--kps-surface);
   border: 1px solid var(--kps-line);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(10px);
 }
 
 .kps-icon-button {
@@ -101,7 +100,7 @@ html, body {
 .kps-sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
 .kps-sheet-panel {
   position: relative; width: 100%; max-width: 520px; max-height: 65vh; display: flex; flex-direction: column;
-  border-radius: 22px 22px 0 0; background: var(--kps-surface); color: var(--kps-ink); backdrop-filter: blur(14px);
+  border-radius: 22px 22px 0 0; background: var(--kps-surface); color: var(--kps-ink);
   padding-bottom: var(--kps-safe-bottom);
 }
 .kps-sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 4px 18px; font-size: 15px; }
@@ -177,7 +176,7 @@ html, body {
   text-align: center;
   pointer-events: none;
 }
-.kps-hint { bottom: auto; top: calc(74px + var(--kps-safe-top)); background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px); }
+.kps-hint { bottom: auto; top: calc(74px + var(--kps-safe-top)); background: rgba(0, 0, 0, 0.6); }
 .kps-hint[hidden], .kps-toast[hidden] { display: none; }
 
 .kps-state {
