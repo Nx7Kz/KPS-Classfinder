@@ -500,6 +500,48 @@ function fillTourHeadingTargets(id) {
 
 // แผนผังย่อเฉพาะรอบจุดที่ยืนอยู่ (ซูมให้คลิกแม่นขึ้น) ใช้เลือกจุดอ้างอิงทิศเมื่อไม่มีหมุดห้องหรือจุดเดินชมอยู่ในแนวที่ต้องการ
 const HEADING_PLAN_SIZE = { width: 420, height: 280, displayWidth: 900 };
+let headingPlanGeometry = null; // { point, displayHeight } ของแผนผังย่อที่วาดอยู่ ใช้คำนวณเส้นทิศที่กรวยชี้
+
+const rad2deg = (value) => (value * 180) / Math.PI;
+
+// ทิศบนแผนผัง (องศา ตามเข็มจากทิศเหนือ) ของจุดกึ่งกลางจอตอนนี้ = yaw บนจอ
+function currentTourBearing() {
+  const view = tourLabelViewer?.viewer?.getPosition();
+  return view ? rad2deg(wrapTourAngle(view.yaw)) : null;
+}
+
+function targetTourBearing(point, pin) {
+  const plan = tourState.floorPlans.find((item) => item.floor === point.floor);
+  if (!plan || !pin) return null;
+  const dx = ((pin.x - point.x) / 100) * Number(plan.width);
+  const dy = ((pin.y - point.y) / 100) * Number(plan.height);
+  return rad2deg(Math.atan2(dx, -dy));
+}
+
+// อัปเดตเส้นสีส้ม (ทิศที่กรวยชี้) และข้อความเทียบกับทิศที่เลือก เรียกทุกครั้งที่หมุนภาพ
+function updateTourHeadingCone() {
+  const geometry = headingPlanGeometry;
+  const line = document.getElementById('tourHeadingCone');
+  const bearing = currentTourBearing();
+  if (!geometry || !line || bearing === null) return;
+  const { point, displayHeight } = geometry;
+  const length = 90; // พิกเซลบนแผนผังย่อ
+  const angle = (bearing * Math.PI) / 180;
+  line.setAttribute('x2', String(point.x + (Math.sin(angle) * length / HEADING_PLAN_SIZE.displayWidth) * 100));
+  line.setAttribute('y2', String(point.y - (Math.cos(angle) * length / displayHeight) * 100));
+
+  const compare = document.getElementById('tourHeadingCompare');
+  const pin = tourLabelState.headingPin?.pointId === point.id ? tourLabelState.headingPin : null;
+  const wanted = targetTourBearing(point, pin);
+  if (wanted === null) {
+    compare.textContent = `กรวยชี้ที่ ${bearing.toFixed(0)}° — คลิกบนแผนผังเพื่อเลือกทิศที่ต้องการ`;
+  } else {
+    const diff = rad2deg(wrapTourAngle(((wanted - bearing) * Math.PI) / 180));
+    compare.textContent = Math.abs(diff) < 1
+      ? `กรวยชี้ตรงกับทิศที่เลือกแล้ว (${bearing.toFixed(0)}°)`
+      : `กรวยชี้ที่ ${bearing.toFixed(0)}° แต่ทิศที่เลือกคือ ${wanted.toFixed(0)}° (ต่างกัน ${Math.abs(diff).toFixed(0)}°) — กด "ตั้งทิศ" เพื่อให้กรวยตรง`;
+  }
+}
 
 function renderTourHeadingPlan() {
   const box = document.getElementById('tourHeadingPlanBox');
@@ -518,9 +560,11 @@ function renderTourHeadingPlan() {
   const left = width / 2 - (point.x / 100) * displayWidth;
   const top = height / 2 - (point.y / 100) * displayHeight;
   const pin = tourLabelState.headingPin?.pointId === point.id ? tourLabelState.headingPin : null;
-  const line = pin
-    ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="${point.x}" y1="${point.y}" x2="${pin.x}" y2="${pin.y}" stroke="#e11d48" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>`
-    : '';
+  headingPlanGeometry = { point, displayHeight };
+  const line = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">
+      ${pin ? `<line x1="${point.x}" y1="${point.y}" x2="${pin.x}" y2="${pin.y}" stroke="#e11d48" stroke-width="3" vector-effect="non-scaling-stroke"/>` : ''}
+      <line id="tourHeadingCone" x1="${point.x}" y1="${point.y}" x2="${point.x}" y2="${point.y}" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    </svg>`;
   holder.innerHTML = `
     <div class="plan-inner" style="left:${left}px; top:${top}px; width:${displayWidth}px; height:${displayHeight}px;">
       <img src="${escapeHtml(plan.image_url)}" alt="แผนผังชั้น ${escapeHtml(point.floor)}">
@@ -537,6 +581,7 @@ function renderTourHeadingPlan() {
     tourLabelState.headingPin = { pointId: point.id, x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) };
     renderTourHeadingPlan();
   };
+  updateTourHeadingCone();
 }
 
 // ปรับทิศละเอียด: delta > 0 = หมุนกรวย (ทิศบนแผนผัง) ตามเข็ม ภาพคงมุมเดิม จึงเห็นกรวยขยับเทียบกับภาพ
@@ -581,7 +626,7 @@ async function saveTourHeading() {
     const data = await api(`/api/admin/tour/points/${point.id}`, jsonRequest('PUT', { heading }));
     replaceTourPoint(data.point);
     renderTour();
-    showStatus(`บันทึกทิศ ${heading.toFixed(1)}° แล้ว — ดูกรวยสีเขียวในแผนที่ย่อว่าตรงกับภาพหรือไม่ ถ้ายังไม่ตรงหมุนภาพแล้วกดตั้งทิศอีกครั้ง`);
+    showStatus(`บันทึกทิศแล้ว (${Number(point.heading).toFixed(1)}° → ${heading.toFixed(1)}°) — กรวยสีเขียวในแผนที่ย่อจะตรงกับทิศที่เลือก ถ้ายังไม่ตรงหมุนภาพแล้วกดตั้งทิศอีกครั้ง`);
     await mountTourLabelViewer(point.id, restore);
   } catch (error) {
     reportError(error);
@@ -648,6 +693,7 @@ async function mountTourLabelViewer(id, restore = null) {
       },
       onViewClick: onTourLabelViewClick,
     });
+    tourLabelViewer.viewer.addEventListener('position-updated', updateTourHeadingCone);
     renderTourLabelPanel();
   } catch (error) {
     reportError(error);

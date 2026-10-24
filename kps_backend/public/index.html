@@ -2449,8 +2449,16 @@
             </div>
           </div>
           <div id="tourHeadingPlanBox" class="border rounded-3 p-2 mb-2 d-none">
-            <div class="small mb-1">คลิกบนแผนผังตรงจุดที่<strong>เส้นสีส้มกลางจอ</strong>ชี้ไป (เช่น ปลายลูกศรบนบันได) — เส้นสีแดงคือทิศที่จะตั้ง แล้วกด "ตั้งทิศ"</div>
-            <div id="tourHeadingPlan" class="tour-heading-plan"></div>
+            <div class="small mb-1">คลิกบนแผนผังตรงจุดที่<strong>เส้นสีส้มกลางจอ</strong>ชี้ไป (เช่น ปลายลูกศรบนบันได) แล้วกด <strong>"ตั้งทิศ"</strong> เพื่อบันทึก</div>
+            <div class="d-flex flex-wrap align-items-start gap-3">
+              <div id="tourHeadingPlan" class="tour-heading-plan"></div>
+              <div class="small" style="min-width:220px; max-width:320px;">
+                <div class="mb-1"><span class="badge" style="background:#e11d48">&nbsp;</span> เส้นสีแดง = ทิศที่คุณเลือก (<strong>ยังไม่บันทึก</strong>)</div>
+                <div class="mb-2"><span class="badge" style="background:#f59e0b">&nbsp;</span> เส้นสีส้ม = ทิศที่กรวยในแผนที่ย่อชี้อยู่ตอนนี้ (ตามที่หมุนภาพ)</div>
+                <div class="mb-2 text-secondary" id="tourHeadingCompare"></div>
+                <button type="button" class="btn btn-primary btn-sm" id="tourHeadingSave2" onclick="saveTourHeading()">ตั้งทิศ (บันทึก)</button>
+              </div>
+            </div>
           </div>
           <div id="tourLabelView" class="tour-heading-view"><div class="crosshair"></div></div>
           <p class="small text-secondary mt-2 mb-1" id="tourLabelInfo"></p>
