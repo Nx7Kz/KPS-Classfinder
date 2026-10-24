@@ -10,9 +10,9 @@ import 'room_utils.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
 
-enum AnnouncementKind { closure, maintenance }
+enum AnnouncementKind { closure, maintenance, suspended }
 
-/// ประกาศที่ผู้ใช้ควรรู้ สรุปจากข้อมูลจริงในระบบ: วันปิดทำการพิเศษ (ทั้งมหาวิทยาลัย/อาคาร/ห้อง) และห้องที่ปิดปรับปรุง
+/// ประกาศที่ผู้ใช้ควรรู้ สรุปจากข้อมูลจริงในระบบ: วันปิดทำการพิเศษ (ทั้งมหาวิทยาลัย/อาคาร/ห้อง) ห้องที่ปิดปรับปรุง และห้องที่งดใช้งาน
 class Announcement {
   final String id;
   final AnnouncementKind kind;
@@ -82,19 +82,29 @@ Map<String, dynamic>? _buildingById(List<Map<String, dynamic>> buildings, Object
 }
 
 /// "ห้อง A, B, C +2" (แสดงไม่เกิน 3 ห้อง)
-String _roomCodesLabel(List<String> codes) {
+String _roomCodesLabel(List<Map<String, dynamic>> rooms) {
+  final codes = [for (final room in rooms) room['room_code'].toString()];
   if (codes.isEmpty) return '';
   final shown = codes.take(3).join(', ');
   final more = codes.length > 3 ? ' +${codes.length - 3}' : '';
   return 'ห้อง $shown$more';
 }
 
+/// สาเหตุของห้องที่งดใช้งาน: ถ้าทุกห้องใช้สาเหตุเดียวกันแสดงข้อความนั้น ถ้าต่างกันแสดงให้แตะดูรายการ
+String _suspendedDetail(List<Map<String, dynamic>> rooms) {
+  final reasons = {for (final room in rooms) ?statusReasonOf(room)};
+  if (reasons.length == 1 && rooms.every((room) => statusReasonOf(room) != null)) return reasons.first;
+  return reasons.isEmpty ? 'แตะเพื่อดูรายการห้องในอาคาร' : 'หลายสาเหตุ • แตะเพื่อดูรายการห้องในอาคาร';
+}
+
 /// รวมประกาศทั้งหมด: วันปิดที่กำลังเกิดขึ้น/มาถึงใน 14 วัน (เรียงตามวัน) แล้วตามด้วยอาคารที่มีห้องปิดปรับปรุง
-/// [maintenanceRooms] = รหัสห้องที่ปิดปรับปรุงของแต่ละอาคาร (key = รหัสอาคาร) ใช้แสดงเป็นป้ายในการ์ด ถ้าไม่ส่งก็ไม่แสดง
+/// [maintenanceRooms] / [suspendedRooms] = ห้องที่ปิดปรับปรุง/งดใช้งานของแต่ละอาคาร (key = รหัสอาคาร)
+/// ใช้แสดงรหัสห้องและสาเหตุในการ์ด ถ้าไม่ส่งก็แสดงแค่จำนวนห้อง
 List<Announcement> buildAnnouncements(
   List<Map<String, dynamic>> buildings, {
   DateTime? at,
-  Map<String, List<String>> maintenanceRooms = const {},
+  Map<String, List<Map<String, dynamic>>> maintenanceRooms = const {},
+  Map<String, List<Map<String, dynamic>>> suspendedRooms = const {},
 }) {
   final today = todayKeyBangkok(at: at);
   final items = <Announcement>[];
@@ -124,18 +134,35 @@ List<Announcement> buildAnnouncements(
 
   for (final building in buildings) {
     final count = int.tryParse('${building['maintenance_count']}') ?? 0;
-    if (count <= 0) continue;
-    items.add(Announcement(
-      id: 'maintenance-${building['id']}',
-      kind: AnnouncementKind.maintenance,
-      icon: Icons.build_rounded,
-      title: 'ปิดปรับปรุง $count ห้อง • ${building['name'] ?? ''}',
-      detail: 'แตะเพื่อดูรายการห้องในอาคาร',
-      building: building,
-      scope: building['name']?.toString() ?? '',
-      statusLabel: 'ปิดปรับปรุง',
-      infoLabel: _roomCodesLabel(maintenanceRooms[building['id'].toString()] ?? const []),
-    ));
+    if (count > 0) {
+      items.add(Announcement(
+        id: 'maintenance-${building['id']}',
+        kind: AnnouncementKind.maintenance,
+        icon: Icons.build_rounded,
+        title: 'ปิดปรับปรุง $count ห้อง • ${building['name'] ?? ''}',
+        detail: 'แตะเพื่อดูรายการห้องในอาคาร',
+        building: building,
+        scope: building['name']?.toString() ?? '',
+        statusLabel: 'ปิดปรับปรุง',
+        infoLabel: _roomCodesLabel(maintenanceRooms[building['id'].toString()] ?? const []),
+      ));
+    }
+
+    final suspended = int.tryParse('${building['suspended_count']}') ?? 0;
+    if (suspended > 0) {
+      final suspendedList = suspendedRooms[building['id'].toString()] ?? const <Map<String, dynamic>>[];
+      items.add(Announcement(
+        id: 'suspended-${building['id']}',
+        kind: AnnouncementKind.suspended,
+        icon: Icons.block_rounded,
+        title: 'งดใช้งาน $suspended ห้อง • ${building['name'] ?? ''}',
+        detail: suspendedList.isEmpty ? 'แตะเพื่อดูรายการห้องในอาคาร' : _suspendedDetail(suspendedList),
+        building: building,
+        scope: building['name']?.toString() ?? '',
+        statusLabel: 'งดใช้งาน',
+        infoLabel: _roomCodesLabel(suspendedList),
+      ));
+    }
   }
   return items;
 }
@@ -225,19 +252,21 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     await ClosureStore.refresh();
 
     // รายชื่อห้องที่ปิดปรับปรุงของแต่ละอาคาร (ดึงไม่สำเร็จก็แค่ไม่แสดงรายชื่อห้อง)
-    final maintenanceRooms = <String, List<String>>{};
+    final maintenanceRooms = <String, List<Map<String, dynamic>>>{};
+    final suspendedRooms = <String, List<Map<String, dynamic>>>{};
     for (final building in buildings) {
-      final count = int.tryParse('${building['maintenance_count']}') ?? 0;
+      final count = (int.tryParse('${building['maintenance_count']}') ?? 0) + (int.tryParse('${building['suspended_count']}') ?? 0);
       if (count <= 0) continue;
       try {
         final rooms = await Api.roomsInBuilding(building['name'].toString());
-        maintenanceRooms[building['id'].toString()] = [
-          for (final room in rooms)
-            if (isMaintenance(room)) room['room_code'].toString(),
-        ];
+        maintenanceRooms[building['id'].toString()] = [for (final room in rooms) if (isMaintenance(room)) room];
+        suspendedRooms[building['id'].toString()] = [for (final room in rooms) if (isSuspended(room)) room];
       } catch (_) {}
     }
-    return _AnnouncementData(buildAnnouncements(buildings, maintenanceRooms: maintenanceRooms), DateTime.now());
+    return _AnnouncementData(
+      buildAnnouncements(buildings, maintenanceRooms: maintenanceRooms, suspendedRooms: suspendedRooms),
+      DateTime.now(),
+    );
   }
 
   Future<void> _reload() async {
@@ -303,7 +332,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       return const StateView(
                         icon: Icons.notifications_none_rounded,
                         title: 'ไม่มีประกาศ',
-                        message: 'ตอนนี้ไม่มีวันปิดทำการพิเศษหรือห้องที่ปิดปรับปรุง',
+                        message: 'ตอนนี้ไม่มีวันปิดทำการพิเศษ ห้องที่ปิดปรับปรุง หรือห้องที่งดใช้งาน',
                       );
                     }
                     return RefreshIndicator(
@@ -349,6 +378,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 label: 'ปิดปรับปรุง (${count(AnnouncementKind.maintenance)})',
                 selected: _filter == AnnouncementKind.maintenance,
                 onTap: () => setState(() => _filter = AnnouncementKind.maintenance),
+              ),
+              const SizedBox(width: 8),
+              _FilterPill(
+                label: 'งดใช้งาน (${count(AnnouncementKind.suspended)})',
+                selected: _filter == AnnouncementKind.suspended,
+                onTap: () => setState(() => _filter = AnnouncementKind.suspended),
               ),
             ],
           ),
@@ -508,8 +543,9 @@ class _AnnouncementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final closure = item.kind == AnnouncementKind.closure;
-    final badgeColor = closure ? AppColors.warningTint : AppColors.tint;
-    final iconColor = closure ? AppColors.warning : AppColors.primary;
+    final suspended = item.kind == AnnouncementKind.suspended;
+    final badgeColor = suspended ? AppColors.dangerTint : (closure ? AppColors.warningTint : AppColors.tint);
+    final iconColor = suspended ? AppColors.danger : (closure ? AppColors.warning : AppColors.primary);
 
     return Material(
       color: AppColors.surface,

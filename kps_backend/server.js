@@ -2553,6 +2553,7 @@ app.get('/api/buildings', (req, res) => {
                COUNT(rooms.id) AS room_count,
                COUNT(DISTINCT rooms.floor) AS floor_count,
                SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
+               SUM(CASE WHEN rooms.status = 'suspended' THEN 1 ELSE 0 END) AS suspended_count,
                -- จำนวนห้องในอาคารที่มีภาพ 360° อย่างน้อย 1 ภาพ (แอปใช้แสดงป้าย 360° บนการ์ดอาคาร)
                (SELECT COUNT(DISTINCT p.room_id) FROM panoramas p JOIN rooms r ON r.id = p.room_id
                 WHERE r.building_id = buildings.id ${visible.replace(/rooms\./g, 'r.')}) AS panorama_room_count,
@@ -3512,11 +3513,36 @@ app.post('/api/admin/tour/autolink', requirePerm('panoramas.hotspots'), asyncRou
 // 🌟 ส่งออก / นำเข้าห้องเรียนด้วยไฟล์ CSV 🌟
 // ==========================================
 
-const CSV_HEADER = ['building_code', 'room_code', 'floor', 'room_type', 'capacity', 'status', 'seats', 'outlets', 'ac', 'wifi', 'pin_x', 'pin_y'];
+const CSV_HEADER = ['building_code', 'room_code', 'floor', 'room_type', 'capacity', 'status', 'seats', 'outlets', 'ac', 'wifi', 'pin_x', 'pin_y', 'status_reason', 'open_hours'];
 const CSV_IMPORT_MAX_ROWS = 2000;
 const AMENITY_INT_COLUMNS = ['seats', 'outlets', 'ac'];
 const AMENITY_COLUMNS = [...AMENITY_INT_COLUMNS, 'wifi'];
 const WIFI_MAX_LENGTH = 100;
+
+// เวลาทำการในไฟล์ CSV เป็นข้อความ "mon 08:00-16:30;tue 08:00-16:30" (วันที่ไม่ใส่ = ปิด, ช่องว่าง = ใช้เวลาของอาคาร)
+function formatOpenHoursCsv(value) {
+    const hours = parseOpenHours(value);
+    if (!hours) return '';
+    return WEEK_KEYS
+        .filter(key => hours[key] && hours[key].open && hours[key].close)
+        .map(key => `${key} ${hours[key].open}-${hours[key].close}`)
+        .join(';');
+}
+
+// คืน { value } (null = ใช้เวลาของอาคาร) หรือ { error }
+function parseOpenHoursCsv(text) {
+    const source = typeof text === 'string' ? text.trim() : '';
+    if (source === '') return { value: null };
+    const hours = Object.fromEntries(WEEK_KEYS.map(key => [key, null]));
+    for (const part of source.split(';')) {
+        const match = /^\s*([a-z]{3})\s+(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*$/i.exec(part);
+        if (!match || !WEEK_KEYS.includes(match[1].toLowerCase())) {
+            return { error: 'open_hours ต้องเป็นรูปแบบ mon 08:00-16:30;tue 08:00-16:30 (วัน: sun mon tue wed thu fri sat)' };
+        }
+        hours[match[1].toLowerCase()] = { open: match[2], close: match[3] };
+    }
+    return sanitizeOpenHours(hours);
+}
 
 function csvCell(value) {
     if (value === null || value === undefined) return '';
@@ -3527,7 +3553,8 @@ function csvCell(value) {
 app.get('/api/admin/rooms/export.csv', requirePerm('buildings.csv'), asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.query.building_id);
     const sql = `
-        SELECT b.code AS building_code, r.room_code, r.floor, r.room_type, r.capacity, r.status, r.amenities, r.pin_x, r.pin_y
+        SELECT b.code AS building_code, r.room_code, r.floor, r.room_type, r.capacity, r.status, r.status_reason, r.open_hours,
+               r.amenities, r.pin_x, r.pin_y
         FROM rooms r JOIN buildings b ON b.id = r.building_id
         ${buildingId ? 'WHERE b.id = ?' : ''}
         ORDER BY b.code, r.floor, r.room_code
@@ -3540,6 +3567,7 @@ app.get('/api/admin/rooms/export.csv', requirePerm('buildings.csv'), asyncRoute(
         lines.push([
             row.building_code, row.room_code, row.floor, row.room_type, row.capacity, row.status,
             amenities.seats, amenities.outlets, amenities.ac, amenities.wifi, row.pin_x, row.pin_y,
+            row.status_reason, formatOpenHoursCsv(row.open_hours),
         ].map(csvCell).join(','));
     }
 
@@ -3620,6 +3648,12 @@ function parseImportFields(record, has, errors) {
     if (has('status')) fields.status = blankToNull(record.status) || 'active';
     if (has('pin_x')) fields.pin_x = blankToNull(record.pin_x) === null ? null : Number(record.pin_x);
     if (has('pin_y')) fields.pin_y = blankToNull(record.pin_y) === null ? null : Number(record.pin_y);
+    if (has('status_reason')) fields.status_reason = blankToNull(record.status_reason);
+    if (has('open_hours')) {
+        const hoursResult = parseOpenHoursCsv(record.open_hours);
+        if (hoursResult.error) errors.push(hoursResult.error);
+        else fields.open_hours = hoursResult.value;
+    }
     if (AMENITY_COLUMNS.some((column) => has(column))) fields.amenities = parseImportAmenities(record, has, errors);
     return fields;
 }
@@ -3636,7 +3670,7 @@ function buildImportItem(record, rowNumber, { buildingColumn, has, buildingByKey
     const validationError = validateRoomInput({
         room_code: record.room_code, building_name: building ? building.name : 'x', floor: record.floor,
         pin_x: fields.pin_x, pin_y: fields.pin_y, room_type: fields.room_type,
-        capacity: fields.capacity, status: fields.status, amenities: fields.amenities,
+        capacity: fields.capacity, status: fields.status, amenities: fields.amenities, status_reason: fields.status_reason,
     });
     if (validationError) errors.push(validationError);
     if (!building || validationError) return item;
@@ -3681,10 +3715,12 @@ async function planRoomImport(text) {
 async function insertImportRow(conn, item) {
     const f = item.fields;
     await conn.query(
-        `INSERT INTO rooms (room_code, building_id, floor, room_type, capacity, status, amenities, pin_x, pin_y)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO rooms (room_code, building_id, floor, room_type, capacity, status, status_reason, amenities, pin_x, pin_y, open_hours)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [item.room_code, item.building_id, item.floor, f.room_type ?? null, f.capacity ?? null,
-            f.status || 'active', f.amenities ? JSON.stringify(f.amenities) : null, f.pin_x ?? null, f.pin_y ?? null]);
+            f.status || 'active', cleanStatusReason(f.status, f.status_reason),
+            f.amenities ? JSON.stringify(f.amenities) : null, f.pin_x ?? null, f.pin_y ?? null,
+            f.open_hours ? JSON.stringify(f.open_hours) : null]);
 }
 
 // แก้เฉพาะคอลัมน์ที่มีในไฟล์ CSV (คอลัมน์ที่ไม่ได้ส่งมาจะไม่ถูกแตะ)
@@ -3695,6 +3731,10 @@ async function updateImportRow(conn, item) {
     if ('room_type' in f) { sets.push('room_type = ?'); values.push(f.room_type); }
     if ('capacity' in f) { sets.push('capacity = ?'); values.push(f.capacity); }
     if ('status' in f) { sets.push('status = ?'); values.push(f.status); }
+    // กลับเป็นเปิดใช้งานแล้วล้างสาเหตุ ไม่งั้นใช้สาเหตุที่ส่งมา (ไม่ส่งมา = คงค่าเดิม)
+    if ('status' in f && (!f.status || f.status === 'active')) sets.push('status_reason = NULL');
+    else if ('status_reason' in f) { sets.push('status_reason = ?'); values.push(f.status_reason); }
+    if ('open_hours' in f) { sets.push('open_hours = ?'); values.push(f.open_hours ? JSON.stringify(f.open_hours) : null); }
     if ('amenities' in f) { sets.push('amenities = ?'); values.push(f.amenities ? JSON.stringify(f.amenities) : null); }
     if ('pin_x' in f) { sets.push('pin_x = ?'); values.push(f.pin_x); }
     if ('pin_y' in f) { sets.push('pin_y = ?'); values.push(f.pin_y); }

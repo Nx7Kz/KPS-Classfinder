@@ -51,6 +51,34 @@ void main() {
     expect(buildAnnouncements([buildings[1]], at: bangkok('2026-10-26T10:00:00')), isEmpty);
   });
 
+  test('ห้องที่งดใช้งานขึ้นเป็นประกาศแยก พร้อมรหัสห้องและสาเหตุ', () {
+    final withSuspended = [
+      {'id': 3, 'name': 'อาคาร A', 'maintenance_count': 0, 'suspended_count': 2},
+    ];
+    final rooms = {
+      '3': [
+        {'room_code': 'ลิฟต์', 'status': 'suspended', 'status_reason': 'งดใช้ชั่วคราว'},
+        {'room_code': 'ลิฟต์ 2', 'status': 'suspended', 'status_reason': 'งดใช้ชั่วคราว'},
+      ],
+    };
+    final items = buildAnnouncements(withSuspended, at: bangkok('2026-10-26T10:00:00'), suspendedRooms: rooms);
+
+    expect(items.length, 1);
+    expect(items.first.id, 'suspended-3');
+    expect(items.first.kind, AnnouncementKind.suspended);
+    expect(items.first.title, 'งดใช้งาน 2 ห้อง • อาคาร A');
+    expect(items.first.detail, 'งดใช้ชั่วคราว');
+    expect(items.first.infoLabel, 'ห้อง ลิฟต์, ลิฟต์ 2');
+
+    rooms['3']![1]['status_reason'] = 'น้ำรั่ว';
+    final mixed = buildAnnouncements(withSuspended, at: bangkok('2026-10-26T10:00:00'), suspendedRooms: rooms);
+    expect(mixed.first.detail, 'หลายสาเหตุ • แตะเพื่อดูรายการห้องในอาคาร');
+
+    final noRooms = buildAnnouncements(withSuspended, at: bangkok('2026-10-26T10:00:00'));
+    expect(noRooms.first.detail, 'แตะเพื่อดูรายการห้องในอาคาร');
+    expect(noRooms.first.infoLabel, '');
+  });
+
   test('shortThaiDate', () {
     expect(shortThaiDate('2026-01-05'), '5 ม.ค.');
     expect(shortThaiDate('2026-12-31'), '31 ธ.ค.');

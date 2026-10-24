@@ -2418,7 +2418,8 @@
         <div class="modal-body">
           <p class="small text-secondary">
             ไฟล์ต้องเป็น CSV (UTF-8) และมีคอลัมน์ <code>building_code</code>, <code>room_code</code>, <code>floor</code>
-            คอลัมน์เสริม: <code>room_type, capacity, status, seats, outlets, ac, wifi, pin_x, pin_y</code>
+            คอลัมน์เสริม: <code>room_type, capacity, status, seats, outlets, ac, wifi, pin_x, pin_y, status_reason, open_hours</code>
+            (<code>status</code> = active / maintenance / suspended / inactive, <code>open_hours</code> = เช่น <code>mon 08:00-16:30;tue 08:00-16:30</code> วันที่ไม่ใส่คือปิด ช่องว่างคือใช้เวลาของอาคาร)
             ห้องที่มีรหัสซ้ำกับในระบบจะถูก<strong>อัปเดต</strong> เฉพาะคอลัมน์ที่อยู่ในไฟล์ (ช่องว่าง = ล้างค่า) ห้องใหม่จะถูกเพิ่ม
             ถ้ามีแถวใดผิดพลาด จะไม่นำเข้าเลยทั้งไฟล์ (สูงสุด 2,000 แถว)
             <button type="button" class="btn btn-link p-0 align-baseline" onclick="downloadCsvTemplate()">ดาวน์โหลดไฟล์ตัวอย่าง</button>
@@ -4038,8 +4039,8 @@
     }
 
     function downloadCsvTemplate() {
-      const header = 'building_code,room_code,floor,room_type,capacity,status,seats,outlets,ac,wifi,pin_x,pin_y';
-      const example = [buildings[0] ? buildings[0].code : 'LH3', 'LH3-101', '1', 'ห้องบรรยาย', '60', 'active', '60', '20', '2', 'KU-Google', '', ''].join(',');
+      const header = 'building_code,room_code,floor,room_type,capacity,status,seats,outlets,ac,wifi,pin_x,pin_y,status_reason,open_hours';
+      const example = [buildings[0] ? buildings[0].code : 'LH3', 'LH3-101', '1', 'ห้องบรรยาย', '60', 'active', '60', '20', '2', 'KU-Google', '', '', '', ''].join(',');
       triggerDownload(new Blob(['﻿' + header + '\r\n' + example + '\r\n'], { type: 'text/csv;charset=utf-8' }), 'rooms-template.csv');
     }
 
