@@ -3277,7 +3277,7 @@ app.get('/api/tour/:buildingId', asyncRoute(async (req, res) => {
     const buildingId = parsePositiveInt(req.params.buildingId);
     if (buildingId === null) throw new HttpError(404, 'ไม่พบอาคารนี้');
 
-    const [buildings] = await pdb.query('SELECT id, code, name FROM buildings WHERE id = ?', [buildingId]);
+    const [buildings] = await pdb.query('SELECT id, code, name, tour_mode FROM buildings WHERE id = ?', [buildingId]);
     if (buildings.length === 0) throw new HttpError(404, 'ไม่พบอาคารนี้');
 
     const [points] = await pdb.query(
@@ -3323,7 +3323,12 @@ app.get('/api/admin/tour/points', requirePerm('panoramas.read'), asyncRoute(asyn
     const ids = points.map(point => point.id);
     const [links] = ids.length === 0 ? [[]] : await pdb.query(
         'SELECT point_a, point_b FROM tour_links WHERE point_a IN (?) ORDER BY id', [ids]);
-    res.json({ points: points.map(formatTourPoint), links: links.map(link => [link.point_a, link.point_b]) });
+    const [modeRows] = await pdb.query('SELECT tour_mode FROM buildings WHERE id = ?', [buildingId]);
+    res.json({
+        points: points.map(formatTourPoint),
+        links: links.map(link => [link.point_a, link.point_b]),
+        tour_mode: modeRows[0]?.tour_mode || 'simple',
+    });
 }));
 
 app.post('/api/admin/tour/points', requirePerm('panoramas.upload'), handleUpload(tourImageUploader, 'image', 40), asyncRoute(async (req, res) => {
@@ -3453,6 +3458,19 @@ app.delete('/api/admin/tour/links', requirePerm('panoramas.hotspots'), asyncRout
     if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบเส้นเชื่อมนี้');
     logActivity(req, { action: 'delete', entity: 'tour_link', detail: `ตัดเส้นเชื่อม #${a} ↔ #${b}` });
     res.json({ message: 'ตัดเส้นเชื่อมสำเร็จ!' });
+}));
+
+// โหมดเดินชมของอาคาร: simple (เลือกจุดบนแผนที่ย่อ ตั้งค่าน้อย) หรือ full (Street View เต็มรูปแบบ ต้องตั้งทิศ/เชื่อมเส้น)
+// เปลี่ยนโหมดไม่ลบข้อมูลใด ๆ (ทิศ ป้ายห้อง เส้นเชื่อมยังอยู่ ใช้ต่อได้เมื่อกลับเป็น full)
+app.put('/api/admin/tour/mode', requirePerm('panoramas.hotspots'), asyncRoute(async (req, res) => {
+    const buildingId = parsePositiveInt(req.body?.building_id);
+    const mode = req.body?.mode;
+    if (buildingId === null) throw new HttpError(400, 'กรุณาเลือกอาคาร');
+    if (mode !== 'simple' && mode !== 'full') throw new HttpError(400, 'โหมดเดินชมต้องเป็น simple หรือ full');
+    const [result] = await pdb.query('UPDATE buildings SET tour_mode = ? WHERE id = ?', [mode, buildingId]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบอาคารนี้');
+    logActivity(req, { action: 'update', entity: 'building', entityId: buildingId, detail: `ตั้งโหมดเดินชมเป็น ${mode === 'simple' ? 'แบบง่าย' : 'เต็มรูปแบบ'}` });
+    res.json({ message: mode === 'simple' ? 'ใช้โหมดแบบง่ายแล้ว' : 'ใช้โหมดเต็มรูปแบบแล้ว', mode });
 }));
 
 // มุมเริ่มต้นของจุดเดินชม: ตอนเข้าเดินชมที่จุดนี้ ตัวดูจะหันไปทางนี้ (yaw/pitch เรเดียน ในพิกัดของภาพต้นฉบับ
@@ -4282,7 +4300,9 @@ async function ensureDashboardSchema(attempt = 1) {
             if (hoursColumn.length === 0) await pdb.query(`ALTER TABLE ${table} ADD COLUMN open_hours JSON DEFAULT NULL`);
         }
         // ลิงก์ Google Maps + พิกัดของอาคาร (ปุ่มนำทางในแอป) เพิ่มให้ฐานข้อมูลเดิม
-        for (const [column, definition] of [['map_url', 'VARCHAR(500) DEFAULT NULL'], ['latitude', 'DOUBLE DEFAULT NULL'], ['longitude', 'DOUBLE DEFAULT NULL']]) {
+        for (const [column, definition] of [['map_url', 'VARCHAR(500) DEFAULT NULL'], ['latitude', 'DOUBLE DEFAULT NULL'], ['longitude', 'DOUBLE DEFAULT NULL'],
+            // โหมดเดินชมของอาคาร: simple = เลือกจุดบนแผนที่ย่อ (ไม่ใช้ทิศ/ป้ายห้อง/เดินต่อเนื่อง), full = Street View เต็มรูปแบบ
+            ['tour_mode', "VARCHAR(10) NOT NULL DEFAULT 'simple'"]]) {
             const [found] = await pdb.query('SHOW COLUMNS FROM buildings LIKE ?', [column]);
             if (found.length === 0) await pdb.query(`ALTER TABLE buildings ADD COLUMN ${column} ${definition}`);
         }

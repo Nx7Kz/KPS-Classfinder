@@ -31,7 +31,11 @@ export function shortRoomCode(code, buildingCode) {
   return code.startsWith(prefix) ? code.slice(prefix.length) : code;
 }
 
-export function prepareTour(data) {
+export function prepareTour(rawData) {
+  // โหมดแบบง่าย: ไม่ใช้ทิศ ป้ายห้อง หรือเส้นเดิน — ทุกจุดไปหากันได้ผ่านแผนที่ย่อ จึงล้างค่าที่ต้องใช้ทิศออก
+  // (ข้อมูลทิศ/ป้าย/เส้นเดิมในฐานข้อมูลไม่ถูกแตะ กลับไปโหมดเต็มรูปแบบแล้วใช้ต่อได้)
+  const simple = rawData.building?.tour_mode === 'simple';
+  const data = simple ? simplifyTourData(rawData) : rawData;
   const floors = new Map(data.floors.map((floor) => [floor.floor, floor]));
   const points = new Map(data.points.map((point) => [point.id, point]));
   const neighbors = new Map(data.points.map((point) => [point.id, []]));
@@ -55,7 +59,16 @@ export function prepareTour(data) {
   };
   const tourFloors = [...new Set(data.points.map((point) => point.floor))]
     .sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
-  return { ...data, floorMap: floors, pointMap: points, neighbors, pixel, bearing, tourFloors };
+  return { ...data, simple, floorMap: floors, pointMap: points, neighbors, pixel, bearing, tourFloors };
+}
+
+function simplifyTourData(data) {
+  const points = data.points.map((point) => ({ ...point, heading: 0 }));
+  const links = [];
+  for (let i = 0; i < points.length; i += 1) {
+    for (let j = i + 1; j < points.length; j += 1) links.push([points[i].id, points[j].id]);
+  }
+  return { ...data, points, links, rooms: [], labels: [] };
 }
 
 function pointName(point) {
@@ -176,9 +189,12 @@ export function createTourViewer(container, tour, options = {}) {
         // คงผังไว้ทิศเดิมเสมอ (เหมือนแผนผังจริง) แล้วหมุนกรวยบอกทิศแทน ไม่หมุนทั้งแผนผังตามทิศที่มอง
         static: true,
         pinSize: 26,
-        coneColor: '#15803D',
-        coneSize: 46,
-        defaultZoom: 120,
+        // แบบง่ายไม่รู้ทิศของภาพ จึงซ่อนกรวยทิศ เหลือแค่จุดตำแหน่ง
+        coneColor: tour.simple ? 'rgba(0,0,0,0)' : '#15803D',
+        coneSize: tour.simple ? 1 : 46,
+        // แบบง่ายต้องมองเห็นทุกจุดของชั้นเพื่อแตะเลือก จึงไม่ซูมเข้าใกล้จุดเดียว
+        defaultZoom: tour.simple ? 100 : 120,
+        minZoom: 5,
         minimizeOnHotspotClick: true,
         spotStyle: { size: 13, color: '#15803D', borderSize: 2, borderColor: '#ffffff', hoverSize: 17 },
         buttons: { close: false, north: false },
@@ -216,6 +232,13 @@ export function createTourViewer(container, tour, options = {}) {
       if (plan) map.setImage(plan.image, { x: tour.pixel(point).x, y: tour.pixel(point).y });
     }
     map.setHotspots(spots);
+    // แบบง่าย: ซูมแผนที่ย่อให้เห็นทุกจุดของชั้น (จุดที่ยืนอยู่อยู่กึ่งกลางเสมอ จึงยึดจุดที่อยู่ไกลที่สุดเป็นเกณฑ์)
+    if (tour.simple) {
+      const here = tour.pixel(point);
+      const farthest = spots.reduce((max, spot) => Math.max(max, Math.hypot(spot.x - here.x, spot.y - here.y)), 1);
+      const size = Number.parseInt(options.mapSize, 10) || 150;
+      map.setZoom(Math.max(5, Math.min(200, ((size / 2) * 0.8) / farthest * 100)));
+    }
   }
 
   // มุมเริ่มต้น: ใช้เฉพาะตอนเข้าเดินชมที่จุดแรก (ตอนเดินระหว่างจุดคงทิศที่กำลังมองไว้เพื่อให้ต่อเนื่อง)
@@ -240,6 +263,7 @@ export function createTourViewer(container, tour, options = {}) {
   // แตะพื้นแล้วเดินไปทางนั้น (แบบ Street View): เลือกเส้นเชื่อมที่ทิศใกล้กับจุดที่แตะที่สุด
   viewer.addEventListener('click', ({ data }) => {
     if (options.onViewClick?.(data)) return; // โหมดวางป้ายห้องในแดชบอร์ด: ใช้การคลิกเลือกตำแหน่ง ไม่เดินไปจุดอื่น
+    if (tour.simple) return; // แบบง่ายไม่เดินต่อด้วยการแตะพื้น (ไม่รู้ทิศ) ใช้แผนที่ย่อแทน
     if (data.rightclick || data.marker || data.pitch > -0.12) return;
     const node = plugin.getCurrentNode();
     if (!node) return;

@@ -13,6 +13,7 @@ const tourState = {
   links: [],
   rooms: [],
   zoom: 1, // ซูมแผนผังในหน้านี้ (1 = พอดีจอ)
+  viewMode: 'simple', // โหมดเดินชมของอาคารที่เลือก: 'simple' | 'full'
   mode: 'select', // 'select' | 'link'
   selectedId: null,
   placingId: null, // จุดที่กำลังรอคลิกวางบนแผนผัง
@@ -90,7 +91,7 @@ async function loadTourBuilding({ keepFloor = false } = {}) {
       api(`/api/building/${encodeURIComponent(tourState.building.name)}`),
     ]);
     if (requestId !== tourState.requestId) return;
-    Object.assign(tourState, { floorPlans, points: tour.points, links: tour.links, rooms });
+    Object.assign(tourState, { floorPlans, points: tour.points, links: tour.links, rooms, viewMode: tour.tour_mode || 'simple' });
   } catch (error) {
     if (requestId !== tourState.requestId) return;
     reportError(error);
@@ -154,7 +155,47 @@ function setTourMode(mode) {
   renderTour();
 }
 
+const TOUR_STEPS_SIMPLE = 'ขั้นตอน (แบบง่าย): ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย → ③ เลือกจุด ตั้งชื่อที่เข้าใจง่าย (เช่น โถงกลาง) และตั้งมุมเริ่มต้นถ้าต้องการ — ผู้ใช้แตะจุดบนแผนที่ย่อเพื่อดูภาพนั้น ไม่ต้องตั้งทิศหรือเชื่อมเส้น';
+const TOUR_STEPS_FULL = 'ขั้นตอน (เต็มรูปแบบ): ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย → ③ กด "เชื่อมอัตโนมัติ" แล้วตัดเส้นที่ทะลุผนังในโหมด "เชื่อม / ตัดเส้น" → ④ เลือกแต่ละจุดแล้วกด "ปรับภาพ" (ตั้งทิศ • มุมเริ่มต้น • ป้ายห้อง)';
+
+function isSimpleTour() {
+  return tourState.viewMode !== 'full';
+}
+
+// แสดง/ซ่อนส่วนที่ใช้เฉพาะโหมดเต็มรูปแบบ (เชื่อมเส้น ตั้งทิศ ป้ายห้อง)
+function applyTourModeUi() {
+  const simple = isSimpleTour();
+  document.getElementById('tourViewSimple').checked = simple;
+  document.getElementById('tourViewFull').checked = !simple;
+  document.getElementById('tourAutoLinkButton').classList.toggle('d-none', simple);
+  document.getElementById('tourClickModeGroup').classList.toggle('d-none', simple);
+  document.getElementById('tourSteps').textContent = simple ? TOUR_STEPS_SIMPLE : TOUR_STEPS_FULL;
+  document.getElementById('tourViewModeNote').textContent = simple
+    ? 'ผู้ใช้แตะจุดบนแผนที่ย่อเพื่อไปดูภาพ (ไม่ใช้ทิศ ป้ายห้อง หรือการเดินต่อเนื่อง)'
+    : 'เดินต่อเนื่องแบบ Street View ต้องตั้งทิศและเชื่อมเส้นของทุกจุด';
+  if (simple && tourState.mode !== 'select') {
+    tourState.mode = 'select';
+    tourState.linkFromId = null;
+    document.getElementById('tourModeSelect').checked = true;
+  }
+}
+
+async function setTourViewMode(mode) {
+  if (!tourState.building || mode === tourState.viewMode) return;
+  const previous = tourState.viewMode;
+  try {
+    const data = await api('/api/admin/tour/mode', jsonRequest('PUT', { building_id: tourState.building.id, mode }));
+    tourState.viewMode = mode;
+    showStatus(`${data.message} — ข้อมูลทิศ ป้ายห้อง และเส้นเชื่อมที่เคยตั้งไว้ยังอยู่ครบ`);
+  } catch (error) {
+    tourState.viewMode = previous;
+    reportError(error);
+  }
+  renderTour();
+}
+
 function renderTour() {
+  applyTourModeUi();
   const hasBuilding = Boolean(tourState.building);
   const floor = tourFloor();
   document.getElementById('tourUploadButton').disabled = !hasBuilding || !floor;
@@ -268,26 +309,26 @@ function renderTourDetail() {
 
   container.innerHTML = `
     <a href="${escapeHtml(point.image_url)}" target="_blank" rel="noopener"><img class="tour-thumb mb-2" style="height:110px" src="${escapeHtml(point.image_url)}" alt="ภาพ 360°"></a>
-    <div class="small text-secondary mb-2">จุด #${point.id} · ชั้น ${escapeHtml(point.floor)} · ทิศ ${Number(point.heading).toFixed(1)}°</div>
+    <div class="small text-secondary mb-2">จุด #${point.id} · ชั้น ${escapeHtml(point.floor)}${isSimpleTour() ? '' : ` · ทิศ ${Number(point.heading).toFixed(1)}°`}</div>
     <label class="form-label small fw-semibold mb-1" for="tourPointLabel">ชื่อจุด</label>
     <input id="tourPointLabel" class="form-control form-control-sm mb-2" maxlength="100" placeholder="เช่น ทางเดินหน้าห้อง 207" value="${escapeHtml(point.label || '')}">
     <label class="form-label small fw-semibold mb-1" for="tourPointRoom">ผูกกับห้อง (ปุ่ม "เดินชมจากหน้าห้องนี้" ในแอป)</label>
     <select id="tourPointRoom" class="form-select form-select-sm mb-2"><option value="">— ไม่ผูก —</option>${roomOptions}</select>
     <div class="d-flex flex-wrap gap-2 mb-3">
       <button type="button" class="btn btn-sm btn-primary" id="tourSavePoint" onclick="saveTourPoint(${point.id})">บันทึก</button>
-      <button type="button" class="btn btn-sm btn-primary" onclick="openTourLabels(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>ปรับภาพ (ทิศ • มุม • ป้าย)</button>
+      <button type="button" class="btn btn-sm btn-primary" onclick="openTourLabels(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>${isSimpleTour() ? 'ตั้งมุมเริ่มต้น' : 'ปรับภาพ (ทิศ • มุม • ป้าย)'}</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="startPlacing(${point.id})">ย้ายตำแหน่ง</button>
       <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteTourPoint(${point.id})">ลบ</button>
     </div>
-    <div class="small fw-semibold mb-1">เชื่อมกับ (${neighbors.length})</div>
-    <ul class="list-group list-group-flush small mb-3">
+    ${isSimpleTour() ? '' : `<div class="small fw-semibold mb-1">เชื่อมกับ (${neighbors.length})</div>`}
+    <ul class="list-group list-group-flush small mb-3 ${isSimpleTour() ? 'd-none' : ''}">
       ${neighbors.map((other) => `
         <li class="list-group-item px-0 d-flex align-items-center gap-2">
           <span class="text-truncate">${escapeHtml(tourPointName(other))}${otherFloorBadge(point, other)}</span>
           <button type="button" class="btn btn-sm btn-link text-danger ms-auto p-0" onclick="toggleTourLink(${point.id}, ${other.id})" aria-label="ตัดเส้น">ตัด</button>
         </li>`).join('') || '<li class="list-group-item px-0 text-secondary">ยังไม่ได้เชื่อม</li>'}
     </ul>
-    ${stairsLinkHtml(point, otherFloorPoints)}`;
+    ${isSimpleTour() ? '' : stairsLinkHtml(point, otherFloorPoints)}`;
 }
 
 function startPlacing(id) {
@@ -718,8 +759,12 @@ function renderTourLabelPanel() {
   if (previous && [...select.options].some((option) => option.value === previous)) select.value = previous;
 
   document.getElementById('tourLabelModalTitle').textContent = `ปรับภาพ: ${tourPointName(point)}`;
+  const simple = isSimpleTour();
+  document.getElementById('tourSecHeading').classList.toggle('d-none', simple);
+  document.getElementById('tourSecLabels').classList.toggle('d-none', simple);
+  if (simple) document.getElementById('tourHeadingPlanBox').classList.add('d-none');
   const canSetHeading = fillTourHeadingTargets(point.id);
-  renderTourHeadingPlan();
+  if (!simple) renderTourHeadingPlan();
   document.getElementById('tourHeadingSave').disabled = !canSetHeading;
   if (!canSetHeading) {
     document.getElementById('tourHeadingInfo').textContent = 'ต้องมีจุดเดินชมอื่น หรือห้องที่ปักหมุดบนแผนผังชั้นนี้ เพื่อใช้อ้างอิงทิศ';

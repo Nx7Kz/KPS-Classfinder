@@ -1103,15 +1103,22 @@
               </div>
             </div>
           </section>
-          <p class="text-secondary small mb-3">
-            ขั้นตอน: ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย
-            → ③ กด "เชื่อมอัตโนมัติ" แล้วตัดเส้นที่ทะลุผนังในโหมด "เชื่อม / ตัดเส้น" → ④ เลือกแต่ละจุดแล้วกด "ปรับภาพ" (ตั้งทิศ • มุมเริ่มต้น • ป้ายห้อง)
-          </p>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <span class="fw-semibold small">โหมดเดินชมของอาคารนี้:</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="โหมดเดินชม">
+              <input type="radio" class="btn-check" name="tourViewMode" id="tourViewSimple" onchange="setTourViewMode('simple')">
+              <label class="btn btn-outline-primary" for="tourViewSimple">แบบง่าย (แนะนำ)</label>
+              <input type="radio" class="btn-check" name="tourViewMode" id="tourViewFull" onchange="setTourViewMode('full')">
+              <label class="btn btn-outline-primary" for="tourViewFull">เต็มรูปแบบ (Street View)</label>
+            </div>
+            <span class="small text-secondary" id="tourViewModeNote"></span>
+          </div>
+          <p class="text-secondary small mb-3" id="tourSteps"></p>
           <div class="row g-3">
             <div class="col-12 col-xl-8">
               <section class="card room-card">
                 <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center p-3">
-                  <div class="btn-group" role="group" aria-label="โหมดการคลิกบนแผนผัง">
+                  <div class="btn-group" role="group" aria-label="โหมดการคลิกบนแผนผัง" id="tourClickModeGroup">
                     <input type="radio" class="btn-check" name="tourMode" id="tourModeSelect" checked onchange="setTourMode('select')">
                     <label class="btn btn-sm btn-outline-secondary" for="tourModeSelect">เลือกจุด</label>
                     <input type="radio" class="btn-check" name="tourMode" id="tourModeLink" onchange="setTourMode('link')">
@@ -2407,7 +2414,7 @@
             <strong>② มุมเริ่มต้น</strong> (มุมที่ผู้ใช้เห็นตอนเข้าจุดนี้) → <strong>③ ป้ายห้อง</strong> — ภาพจะไม่กระโดดหลังบันทึกแต่ละขั้น
           </p>
           <div class="row g-2 mb-2">
-            <div class="col-12 col-lg-4">
+            <div class="col-12 col-lg-4" id="tourSecHeading">
               <div class="border rounded-3 p-2 h-100">
                 <div class="fw-semibold small mb-1">① ตั้งทิศให้ตรงแผนผัง</div>
                 <div class="small text-secondary mb-1">ลากให้<strong>เส้นสีส้มกลางจอ</strong>ตรงกับจุดอ้างอิง (เช่น ประตูห้องน้ำ) แล้วเลือกจุดนั้นด้านล่าง</div>
@@ -2436,7 +2443,7 @@
                 <div class="small text-secondary mt-1" id="tourInitialState"></div>
               </div>
             </div>
-            <div class="col-12 col-lg-4">
+            <div class="col-12 col-lg-4" id="tourSecLabels">
               <div class="border rounded-3 p-2 h-100">
                 <div class="fw-semibold small mb-1">③ ป้ายห้อง</div>
                 <select id="tourLabelRoom" class="form-select form-select-sm mb-1" onchange="renderTourLabelPanel()"></select>

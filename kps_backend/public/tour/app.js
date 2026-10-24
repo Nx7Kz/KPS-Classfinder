@@ -109,7 +109,8 @@ async function main() {
 
   const viewerApi = createTourViewer($('viewer'), tour, {
     startPointId: startPoint,
-    mapSize: window.innerWidth < 600 ? '130px' : '180px',
+    // แบบง่ายใช้แผนที่ย่อเป็นทางเลือกจุดหลัก จึงทำให้ใหญ่ขึ้น
+    mapSize: window.innerWidth < 600 ? (tour.simple ? '190px' : '130px') : (tour.simple ? '240px' : '180px'),
     onNodeChange(point) {
       $('state').hidden = true;
       $('pointName').textContent = `ชั้น ${point.floor} · ${pointSubtitle(point)}`;
