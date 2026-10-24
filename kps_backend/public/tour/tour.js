@@ -270,10 +270,14 @@ export function createTourViewer(container, tour, options = {}) {
         .map((point) => ({ point, distance: Math.hypot(point.x - current.x, point.y - current.y) }))
         .sort((a, b) => a.distance - b.distance)[0]?.point;
     },
-    /** ทิศ (heading องศา) ที่ทำให้กึ่งกลางจอตอนนี้ชี้ไปยังจุด targetId บนแผนผัง (ใช้ตั้งทิศในแดชบอร์ด) */
+    /**
+     * ทิศ (heading องศา) ที่ทำให้กึ่งกลางจอตอนนี้ชี้ไปยังจุด targetId บนแผนผัง (ใช้ตั้งทิศในแดชบอร์ด)
+     * target เป็นรหัสจุดเดินชม หรือ { roomId } = หมุดของห้องบนแผนผังชั้นเดียวกัน (ใช้เมื่อมีจุดเดินชมแค่จุดเดียว)
+     */
     headingFacing(targetId) {
       const current = this.currentPoint;
-      const target = tour.pointMap.get(targetId);
+      const room = targetId?.roomId !== undefined ? tour.rooms.find((item) => item.id === targetId.roomId) : null;
+      const target = room ? { floor: current.floor, x: room.pin_x, y: room.pin_y } : tour.pointMap.get(targetId);
       const viewYaw = viewer.getPosition().yaw;
       const wanted = tour.bearing(current, target);
       // กึ่งกลางจอ (yaw บนจอ v) คือ yaw ในภาพ v + heading ซึ่งต้องกลายเป็นทิศ wanted

@@ -239,7 +239,7 @@ function renderTourDetail() {
     <select id="tourPointRoom" class="form-select form-select-sm mb-2"><option value="">— ไม่ผูก —</option>${roomOptions}</select>
     <div class="d-flex flex-wrap gap-2 mb-3">
       <button type="button" class="btn btn-sm btn-primary" id="tourSavePoint" onclick="saveTourPoint(${point.id})">บันทึก</button>
-      <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTourHeading(${point.id})" ${point.x === null || neighbors.length === 0 ? 'disabled title="วางจุดและเชื่อมกับจุดอื่นก่อน"' : ''}>ตั้งทิศ</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTourHeading(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>ตั้งทิศ</button>
       <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTourLabels(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>ปรับป้ายห้อง</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="startPlacing(${point.id})">ย้ายตำแหน่ง</button>
       <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteTourPoint(${point.id})">ลบ</button>
@@ -443,18 +443,23 @@ function fillTourHeadingTargets(id) {
   const neighbors = tourNeighbors(id).map(tourPoint).filter((other) => other && other.x !== null);
   const sameFloor = tourState.points.filter((other) => other.id !== id && other.floor === point.floor && other.x !== null && !neighbors.includes(other));
   const options = [...neighbors.filter((other) => other.floor === point.floor), ...sameFloor];
-  if (options.length === 0) return false;
+  // ห้องที่ปักหมุดบนแผนผังชั้นเดียวกัน ใช้เป็นจุดอ้างอิงทิศได้ (เช่น ประตูห้องน้ำ) แม้ยังมีจุดเดินชมจุดเดียว
+  const pinnedRooms = tourState.rooms.filter((room) => room.floor === point.floor && room.pin_x !== null && room.pin_x !== undefined && room.pin_y !== null && room.pin_y !== undefined);
+  if (options.length === 0 && pinnedRooms.length === 0) return false;
   document.getElementById('tourHeadingModalTitle').textContent = `ตั้งทิศ: ${tourPointName(point)}`;
-  fillSelect(document.getElementById('tourHeadingTarget'),
-    options.map((other) => ({ value: other.id, label: `${tourPointName(other)}${neighbors.includes(other) ? ' (เชื่อมอยู่)' : ''}` })));
-  document.getElementById('tourHeadingTarget').value = String(options[0].id);
+  fillSelect(document.getElementById('tourHeadingTarget'), [
+    ...options.map((other) => ({ value: other.id, label: `${tourPointName(other)}${neighbors.includes(other) ? ' (เชื่อมอยู่)' : ''}` })),
+    ...pinnedRooms.map((room) => ({ value: `room:${room.id}`, label: `ห้อง ${room.room_code} (หมุดบนแผนผัง)` })),
+  ]);
+  const first = options[0] ? String(options[0].id) : `room:${pinnedRooms[0].id}`;
+  document.getElementById('tourHeadingTarget').value = first;
   document.getElementById('tourHeadingInfo').textContent = `ทิศปัจจุบัน ${Number(point.heading).toFixed(1)}°`;
   return true;
 }
 
 async function openTourHeading(id) {
   if (!fillTourHeadingTargets(id)) {
-    showStatus('ต้องมีจุดอื่นในชั้นเดียวกันเพื่อใช้อ้างอิงทิศ', 'warning');
+    showStatus('ต้องมีจุดเดินชมอื่น หรือห้องที่ปักหมุดบนแผนผังในชั้นเดียวกัน เพื่อใช้อ้างอิงทิศ', 'warning');
     return;
   }
   tourHeadingModal.show();
@@ -489,7 +494,8 @@ async function mountTourHeadingViewer(id) {
 async function saveTourHeading() {
   if (!tourHeadingViewer?.currentPoint) return;
   const point = tourHeadingViewer.currentPoint;
-  const target = Number(document.getElementById('tourHeadingTarget').value);
+  const rawTarget = document.getElementById('tourHeadingTarget').value;
+  const target = rawTarget.startsWith('room:') ? { roomId: Number(rawTarget.slice(5)) } : Number(rawTarget);
   const heading = tourHeadingViewer.headingFacing(target);
   const button = document.getElementById('tourHeadingSave');
   setBusy(button, true, 'กำลังบันทึก...', 'ตั้งทิศ');
