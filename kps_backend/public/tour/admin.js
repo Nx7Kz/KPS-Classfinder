@@ -1,4 +1,5 @@
 // ============ หน้า Virtual Tour (เดินชมอาคาร 360°) ในแดชบอร์ด ============
+// ผู้ดูแลอัปโหลดภาพ 360° วางจุดบนแผนผังชั้น ตั้งชื่อ และตั้งมุมเริ่มต้น — ผู้ใช้แตะจุดบนแผนที่ย่อเพื่อดูภาพ
 // ใช้ helper กลางจาก index.html: api, jsonRequest, reportError, showStatus, setBusy, escapeHtml,
 // refreshBuildingList, fillSelect, floorSort, validateImageFile, buildings
 /* global api, jsonRequest, reportError, showStatus, setBusy, escapeHtml, refreshBuildingList, fillSelect,
@@ -10,27 +11,21 @@ const tourState = {
   building: null,
   floorPlans: [],
   points: [],
-  links: [],
   rooms: [],
   zoom: 1, // ซูมแผนผังในหน้านี้ (1 = พอดีจอ)
-  viewMode: 'simple', // โหมดเดินชมของอาคารที่เลือก: 'simple' | 'full'
-  mode: 'select', // 'select' | 'link'
   selectedId: null,
   placingId: null, // จุดที่กำลังรอคลิกวางบนแผนผัง
-  linkFromId: null,
   requestId: 0,
 };
-let tourLabelModal;
-let tourLabelViewer = null;
-const tourLabelState = { placing: false, labels: [], headingPin: null }; // labels = ป้ายที่ผู้ดูแลตั้งเองของทุกจุดในอาคาร, headingPin = { pointId, x, y } จุดบนแผนผังที่เลือกไว้อ้างอิงทิศ
+let tourViewModal;
+let tourViewer = null;
 
 function initTourPage() {
-  const labelModalElement = document.getElementById('tourLabelModal');
-  tourLabelModal = new bootstrap.Modal(labelModalElement);
-  labelModalElement.addEventListener('hidden.bs.modal', () => {
-    tourLabelViewer?.destroy();
-    tourLabelViewer = null;
-    tourLabelState.placing = false;
+  const modalElement = document.getElementById('tourViewModal');
+  tourViewModal = new bootstrap.Modal(modalElement);
+  modalElement.addEventListener('hidden.bs.modal', () => {
+    tourViewer?.destroy();
+    tourViewer = null;
   });
   document.getElementById('tourPlan').addEventListener('click', onTourPlanClick);
   // Ctrl + ลูกกลิ้งเมาส์ = ซูมที่ตำแหน่งเมาส์ (ไม่กด Ctrl = เลื่อนหน้าตามปกติ)
@@ -53,17 +48,6 @@ function tourPointName(point) {
   return point.label || (point.room_code ? `หน้าห้อง ${point.room_code}` : `จุด #${point.id}`);
 }
 
-// ป้ายชั้นต่อท้ายชื่อจุด ใช้เมื่อจุดนั้นอยู่คนละชั้นกับจุดที่กำลังดูอยู่ (แยกออกมาเพื่อไม่ต้องซ้อน template literal)
-function otherFloorBadge(current, other) {
-  return current.floor === other.floor ? '' : ` <span class="badge text-bg-warning">ชั้น ${escapeHtml(other.floor)}</span>`;
-}
-
-function tourNeighbors(id) {
-  return tourState.links
-    .filter(([a, b]) => a === id || b === id)
-    .map(([a, b]) => (a === id ? b : a));
-}
-
 async function loadTourPage() {
   try {
     await refreshBuildingList();
@@ -80,7 +64,7 @@ async function loadTourBuilding({ keepFloor = false } = {}) {
   tourState.building = buildings.find((building) => Number(building.id) === buildingId) || null;
   const requestId = ++tourState.requestId;
   if (!tourState.building) {
-    Object.assign(tourState, { floorPlans: [], points: [], links: [], rooms: [] });
+    Object.assign(tourState, { floorPlans: [], points: [], rooms: [] });
     renderTour();
     return;
   }
@@ -91,7 +75,7 @@ async function loadTourBuilding({ keepFloor = false } = {}) {
       api(`/api/building/${encodeURIComponent(tourState.building.name)}`),
     ]);
     if (requestId !== tourState.requestId) return;
-    Object.assign(tourState, { floorPlans, points: tour.points, links: tour.links, rooms, viewMode: tour.tour_mode || 'simple' });
+    Object.assign(tourState, { floorPlans, points: tour.points, rooms });
   } catch (error) {
     if (requestId !== tourState.requestId) return;
     reportError(error);
@@ -142,64 +126,15 @@ function resetTourZoom() {
 function changeTourFloor() {
   resetTourZoom();
   tourState.placingId = null;
-  tourState.linkFromId = null;
   const selected = tourPoint(tourState.selectedId);
   if (selected && selected.floor !== tourFloor()) tourState.selectedId = null;
   renderTour();
 }
 
-function setTourMode(mode) {
-  tourState.mode = mode;
-  tourState.linkFromId = null;
-  tourState.placingId = null;
-  renderTour();
-}
-
-const TOUR_STEPS_SIMPLE = 'ขั้นตอน (แบบง่าย): ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย → ③ เลือกจุด ตั้งชื่อที่เข้าใจง่าย (เช่น โถงกลาง) และตั้งมุมเริ่มต้นถ้าต้องการ — ผู้ใช้แตะจุดบนแผนที่ย่อเพื่อดูภาพนั้น ไม่ต้องตั้งทิศหรือเชื่อมเส้น';
-const TOUR_STEPS_FULL = 'ขั้นตอน (เต็มรูปแบบ): ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย → ③ กด "เชื่อมอัตโนมัติ" แล้วตัดเส้นที่ทะลุผนังในโหมด "เชื่อม / ตัดเส้น" → ④ เลือกแต่ละจุดแล้วกด "ปรับภาพ" (ตั้งทิศ • มุมเริ่มต้น • ป้ายห้อง)';
-
-function isSimpleTour() {
-  return tourState.viewMode !== 'full';
-}
-
-// แสดง/ซ่อนส่วนที่ใช้เฉพาะโหมดเต็มรูปแบบ (เชื่อมเส้น ตั้งทิศ ป้ายห้อง)
-function applyTourModeUi() {
-  const simple = isSimpleTour();
-  document.getElementById('tourViewSimple').checked = simple;
-  document.getElementById('tourViewFull').checked = !simple;
-  document.getElementById('tourAutoLinkButton').classList.toggle('d-none', simple);
-  document.getElementById('tourClickModeGroup').classList.toggle('d-none', simple);
-  document.getElementById('tourSteps').textContent = simple ? TOUR_STEPS_SIMPLE : TOUR_STEPS_FULL;
-  document.getElementById('tourViewModeNote').textContent = simple
-    ? 'ผู้ใช้แตะจุดบนแผนที่ย่อเพื่อไปดูภาพ (ไม่ใช้ทิศ ป้ายห้อง หรือการเดินต่อเนื่อง)'
-    : 'เดินต่อเนื่องแบบ Street View ต้องตั้งทิศและเชื่อมเส้นของทุกจุด';
-  if (simple && tourState.mode !== 'select') {
-    tourState.mode = 'select';
-    tourState.linkFromId = null;
-    document.getElementById('tourModeSelect').checked = true;
-  }
-}
-
-async function setTourViewMode(mode) {
-  if (!tourState.building || mode === tourState.viewMode) return;
-  const previous = tourState.viewMode;
-  try {
-    const data = await api('/api/admin/tour/mode', jsonRequest('PUT', { building_id: tourState.building.id, mode }));
-    tourState.viewMode = mode;
-    showStatus(`${data.message} — ข้อมูลทิศ ป้ายห้อง และเส้นเชื่อมที่เคยตั้งไว้ยังอยู่ครบ`);
-  } catch (error) {
-    tourState.viewMode = previous;
-    reportError(error);
-  }
-  renderTour();
-}
-
 function renderTour() {
-  applyTourModeUi();
   const hasBuilding = Boolean(tourState.building);
   const floor = tourFloor();
   document.getElementById('tourUploadButton').disabled = !hasBuilding || !floor;
-  document.getElementById('tourAutoLinkButton').disabled = !hasBuilding || !floor;
   document.getElementById('tourPreviewButton').disabled = !tourState.points.some((point) => point.x !== null);
   renderTourHint();
   renderTourPlan();
@@ -209,10 +144,7 @@ function renderTour() {
 
 function renderTourHint() {
   const hint = document.getElementById('tourHint');
-  if (tourState.placingId) hint.textContent = '📍 คลิกบนแผนผังตรงตำแหน่งที่ถ่ายภาพนี้';
-  else if (tourState.mode === 'link' && tourState.linkFromId) hint.textContent = 'คลิกจุดที่สองเพื่อเชื่อม (ถ้าเชื่อมอยู่แล้วจะเป็นการตัดเส้น)';
-  else if (tourState.mode === 'link') hint.textContent = 'คลิกจุดแรกของเส้นที่ต้องการเชื่อมหรือตัด';
-  else hint.textContent = 'คลิกจุดเพื่อดูรายละเอียด';
+  hint.textContent = tourState.placingId ? '📍 คลิกบนแผนผังตรงตำแหน่งที่ถ่ายภาพนี้' : 'คลิกจุดเพื่อดูรายละเอียด';
 }
 
 function renderTourPlan() {
@@ -236,29 +168,15 @@ function renderTourPlan() {
   else container.style.removeProperty('--plan-ratio');
 
   const onFloor = tourState.points.filter((point) => point.floor === floor && point.x !== null);
-  const ids = new Set(onFloor.map((point) => point.id));
-  // เส้นในชั้นเดียวกัน (ใช้ viewBox 0-100 ตรงกับ % ของตำแหน่ง)
-  const lines = tourState.links
-    .filter(([a, b]) => ids.has(a) && ids.has(b))
-    .map(([a, b]) => {
-      const p = tourPoint(a);
-      const q = tourPoint(b);
-      return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" stroke="#15803d" stroke-width="3"
-        stroke-linecap="round" vector-effect="non-scaling-stroke" opacity=".85"/>`;
-    }).join('');
   const dots = onFloor.map((point) => {
-    const stairs = tourNeighbors(point.id).some((id) => tourPoint(id)?.floor !== floor);
     const classes = ['tour-dot'];
     if (point.id === tourState.selectedId) classes.push('is-selected');
-    if (point.id === tourState.linkFromId) classes.push('is-link-from');
-    if (stairs) classes.push('has-stairs');
     return `<button type="button" class="${classes.join(' ')}" data-point-id="${point.id}"
       style="left:${point.x}%; top:${point.y}%;" title="${escapeHtml(tourPointName(point))}"></button>`;
   }).join('');
 
   container.innerHTML = `
     <img src="${escapeHtml(plan.image_url)}" alt="แผนผัง ชั้น ${escapeHtml(floor)}" draggable="false">
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
     ${dots}`;
 }
 
@@ -279,56 +197,32 @@ function renderTourUnplaced() {
     </div>`).join('');
 }
 
-// ส่วน "เชื่อมข้ามชั้น" ท้ายกล่องรายละเอียดจุด (ว่างเปล่าถ้าไม่มีจุดในชั้นอื่นให้เชื่อม)
-function stairsLinkHtml(point, otherFloorPoints) {
-  if (otherFloorPoints.length === 0) return '';
-  const options = otherFloorPoints
-    .map((other) => `<option value="${other.id}">ชั้น ${escapeHtml(other.floor)} · ${escapeHtml(tourPointName(other))}</option>`)
-    .join('');
-  return `
-      <label class="form-label small fw-semibold mb-1" for="tourStairsTarget">เชื่อมข้ามชั้น (บันได / ลิฟต์)</label>
-      <div class="input-group input-group-sm">
-        <select id="tourStairsTarget" class="form-select">${options}</select>
-        <button type="button" class="btn btn-outline-primary" onclick="linkTourStairs(${point.id})">เชื่อม</button>
-      </div>`;
-}
-
 function renderTourDetail() {
   const container = document.getElementById('tourDetail');
   const point = tourPoint(tourState.selectedId);
   if (!point) {
-    container.innerHTML = '<p class="small text-secondary mb-0">คลิกจุดบนแผนผังเพื่อแก้ไขชื่อ ผูกห้อง ตั้งทิศ หรือลบ</p>';
+    container.innerHTML = '<p class="small text-secondary mb-0">คลิกจุดบนแผนผังเพื่อแก้ไขชื่อ ผูกห้อง ตั้งมุมเริ่มต้น หรือลบ</p>';
     return;
   }
-  const neighbors = tourNeighbors(point.id).map(tourPoint).filter(Boolean);
-  const otherFloorPoints = tourState.points.filter((other) => other.floor !== point.floor && other.x !== null);
   const roomOptions = [...tourState.rooms]
     .sort((a, b) => (a.floor === point.floor ? 0 : 1) - (b.floor === point.floor ? 0 : 1) || String(a.room_code).localeCompare(String(b.room_code), 'th'))
     .map((room) => `<option value="${room.id}" ${room.id === point.room_id ? 'selected' : ''}>${escapeHtml(room.room_code)} (ชั้น ${escapeHtml(room.floor || '-')})</option>`)
     .join('');
+  const hasInitial = point.initial_yaw !== null && point.initial_yaw !== undefined;
 
   container.innerHTML = `
     <a href="${escapeHtml(point.image_url)}" target="_blank" rel="noopener"><img class="tour-thumb mb-2" style="height:110px" src="${escapeHtml(point.image_url)}" alt="ภาพ 360°"></a>
-    <div class="small text-secondary mb-2">จุด #${point.id} · ชั้น ${escapeHtml(point.floor)}${isSimpleTour() ? '' : ` · ทิศ ${Number(point.heading).toFixed(1)}°`}</div>
-    <label class="form-label small fw-semibold mb-1" for="tourPointLabel">ชื่อจุด</label>
-    <input id="tourPointLabel" class="form-control form-control-sm mb-2" maxlength="100" placeholder="เช่น ทางเดินหน้าห้อง 207" value="${escapeHtml(point.label || '')}">
+    <div class="small text-secondary mb-2">จุด #${point.id} · ชั้น ${escapeHtml(point.floor)}${hasInitial ? ' · ตั้งมุมเริ่มต้นแล้ว' : ''}</div>
+    <label class="form-label small fw-semibold mb-1" for="tourPointLabel">ชื่อจุด (ผู้ใช้เห็นชื่อนี้)</label>
+    <input id="tourPointLabel" class="form-control form-control-sm mb-2" maxlength="100" placeholder="เช่น โถงกลาง, หน้าลิฟต์" value="${escapeHtml(point.label || '')}">
     <label class="form-label small fw-semibold mb-1" for="tourPointRoom">ผูกกับห้อง (ปุ่ม "เดินชมจากหน้าห้องนี้" ในแอป)</label>
     <select id="tourPointRoom" class="form-select form-select-sm mb-2"><option value="">— ไม่ผูก —</option>${roomOptions}</select>
-    <div class="d-flex flex-wrap gap-2 mb-3">
+    <div class="d-flex flex-wrap gap-2 mb-1">
       <button type="button" class="btn btn-sm btn-primary" id="tourSavePoint" onclick="saveTourPoint(${point.id})">บันทึก</button>
-      <button type="button" class="btn btn-sm btn-primary" onclick="openTourLabels(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>${isSimpleTour() ? 'ตั้งมุมเริ่มต้น' : 'ปรับภาพ (ทิศ • มุม • ป้าย)'}</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTourViewer(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>ตั้งมุมเริ่มต้น</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="startPlacing(${point.id})">ย้ายตำแหน่ง</button>
       <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteTourPoint(${point.id})">ลบ</button>
-    </div>
-    ${isSimpleTour() ? '' : `<div class="small fw-semibold mb-1">เชื่อมกับ (${neighbors.length})</div>`}
-    <ul class="list-group list-group-flush small mb-3 ${isSimpleTour() ? 'd-none' : ''}">
-      ${neighbors.map((other) => `
-        <li class="list-group-item px-0 d-flex align-items-center gap-2">
-          <span class="text-truncate">${escapeHtml(tourPointName(other))}${otherFloorBadge(point, other)}</span>
-          <button type="button" class="btn btn-sm btn-link text-danger ms-auto p-0" onclick="toggleTourLink(${point.id}, ${other.id})" aria-label="ตัดเส้น">ตัด</button>
-        </li>`).join('') || '<li class="list-group-item px-0 text-secondary">ยังไม่ได้เชื่อม</li>'}
-    </ul>
-    ${isSimpleTour() ? '' : stairsLinkHtml(point, otherFloorPoints)}`;
+    </div>`;
 }
 
 function startPlacing(id) {
@@ -337,8 +231,6 @@ function startPlacing(id) {
   if (point.floor !== tourFloor()) {
     document.getElementById('tourFloorSelect').value = point.floor;
   }
-  tourState.mode = 'select';
-  document.getElementById('tourModeSelect').checked = true;
   tourState.placingId = tourState.placingId === id ? null : id;
   tourState.selectedId = id;
   renderTour();
@@ -360,22 +252,7 @@ async function onTourPlanClick(event) {
     return;
   }
   if (!dot) return;
-  const id = Number(dot.dataset.pointId);
-  if (tourState.mode === 'link') {
-    if (!tourState.linkFromId) {
-      tourState.linkFromId = id;
-      renderTour();
-    } else if (tourState.linkFromId === id) {
-      tourState.linkFromId = null;
-      renderTour();
-    } else {
-      const from = tourState.linkFromId;
-      tourState.linkFromId = null;
-      await toggleTourLink(from, id);
-    }
-    return;
-  }
-  tourState.selectedId = id;
+  tourState.selectedId = Number(dot.dataset.pointId);
   renderTour();
 }
 
@@ -408,58 +285,16 @@ async function saveTourPoint(id) {
 
 async function deleteTourPoint(id) {
   const point = tourPoint(id);
-  if (!point || !confirm(`ต้องการลบ "${tourPointName(point)}" และเส้นเชื่อมทั้งหมดของจุดนี้ใช่หรือไม่?`)) return;
+  if (!point || !confirm(`ต้องการลบ "${tourPointName(point)}" ใช่หรือไม่?`)) return;
   try {
     await api(`/api/admin/tour/points/${id}`, { method: 'DELETE' });
     tourState.points = tourState.points.filter((item) => item.id !== id);
-    tourState.links = tourState.links.filter(([a, b]) => a !== id && b !== id);
     tourState.selectedId = null;
     showStatus('ลบจุดแล้ว');
   } catch (error) {
     reportError(error);
   }
   renderTour();
-}
-
-async function toggleTourLink(a, b) {
-  const [pointA, pointB] = [Math.min(a, b), Math.max(a, b)];
-  const exists = tourState.links.some(([x, y]) => x === pointA && y === pointB);
-  try {
-    await api('/api/admin/tour/links', jsonRequest(exists ? 'DELETE' : 'POST', { point_a: pointA, point_b: pointB }));
-    tourState.links = exists
-      ? tourState.links.filter(([x, y]) => !(x === pointA && y === pointB))
-      : [...tourState.links, [pointA, pointB]];
-    showStatus(exists ? 'ตัดเส้นแล้ว' : 'เชื่อมจุดแล้ว');
-  } catch (error) {
-    reportError(error);
-  }
-  renderTour();
-}
-
-async function linkTourStairs(id) {
-  const target = Number(document.getElementById('tourStairsTarget').value);
-  if (!target) return;
-  if (tourNeighbors(id).includes(target)) {
-    showStatus('สองจุดนี้เชื่อมกันอยู่แล้ว', 'warning');
-    return;
-  }
-  await toggleTourLink(id, target);
-}
-
-async function autoLinkTour() {
-  const button = document.getElementById('tourAutoLinkButton');
-  setBusy(button, true, 'กำลังเชื่อม...', 'เชื่อมอัตโนมัติ');
-  try {
-    const data = await api('/api/admin/tour/autolink', jsonRequest('POST', {
-      building_id: tourState.building.id, floor: tourFloor(),
-    }));
-    showStatus(data.added > 0 ? `${data.message} — ตรวจดูแล้วตัดเส้นที่ทะลุผนังออก` : 'ไม่มีเส้นใหม่ให้เชื่อม', data.added > 0 ? 'success' : 'warning');
-    await loadTourBuilding({ keepFloor: true });
-  } catch (error) {
-    reportError(error);
-  } finally {
-    setBusy(button, false, '', 'เชื่อมอัตโนมัติ');
-  }
 }
 
 async function uploadTourImages(input) {
@@ -511,364 +346,82 @@ function previewTour() {
   window.open(`/tour/?${query}`, '_blank', 'noopener');
 }
 
-// ---------- ตั้งทิศ ----------
-// ตัวเลือก "หันไปทางจุด": จุดที่เชื่อมอยู่ก่อน ตามด้วยจุดอื่นในชั้นเดียวกัน
-function fillTourHeadingTargets(id) {
-  const point = tourPoint(id);
-  if (!point) return false;
-  const neighbors = tourNeighbors(id).map(tourPoint).filter((other) => other && other.x !== null);
-  const sameFloor = tourState.points.filter((other) => other.id !== id && other.floor === point.floor && other.x !== null && !neighbors.includes(other));
-  const options = [...neighbors.filter((other) => other.floor === point.floor), ...sameFloor];
-  // ห้องที่ปักหมุดบนแผนผังชั้นเดียวกัน ใช้เป็นจุดอ้างอิงทิศได้ (เช่น ประตูห้องน้ำ) แม้ยังมีจุดเดินชมจุดเดียว
-  const pinnedRooms = tourState.rooms.filter((room) => room.floor === point.floor && room.pin_x !== null && room.pin_x !== undefined && room.pin_y !== null && room.pin_y !== undefined);
-  const select = document.getElementById('tourHeadingTarget');
-  const previous = select.value;
-  const hasPlan = tourState.floorPlans.some((plan) => plan.floor === point.floor);
-  if (options.length === 0 && pinnedRooms.length === 0 && !hasPlan) {
-    select.innerHTML = '';
-    return false;
-  }
-  fillSelect(select, [
-    ...options.map((other) => ({ value: other.id, label: `${tourPointName(other)}${neighbors.includes(other) ? ' (เชื่อมอยู่)' : ''}` })),
-    ...pinnedRooms.map((room) => ({ value: `room:${room.id}`, label: `ห้อง ${room.room_code} (หมุดบนแผนผัง)` })),
-    ...(hasPlan ? [{ value: 'plan', label: '📍 จุดที่ฉันคลิกบนแผนผัง…' }] : []),
-  ]);
-  const first = options[0] ? String(options[0].id) : (pinnedRooms[0] ? `room:${pinnedRooms[0].id}` : 'plan');
-  select.value = previous && [...select.options].some((option) => option.value === previous) ? previous : first;
-  document.getElementById('tourHeadingInfo').textContent = `ทิศปัจจุบัน ${Number(point.heading).toFixed(1)}°`;
-  return true;
-}
-
-// แผนผังย่อเฉพาะรอบจุดที่ยืนอยู่ (ซูมให้คลิกแม่นขึ้น) ใช้เลือกจุดอ้างอิงทิศเมื่อไม่มีหมุดห้องหรือจุดเดินชมอยู่ในแนวที่ต้องการ
-const HEADING_PLAN_SIZE = { width: 420, height: 280, displayWidth: 900 };
-let headingPlanGeometry = null; // { point, displayHeight } ของแผนผังย่อที่วาดอยู่ ใช้คำนวณเส้นทิศที่กรวยชี้
-
-const rad2deg = (value) => (value * 180) / Math.PI;
-
-// ทิศบนแผนผัง (องศา ตามเข็มจากทิศเหนือ) ของจุดกึ่งกลางจอตอนนี้ = yaw บนจอ
-function currentTourBearing() {
-  const view = tourLabelViewer?.viewer?.getPosition();
-  return view ? rad2deg(wrapTourAngle(view.yaw)) : null;
-}
-
-function targetTourBearing(point, pin) {
-  const plan = tourState.floorPlans.find((item) => item.floor === point.floor);
-  if (!plan || !pin) return null;
-  const dx = ((pin.x - point.x) / 100) * Number(plan.width);
-  const dy = ((pin.y - point.y) / 100) * Number(plan.height);
-  return rad2deg(Math.atan2(dx, -dy));
-}
-
-// อัปเดตเส้นสีส้ม (ทิศที่กรวยชี้) และข้อความเทียบกับทิศที่เลือก เรียกทุกครั้งที่หมุนภาพ
-function updateTourHeadingCone() {
-  const geometry = headingPlanGeometry;
-  const line = document.getElementById('tourHeadingCone');
-  const bearing = currentTourBearing();
-  if (!geometry || !line || bearing === null) return;
-  const { point, displayHeight } = geometry;
-  const length = 90; // พิกเซลบนแผนผังย่อ
-  const angle = (bearing * Math.PI) / 180;
-  line.setAttribute('x2', String(point.x + (Math.sin(angle) * length / HEADING_PLAN_SIZE.displayWidth) * 100));
-  line.setAttribute('y2', String(point.y - (Math.cos(angle) * length / displayHeight) * 100));
-
-  const compare = document.getElementById('tourHeadingCompare');
-  const pin = tourLabelState.headingPin?.pointId === point.id ? tourLabelState.headingPin : null;
-  const wanted = targetTourBearing(point, pin);
-  if (wanted === null) {
-    compare.textContent = `กรวยชี้ที่ ${bearing.toFixed(0)}° — คลิกบนแผนผังเพื่อเลือกทิศที่ต้องการ`;
-  } else {
-    const diff = rad2deg(wrapTourAngle(((wanted - bearing) * Math.PI) / 180));
-    compare.textContent = Math.abs(diff) < 1
-      ? `กรวยชี้ตรงกับทิศที่เลือกแล้ว (${bearing.toFixed(0)}°)`
-      : `กรวยชี้ที่ ${bearing.toFixed(0)}° แต่ทิศที่เลือกคือ ${wanted.toFixed(0)}° (ต่างกัน ${Math.abs(diff).toFixed(0)}°) — กด "ตั้งทิศ" เพื่อให้กรวยตรง`;
-  }
-}
-
-function renderTourHeadingPlan() {
-  const box = document.getElementById('tourHeadingPlanBox');
-  const holder = document.getElementById('tourHeadingPlan');
-  const point = tourLabelViewer?.currentPoint;
-  const wanted = document.getElementById('tourHeadingTarget').value === 'plan' && point;
-  box.classList.toggle('d-none', !wanted);
-  if (!wanted) return;
-  const plan = tourState.floorPlans.find((item) => item.floor === point.floor);
-  if (!plan) {
-    holder.innerHTML = '';
-    return;
-  }
-  const { width, height, displayWidth } = HEADING_PLAN_SIZE;
-  const displayHeight = displayWidth * Number(plan.height) / Number(plan.width);
-  const left = width / 2 - (point.x / 100) * displayWidth;
-  const top = height / 2 - (point.y / 100) * displayHeight;
-  const pin = tourLabelState.headingPin?.pointId === point.id ? tourLabelState.headingPin : null;
-  headingPlanGeometry = { point, displayHeight };
-  const line = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">
-      ${pin ? `<line x1="${point.x}" y1="${point.y}" x2="${pin.x}" y2="${pin.y}" stroke="#e11d48" stroke-width="3" vector-effect="non-scaling-stroke"/>` : ''}
-      <line id="tourHeadingCone" x1="${point.x}" y1="${point.y}" x2="${point.x}" y2="${point.y}" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-    </svg>`;
-  holder.innerHTML = `
-    <div class="plan-inner" style="left:${left}px; top:${top}px; width:${displayWidth}px; height:${displayHeight}px;">
-      <img src="${escapeHtml(plan.image_url)}" alt="แผนผังชั้น ${escapeHtml(point.floor)}">
-      ${line}
-      <span class="plan-dot" style="left:${point.x}%; top:${point.y}%; background:#2563eb;" title="จุดที่ยืนอยู่"></span>
-      ${pin ? `<span class="plan-dot" style="left:${pin.x}%; top:${pin.y}%; background:#e11d48;" title="จุดอ้างอิงทิศ"></span>` : ''}
-    </div>`;
-  holder.onclick = (event) => {
-    const inner = holder.querySelector('.plan-inner');
-    const rect = inner.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    if (x < 0 || x > 100 || y < 0 || y > 100) return;
-    tourLabelState.headingPin = { pointId: point.id, x: Number(x.toFixed(3)), y: Number(y.toFixed(3)) };
-    renderTourHeadingPlan();
-  };
-  updateTourHeadingCone();
-}
-
-// ปรับทิศละเอียด: delta > 0 = หมุนกรวย (ทิศบนแผนผัง) ตามเข็ม ภาพคงมุมเดิม จึงเห็นกรวยขยับเทียบกับภาพ
-async function nudgeTourHeading(delta) {
-  const viewer = tourLabelViewer;
-  const point = viewer?.currentPoint;
-  if (!point) return;
-  const heading = Math.round((((Number(point.heading) || 0) - delta + 540) % 360 - 180) * 1000) / 1000;
-  const restore = captureTourView();
-  try {
-    const data = await api(`/api/admin/tour/points/${point.id}`, jsonRequest('PUT', { heading }));
-    replaceTourPoint(data.point);
-    renderTour();
-    await mountTourLabelViewer(point.id, restore);
-  } catch (error) {
-    reportError(error);
-  }
-}
-
-async function saveTourHeading() {
-  const viewer = tourLabelViewer;
-  if (!viewer?.currentPoint) return;
-  const point = viewer.currentPoint;
-  const rawTarget = document.getElementById('tourHeadingTarget').value;
-  if (!rawTarget) return;
-  let target;
-  if (rawTarget === 'plan') {
-    const pin = tourLabelState.headingPin;
-    if (!pin || pin.pointId !== point.id) {
-      showStatus('คลิกบนแผนผังเพื่อเลือกจุดอ้างอิงก่อน', 'warning');
-      return;
-    }
-    target = { pin: { x: pin.x, y: pin.y } };
-  } else {
-    target = rawTarget.startsWith('room:') ? { roomId: Number(rawTarget.slice(5)) } : Number(rawTarget);
-  }
-  const heading = viewer.headingFacing(target);
-  const restore = captureTourView(); // เก็บมุมที่กำลังมองไว้ (ในพิกัดภาพ) ให้ภาพไม่กระโดดหลังเปลี่ยนทิศ
-  const button = document.getElementById('tourHeadingSave');
-  setBusy(button, true, 'กำลังบันทึก...', 'ตั้งทิศ');
-  try {
-    const data = await api(`/api/admin/tour/points/${point.id}`, jsonRequest('PUT', { heading }));
-    replaceTourPoint(data.point);
-    renderTour();
-    showStatus(`บันทึกทิศแล้ว (${Number(point.heading).toFixed(1)}° → ${heading.toFixed(1)}°) — กรวยสีเขียวในแผนที่ย่อจะตรงกับทิศที่เลือก ถ้ายังไม่ตรงหมุนภาพแล้วกดตั้งทิศอีกครั้ง`);
-    await mountTourLabelViewer(point.id, restore);
-  } catch (error) {
-    reportError(error);
-  } finally {
-    setBusy(button, false, '', 'ตั้งทิศ');
-  }
-}
-
-// ---------- ปรับป้ายห้อง ----------
-// yaw ที่เก็บเป็นพิกัดของ "ภาพต้นฉบับ" (ไม่ผูกกับทิศ) จึงยังตรงตำแหน่งเดิมแม้ภายหลังตั้งทิศของภาพใหม่
-// พิกัดบนจอของตัวดู = พิกัดในภาพ - heading (ดู tour.js)
-const TOUR_DEG = Math.PI / 180;
-
-function wrapTourAngle(angle) {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
-}
-
-function tourLabelPointId() {
-  return tourLabelViewer?.currentPoint?.id ?? null;
-}
-
-async function openTourLabels(id) {
+// ---------- มุมเริ่มต้นของจุด ----------
+// มุมเริ่มต้น = มุมที่ผู้ใช้เห็นตอนเข้าเดินชมที่จุดนี้ ลากภาพไปมุมที่ต้องการแล้วกดตั้ง
+async function openTourViewer(id) {
   const point = tourPoint(id);
   if (!point || point.x === null) return;
-  tourLabelState.placing = false;
-  tourLabelModal.show();
-  await mountTourLabelViewer(id);
+  tourViewModal.show();
+  await mountTourViewer(id);
 }
 
-// มุมที่กำลังมองอยู่ในพิกัดภาพต้นฉบับ (ไม่ผูกกับทิศ) ใช้คืนมุมเดิมหลังตั้งค่าแล้วสร้างตัวดูใหม่ ภาพจึงไม่กระโดด
-function captureTourView() {
-  const viewer = tourLabelViewer;
-  const point = viewer?.currentPoint;
-  if (!viewer || !point) return null;
-  const view = viewer.viewer.getPosition();
-  return { imageYaw: view.yaw + (Number(point.heading) || 0) * TOUR_DEG, pitch: view.pitch };
-}
-
-async function mountTourLabelViewer(id, restore = null) {
-  tourLabelViewer?.destroy();
-  tourLabelViewer = null;
-  const container = document.getElementById('tourLabelView');
-  container.querySelectorAll('.psv-container').forEach((element) => element.remove());
+// restore = มุมที่กำลังมองอยู่ ใช้คืนมุมเดิมหลังบันทึกแล้วสร้างตัวดูใหม่ ภาพจึงไม่กระโดด
+async function mountTourViewer(id, restore = null) {
+  tourViewer?.destroy();
+  tourViewer = null;
+  const container = document.getElementById('tourViewer');
+  container.innerHTML = '';
   try {
     const [{ createTourViewer, prepareTour }, data] = await Promise.all([
       import('./tour.js'),
       api(`/api/tour/${tourState.building.id}`),
     ]);
-    tourLabelState.labels = data.labels || [];
     const holder = document.createElement('div');
     holder.style.cssText = 'position:absolute; inset:0;';
     container.appendChild(holder);
     let restored = false;
-    tourLabelViewer = createTourViewer(holder, prepareTour(data), {
+    tourViewer = createTourViewer(holder, prepareTour(data), {
       startPointId: id,
-      mapSize: '140px',
-      useInitialView: !restore, // เปิดครั้งแรกเริ่มที่มุมเริ่มต้นที่ตั้งไว้ ส่วนการสร้างใหม่หลังบันทึกให้คงมุมที่กำลังมองอยู่
-      onNodeChange: (point) => {
+      mapSize: '150px',
+      useInitialView: !restore,
+      onNodeChange: () => {
         if (restore && !restored) {
           restored = true;
-          tourLabelViewer?.viewer.rotate({ yaw: wrapTourAngle(restore.imageYaw - (Number(point.heading) || 0) * TOUR_DEG), pitch: restore.pitch });
+          tourViewer?.viewer.rotate({ yaw: restore.yaw, pitch: restore.pitch });
         }
-        renderTourLabelPanel();
+        renderTourViewPanel();
       },
-      onViewClick: onTourLabelViewClick,
     });
-    tourLabelViewer.viewer.addEventListener('position-updated', updateTourHeadingCone);
-    renderTourLabelPanel();
   } catch (error) {
     reportError(error);
   }
 }
 
-// ห้องทั้งหมดของอาคาร: ห้องในชั้นเดียวกับจุดขึ้นก่อน
-function tourLabelRoomOptions(point) {
-  return [...tourState.rooms]
-    .sort((a, b) => (a.floor === point.floor ? 0 : 1) - (b.floor === point.floor ? 0 : 1)
-      || String(a.room_code).localeCompare(String(b.room_code), 'th'));
-}
-
-function renderTourLabelPanel() {
-  const point = tourLabelViewer?.currentPoint;
-  if (!point) return;
-  const select = document.getElementById('tourLabelRoom');
-  const previous = select.value;
-  select.innerHTML = tourLabelRoomOptions(point)
-    .map((room) => `<option value="${room.id}">${escapeHtml(room.room_code)} (ชั้น ${escapeHtml(room.floor || '-')})</option>`)
-    .join('');
-  if (previous && [...select.options].some((option) => option.value === previous)) select.value = previous;
-
-  document.getElementById('tourLabelModalTitle').textContent = `ปรับภาพ: ${tourPointName(point)}`;
-  const simple = isSimpleTour();
-  document.getElementById('tourSecHeading').classList.toggle('d-none', simple);
-  document.getElementById('tourSecLabels').classList.toggle('d-none', simple);
-  if (simple) document.getElementById('tourHeadingPlanBox').classList.add('d-none');
-  const canSetHeading = fillTourHeadingTargets(point.id);
-  if (!simple) renderTourHeadingPlan();
-  document.getElementById('tourHeadingSave').disabled = !canSetHeading;
-  if (!canSetHeading) {
-    document.getElementById('tourHeadingInfo').textContent = 'ต้องมีจุดเดินชมอื่น หรือห้องที่ปักหมุดบนแผนผังชั้นนี้ เพื่อใช้อ้างอิงทิศ';
-  }
-  const mine = tourLabelState.labels.filter((label) => label.point_id === point.id);
-  const current = mine.find((label) => label.room_id === Number(select.value));
-  const hasRoom = Boolean(select.value);
-  document.getElementById('tourLabelPlace').disabled = !hasRoom;
-  document.getElementById('tourLabelPlace').textContent = tourLabelState.placing ? 'คลิกบนภาพ… (กดอีกครั้งเพื่อยกเลิก)' : (current && !current.hidden ? 'ย้ายป้าย' : 'วางป้าย');
-  document.getElementById('tourLabelPlace').classList.toggle('btn-warning', tourLabelState.placing);
-  document.getElementById('tourLabelPlace').classList.toggle('btn-primary', !tourLabelState.placing);
-  document.getElementById('tourLabelHide').disabled = !hasRoom || Boolean(current?.hidden);
-  document.getElementById('tourLabelReset').disabled = !current;
-  document.getElementById('tourLabelView').classList.toggle('is-placing-label', tourLabelState.placing);
-  const here = tourPoint(point.id) || point;
-  const hasInitial = here.initial_yaw !== null && here.initial_yaw !== undefined;
+function renderTourViewPanel() {
+  const current = tourViewer?.currentPoint;
+  if (!current) return;
+  const point = tourPoint(current.id) || current;
+  const hasInitial = point.initial_yaw !== null && point.initial_yaw !== undefined;
+  document.getElementById('tourViewModalTitle').textContent = `ตั้งมุมเริ่มต้น: ${tourPointName(point)}`;
   document.getElementById('tourInitialClear').disabled = !hasInitial;
   document.getElementById('tourInitialState').textContent = hasInitial
-    ? 'ตั้งมุมเริ่มต้นไว้แล้ว — ผู้ใช้จะเห็นภาพหันไปทางนี้ตอนเข้าเดินชมที่จุดนี้'
-    : 'ยังไม่ได้ตั้งมุมเริ่มต้น (หันตามทิศปกติของภาพ)';
-  document.getElementById('tourLabelInfo').textContent = tourLabelState.placing
-    ? '📍 คลิกบนภาพตรงตำแหน่งที่ต้องการวางป้ายห้องที่เลือก'
-    : 'ป้ายที่ตั้งเองมีผลเฉพาะในภาพของจุดนี้ (แต่ละจุดต้องตั้งแยก)';
-
-  const roomName = (roomId) => escapeHtml(tourState.rooms.find((room) => room.id === roomId)?.room_code || `#${roomId}`);
-  document.getElementById('tourLabelList').innerHTML = mine.length === 0
-    ? '<span class="text-secondary">จุดนี้ยังไม่มีป้ายที่ตั้งเอง — ใช้ตำแหน่งอัตโนมัติทั้งหมด</span>'
-    : `<div class="fw-semibold mb-1">ป้ายที่ตั้งเองในจุดนี้ (${mine.length})</div>` + mine.map((label) => `
-        <span class="badge text-bg-light border me-1 mb-1">
-          ${roomName(label.room_id)} · ${label.hidden ? 'ซ่อน' : 'ตั้งตำแหน่งแล้ว'}
-          <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" onclick="resetTourLabel(${label.room_id})" aria-label="ล้าง">ล้าง</button>
-        </span>`).join('');
+    ? 'ตั้งมุมเริ่มต้นไว้แล้ว — ผู้ใช้จะเห็นภาพหันไปทางนี้ตอนเข้าดูจุดนี้'
+    : 'ยังไม่ได้ตั้งมุมเริ่มต้น (เริ่มที่กลางภาพ)';
 }
 
-function toggleTourLabelPlacing() {
-  if (!document.getElementById('tourLabelRoom').value) return;
-  tourLabelState.placing = !tourLabelState.placing;
-  renderTourLabelPanel();
-}
-
-// คลิกบนภาพขณะอยู่ในโหมดวางป้าย: คืน true เพื่อบอกตัวดูว่าใช้คลิกนี้แล้ว (ไม่ต้องเดินไปจุดอื่น)
-function onTourLabelViewClick(data) {
-  if (!tourLabelState.placing) return false;
-  if (data.rightclick || data.marker) return true;
-  saveTourLabelPosition(data.yaw, data.pitch);
-  return true;
-}
-
-async function saveTourLabelPosition(screenYaw, pitch) {
-  const point = tourLabelViewer?.currentPoint;
-  const roomId = Number(document.getElementById('tourLabelRoom').value);
-  if (!point || !roomId) return;
-  tourLabelState.placing = false;
-  const yaw = wrapTourAngle(screenYaw + (Number(point.heading) || 0) * TOUR_DEG);
-  await sendTourLabel(point.id, roomId, jsonRequest('PUT', { yaw, pitch }));
-}
-
-async function hideTourLabel() {
-  const pointId = tourLabelPointId();
-  const roomId = Number(document.getElementById('tourLabelRoom').value);
-  if (pointId && roomId) await sendTourLabel(pointId, roomId, jsonRequest('PUT', { hidden: true }));
-}
-
-async function resetTourLabel(roomIdArg) {
-  const pointId = tourLabelPointId();
-  const roomId = Number(roomIdArg) || Number(document.getElementById('tourLabelRoom').value);
-  if (pointId && roomId) await sendTourLabel(pointId, roomId, { method: 'DELETE' });
-}
-
-async function sendTourLabel(pointId, roomId, request) {
-  const restore = captureTourView();
-  try {
-    const data = await api(`/api/admin/tour/points/${pointId}/labels/${roomId}`, request);
-    showStatus(data.message);
-    await mountTourLabelViewer(pointId, restore); // โหลดข้อมูลทัวร์ใหม่แล้วสร้างตัวดูใหม่ที่จุดเดิม คงมุมที่กำลังมองไว้
-  } catch (error) {
-    reportError(error);
-    renderTourLabelPanel();
-  }
-}
-
-// ---------- มุมเริ่มต้นของจุด ----------
-// เก็บเป็นพิกัดภาพต้นฉบับ (yaw บนจอ + heading) เช่นเดียวกับป้ายห้อง
 async function saveTourInitialView(pointId, body) {
-  const restore = captureTourView();
+  const view = tourViewer?.viewer.getPosition();
+  const restore = view ? { yaw: view.yaw, pitch: view.pitch } : null;
   try {
     const data = await api(`/api/admin/tour/points/${pointId}/initial-view`, jsonRequest('PUT', body));
     replaceTourPoint(data.point);
+    renderTour();
     showStatus(data.message);
-    await mountTourLabelViewer(pointId, restore);
+    await mountTourViewer(pointId, restore);
   } catch (error) {
     reportError(error);
   }
 }
 
 async function setTourInitialView() {
-  const point = tourLabelViewer?.currentPoint;
+  const point = tourViewer?.currentPoint;
   if (!point) return;
-  const view = tourLabelViewer.viewer.getPosition();
-  const yaw = wrapTourAngle(view.yaw + (Number(point.heading) || 0) * TOUR_DEG);
+  const view = tourViewer.viewer.getPosition();
+  const yaw = Math.atan2(Math.sin(view.yaw), Math.cos(view.yaw));
   await saveTourInitialView(point.id, { yaw, pitch: view.pitch });
 }
 
 async function clearTourInitialView() {
-  const pointId = tourLabelPointId();
-  if (pointId) await saveTourInitialView(pointId, { yaw: null, pitch: null });
+  const point = tourViewer?.currentPoint;
+  if (point) await saveTourInitialView(point.id, { yaw: null, pitch: null });
 }

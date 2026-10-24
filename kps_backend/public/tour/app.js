@@ -1,5 +1,5 @@
 // หน้า /tour/?building=<id>[&point=<id>|&room=<id>][&embed=app]
-// embed=app = เปิดในแอป Flutter (WebView) ส่งข้อความกลับผ่าน channel "KpsApp" เช่น แตะป้ายห้อง หรือปุ่มปิด
+// embed=app = เปิดในแอป Flutter (WebView) ส่งข้อความกลับผ่าน channel "KpsApp" เช่น ปุ่มปิด
 import { createTourViewer, prepareTour, escapeHtml } from './tour.js';
 
 const params = new URLSearchParams(location.search);
@@ -109,16 +109,13 @@ async function main() {
 
   const viewerApi = createTourViewer($('viewer'), tour, {
     startPointId: startPoint,
-    // แบบง่ายใช้แผนที่ย่อเป็นทางเลือกจุดหลัก จึงทำให้ใหญ่ขึ้น
-    mapSize: window.innerWidth < 600 ? (tour.simple ? '190px' : '130px') : (tour.simple ? '240px' : '180px'),
+    // แผนที่ย่อเป็นทางเลือกจุดหลัก จึงทำให้ใหญ่พอแตะจุดได้
+    mapSize: window.innerWidth < 600 ? '190px' : '240px',
     onNodeChange(point) {
       $('state').hidden = true;
       $('pointName').textContent = `ชั้น ${point.floor} · ${pointSubtitle(point)}`;
       renderFloors(tour, viewerApi, point.floor);
       postToApp({ type: 'point', id: point.id, floor: point.floor });
-    },
-    onRoomTap(room) {
-      if (!postToApp({ type: 'room', id: room.roomId, code: room.roomCode })) toast(room.roomCode);
     },
   });
   viewerApi.viewer.addEventListener('panorama-error', () => toast('โหลดภาพไม่สำเร็จ'));

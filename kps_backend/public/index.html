@@ -326,13 +326,6 @@
     .tour-unplaced { cursor: pointer; border: 2px solid transparent; border-radius: 10px; padding: 4px; background: none; width: 100%; }
     .tour-unplaced.is-selected { border-color: #f59e0b; background: #fffbeb; }
     .tour-heading-view { position: relative; height: 420px; border-radius: 12px; overflow: hidden; background: #0d1511; }
-    .tour-heading-view.is-placing-label, .tour-heading-view.is-placing-label .psv-container { cursor: crosshair !important; }
-    .tour-heading-view.is-placing-label .crosshair { display: none; }
-    .tour-heading-plan { position: relative; width: 100%; max-width: 420px; height: 280px; overflow: hidden; border-radius: 8px; background: #f8faf9; cursor: crosshair; user-select: none; }
-    .tour-heading-plan .plan-inner { position: absolute; }
-    .tour-heading-plan img { display: block; width: 100%; height: auto; pointer-events: none; }
-    .tour-heading-plan svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-    .tour-heading-plan .plan-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; pointer-events: none; }
     .kps-room-tag { padding: 4px 10px; border: 2px solid #fff; border-radius: 999px; background: #15803d; color: #fff;
       font-weight: 700; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.35); white-space: nowrap; }
     .kps-room-tag.is-maintenance { background: #b45309; }
@@ -1098,32 +1091,18 @@
                 <input id="tourFiles" type="file" class="d-none" accept="image/jpeg,image/png,image/webp" multiple
                        aria-label="เลือกไฟล์ภาพ 360°" onchange="uploadTourImages(this)">
                 <button class="btn btn-primary" type="button" id="tourUploadButton" onclick="document.getElementById('tourFiles').click()">+ อัปโหลดภาพ 360°</button>
-                <button class="btn btn-outline-primary" type="button" id="tourAutoLinkButton" onclick="autoLinkTour()">เชื่อมอัตโนมัติ</button>
                 <button class="btn btn-outline-secondary" type="button" id="tourPreviewButton" onclick="previewTour()">ดูตัวอย่าง ↗</button>
               </div>
             </div>
           </section>
-          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-            <span class="fw-semibold small">โหมดเดินชมของอาคารนี้:</span>
-            <div class="btn-group btn-group-sm" role="group" aria-label="โหมดเดินชม">
-              <input type="radio" class="btn-check" name="tourViewMode" id="tourViewSimple" onchange="setTourViewMode('simple')">
-              <label class="btn btn-outline-primary" for="tourViewSimple">แบบง่าย (แนะนำ)</label>
-              <input type="radio" class="btn-check" name="tourViewMode" id="tourViewFull" onchange="setTourViewMode('full')">
-              <label class="btn btn-outline-primary" for="tourViewFull">เต็มรูปแบบ (Street View)</label>
-            </div>
-            <span class="small text-secondary" id="tourViewModeNote"></span>
-          </div>
-          <p class="text-secondary small mb-3" id="tourSteps"></p>
+          <p class="text-secondary small mb-3">
+            ขั้นตอน: ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย
+            → ③ เลือกจุด ตั้งชื่อที่เข้าใจง่าย (เช่น โถงกลาง) และตั้งมุมเริ่มต้นถ้าต้องการ — ผู้ใช้แตะจุดสีเขียวบนแผนที่ย่อเพื่อดูภาพนั้น
+          </p>
           <div class="row g-3">
             <div class="col-12 col-xl-8">
               <section class="card room-card">
                 <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center p-3">
-                  <div class="btn-group" role="group" aria-label="โหมดการคลิกบนแผนผัง" id="tourClickModeGroup">
-                    <input type="radio" class="btn-check" name="tourMode" id="tourModeSelect" checked onchange="setTourMode('select')">
-                    <label class="btn btn-sm btn-outline-secondary" for="tourModeSelect">เลือกจุด</label>
-                    <input type="radio" class="btn-check" name="tourMode" id="tourModeLink" onchange="setTourMode('link')">
-                    <label class="btn btn-sm btn-outline-secondary" for="tourModeLink">เชื่อม / ตัดเส้น</label>
-                  </div>
                   <div class="btn-group btn-group-sm" role="group" aria-label="ซูมแผนผัง">
                     <button type="button" class="btn btn-outline-secondary px-3 fw-bold" onclick="zoomTourPlan(-1)" title="ซูมออก" aria-label="ซูมออก">−</button>
                     <button type="button" class="btn btn-outline-secondary" id="tourZoomLabel" onclick="resetTourZoom()" title="กลับเป็นขนาดพอดี" style="min-width:4.5rem">100%</button>
@@ -2400,76 +2379,22 @@
     </div>
   </div>
 
-  <!-- ============ Modal: ปรับภาพของจุดเดินชม (ทิศ + มุมเริ่มต้น + ป้ายห้อง ในหน้าต่างเดียว) ============ -->
-  <div class="modal fade" id="tourLabelModal" tabindex="-1" aria-labelledby="tourLabelModalTitle" aria-hidden="true">
+  <!-- ============ Modal: ตั้งมุมเริ่มต้นของจุดเดินชม ============ -->
+  <div class="modal fade" id="tourViewModal" tabindex="-1" aria-labelledby="tourViewModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">tune</span></div><div><h2 class="modal-title m-title" id="tourLabelModalTitle">ปรับภาพของจุดนี้</h2><p class="m-sub">ตั้งทิศ มุมเริ่มต้น และป้ายห้อง ในที่เดียว</p></div></div>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">explore</span></div><div><h2 class="modal-title m-title" id="tourViewModalTitle">ตั้งมุมเริ่มต้น</h2><p class="m-sub">มุมที่ผู้ใช้เห็นตอนเข้าดูจุดนี้</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
-          <p class="small text-secondary mb-2">
-            ลากภาพ/แตะพื้นเพื่อเดินดูได้ตามปกติ แล้วตั้งค่าตามลำดับ: <strong>① ทิศ</strong> (ให้แผนที่ย่อตรงกับภาพ) →
-            <strong>② มุมเริ่มต้น</strong> (มุมที่ผู้ใช้เห็นตอนเข้าจุดนี้) → <strong>③ ป้ายห้อง</strong> — ภาพจะไม่กระโดดหลังบันทึกแต่ละขั้น
-          </p>
-          <div class="row g-2 mb-2">
-            <div class="col-12 col-lg-4" id="tourSecHeading">
-              <div class="border rounded-3 p-2 h-100">
-                <div class="fw-semibold small mb-1">① ตั้งทิศให้ตรงแผนผัง</div>
-                <div class="small text-secondary mb-1">ลากให้<strong>เส้นสีส้มกลางจอ</strong>ตรงกับจุดอ้างอิง (เช่น ประตูห้องน้ำ) แล้วเลือกจุดนั้นด้านล่าง</div>
-                <div class="input-group input-group-sm">
-                  <select id="tourHeadingTarget" class="form-select" onchange="renderTourHeadingPlan()"></select>
-                  <button type="button" class="btn btn-primary" id="tourHeadingSave" onclick="saveTourHeading()">ตั้งทิศ</button>
-                </div>
-                <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
-                  <span class="small text-secondary">ปรับละเอียด (หมุนกรวย):</span>
-                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(-5)" title="หมุนทวนเข็ม 5°">⟲5°</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(-1)" title="หมุนทวนเข็ม 1°">⟲1°</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(1)" title="หมุนตามเข็ม 1°">⟳1°</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="nudgeTourHeading(5)" title="หมุนตามเข็ม 5°">⟳5°</button>
-                </div>
-                <div class="small text-secondary mt-1" id="tourHeadingInfo"></div>
-              </div>
-            </div>
-            <div class="col-12 col-lg-4">
-              <div class="border rounded-3 p-2 h-100">
-                <div class="fw-semibold small mb-1">② มุมเริ่มต้น</div>
-                <div class="small text-secondary mb-1">ลากภาพไปมุมที่อยากให้เห็นก่อน แล้วกดตั้ง</div>
-                <div class="d-flex flex-wrap gap-2">
-                  <button type="button" class="btn btn-sm btn-outline-primary" id="tourInitialSet" onclick="setTourInitialView()">ตั้งมุมที่เห็นอยู่</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" id="tourInitialClear" onclick="clearTourInitialView()">ล้างมุมเริ่มต้น</button>
-                </div>
-                <div class="small text-secondary mt-1" id="tourInitialState"></div>
-              </div>
-            </div>
-            <div class="col-12 col-lg-4" id="tourSecLabels">
-              <div class="border rounded-3 p-2 h-100">
-                <div class="fw-semibold small mb-1">③ ป้ายห้อง</div>
-                <select id="tourLabelRoom" class="form-select form-select-sm mb-1" onchange="renderTourLabelPanel()"></select>
-                <div class="d-flex flex-wrap gap-1">
-                  <button type="button" class="btn btn-sm btn-primary" id="tourLabelPlace" onclick="toggleTourLabelPlacing()">วางป้าย</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" id="tourLabelHide" onclick="hideTourLabel()">ซ่อน</button>
-                  <button type="button" class="btn btn-sm btn-outline-danger" id="tourLabelReset" onclick="resetTourLabel()">กลับอัตโนมัติ</button>
-                </div>
-              </div>
-            </div>
+          <p class="small text-secondary mb-2">ลากภาพไปมุมที่อยากให้ผู้ใช้เห็นก่อน แล้วกด "ตั้งมุมที่เห็นอยู่" — แตะจุดสีเขียวบนแผนที่ย่อเพื่อเปลี่ยนไปดูจุดอื่น</p>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <button type="button" class="btn btn-primary" id="tourInitialSet" onclick="setTourInitialView()">ตั้งมุมที่เห็นอยู่</button>
+            <button type="button" class="btn btn-outline-secondary" id="tourInitialClear" onclick="clearTourInitialView()">ล้างมุมเริ่มต้น</button>
+            <span class="small text-secondary" id="tourInitialState"></span>
           </div>
-          <div id="tourHeadingPlanBox" class="border rounded-3 p-2 mb-2 d-none">
-            <div class="small mb-1">คลิกบนแผนผังตรงจุดที่<strong>เส้นสีส้มกลางจอ</strong>ชี้ไป (เช่น ปลายลูกศรบนบันได) แล้วกด <strong>"ตั้งทิศ"</strong> เพื่อบันทึก</div>
-            <div class="d-flex flex-wrap align-items-start gap-3">
-              <div id="tourHeadingPlan" class="tour-heading-plan"></div>
-              <div class="small" style="min-width:220px; max-width:320px;">
-                <div class="mb-1"><span class="badge" style="background:#e11d48">&nbsp;</span> เส้นสีแดง = ทิศที่คุณเลือก (<strong>ยังไม่บันทึก</strong>)</div>
-                <div class="mb-2"><span class="badge" style="background:#f59e0b">&nbsp;</span> เส้นสีส้ม = ทิศที่กรวยในแผนที่ย่อชี้อยู่ตอนนี้ (ตามที่หมุนภาพ)</div>
-                <div class="mb-2 text-secondary" id="tourHeadingCompare"></div>
-                <button type="button" class="btn btn-primary btn-sm" id="tourHeadingSave2" onclick="saveTourHeading()">ตั้งทิศ (บันทึก)</button>
-              </div>
-            </div>
-          </div>
-          <div id="tourLabelView" class="tour-heading-view"><div class="crosshair"></div></div>
-          <p class="small text-secondary mt-2 mb-1" id="tourLabelInfo"></p>
-          <div id="tourLabelList" class="small"></div>
+          <div id="tourViewer" class="tour-heading-view"></div>
         </div>
       </div>
     </div>
