@@ -3,14 +3,11 @@
 // (แตะจุดสีเขียวเพื่อไปดูภาพนั้น) ไม่มีการเดินต่อเนื่อง ไม่ใช้ทิศของภาพ และไม่มีป้ายห้องลอยในภาพ
 import { Viewer, SYSTEM } from '@photo-sphere-viewer/core';
 import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin';
-import { MapPlugin } from '@photo-sphere-viewer/map-plugin';
 
 // จอมือถือความละเอียดสูง (devicePixelRatio 3 ขึ้นไป) ทำให้ WebGL ต้องเรนเดอร์ทุกพิกเซลจริงของจอ
 // บวก MSAA เต็มรูปแบบ บนมือถือจำลอง/เครื่องเก่าจะกระตุกมาก จึงจำกัดไว้ไม่เกิน 2 และปิด MSAA
 SYSTEM.load();
 SYSTEM.pixelRatio = Math.min(SYSTEM.pixelRatio, 2);
-
-const MAP_LINK_PREFIX = '__tour-link__'; // id ที่ VirtualTourPlugin ใช้กับจุดบนแผนที่ (แตะแล้วไปจุดนั้นให้เอง)
 
 export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -36,15 +33,111 @@ function pointName(point) {
   return point.label || (point.room_code ? `หน้าห้อง ${point.room_code}` : `จุดที่ ${point.id}`);
 }
 
-// ไม่มีลิงก์ระหว่างจุด (ปลั๊กอินจะวาดลูกศรบนพื้นให้ทุกลิงก์) ผู้ใช้เลือกจุดจากแผนที่ย่อ ดู select-hotspot ด้านล่าง
+
+// ---------- แผนที่ย่อ (เขียนเอง) ----------
+// แสดงแผนผังทั้งชั้นนิ่ง ๆ ไม่เลื่อนตามจุดที่ยืนอยู่ (ต่างจากแผนที่ของปลั๊กอินที่เลื่อนตามเสมอ) แตะจุดเพื่อไปดูภาพนั้น
+// จุดสีฟ้า = จุดที่ดูอยู่ จุดสีเขียว = จุดอื่นในชั้นเดียวกัน ปุ่มมุมขวาบนสลับขนาดเล็ก/ใหญ่
+const MINIMAP_CSS = `
+.kps-minimap { position: absolute; left: 12px; bottom: calc(12px + var(--kps-safe-bottom, 0px)); z-index: 30;
+  width: var(--mini-size, 190px); height: var(--mini-size, 190px); max-width: 90vw; max-height: 70vh; box-sizing: border-box;
+  background: #fff; border: 2px solid #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  transition: width .2s ease, height .2s ease; touch-action: manipulation; }
+.kps-minimap.is-big { width: min(86vw, 62vh); height: min(86vw, 62vh); }
+.kps-minimap-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #f8faf9; }
+.kps-minimap-plan { position: relative; flex: none; }
+.kps-minimap-plan img { display: block; width: 100%; height: 100%; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.kps-minimap-dot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.kps-minimap-dot::before { content: ''; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+  border-radius: 50%; background: #15803d; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3); transition: transform .12s ease; }
+.kps-minimap-dot:hover::before { transform: scale(1.25); }
+.kps-minimap-dot.is-current { z-index: 2; cursor: default; }
+.kps-minimap-dot.is-current::before { width: 18px; height: 18px; margin: -9px 0 0 -9px; background: #2563eb; box-shadow: 0 0 0 5px rgba(37,99,235,.28); }
+.kps-minimap-toggle { position: absolute; top: 6px; right: 6px; z-index: 3; width: 32px; height: 32px; border: 0; border-radius: 9px;
+  background: rgba(0,0,0,.55); color: #fff; font-size: 17px; line-height: 1; cursor: pointer; }
+`;
+
+function createMinimap(container, tour, { size, onSelect }) {
+  if (!document.getElementById('kps-minimap-style')) {
+    const style = document.createElement('style');
+    style.id = 'kps-minimap-style';
+    style.textContent = MINIMAP_CSS;
+    document.head.appendChild(style);
+  }
+  const root = document.createElement('div');
+  root.className = 'kps-minimap';
+  root.style.setProperty('--mini-size', size);
+  root.innerHTML = `<div class="kps-minimap-stage"><div class="kps-minimap-plan"><img alt="แผนผังชั้น" draggable="false"></div></div>
+    <button type="button" class="kps-minimap-toggle" aria-label="ขยายหรือย่อแผนที่">⤢</button>`;
+  // ไม่ให้การแตะ/ลากบนแผนที่ไปหมุนภาพ 360° ข้างหลัง
+  for (const type of ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel', 'dblclick']) {
+    root.addEventListener(type, (event) => event.stopPropagation());
+  }
+  const stage = root.querySelector('.kps-minimap-stage');
+  const planBox = root.querySelector('.kps-minimap-plan');
+  const image = planBox.querySelector('img');
+  let floor = null;
+  let currentId = null;
+
+  function layout() {
+    const plan = tour.floorMap.get(floor);
+    if (!plan || !stage.clientWidth) return;
+    const scale = Math.min(stage.clientWidth / plan.width, stage.clientHeight / plan.height);
+    planBox.style.width = `${plan.width * scale}px`;
+    planBox.style.height = `${plan.height * scale}px`;
+  }
+
+  function buildDots() {
+    planBox.querySelectorAll('.kps-minimap-dot').forEach((dot) => dot.remove());
+    for (const point of tour.points.filter((item) => item.floor === floor)) {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'kps-minimap-dot';
+      dot.dataset.pointId = String(point.id);
+      dot.style.left = `${point.x}%`;
+      dot.style.top = `${point.y}%`;
+      dot.title = pointName(point);
+      dot.setAttribute('aria-label', pointName(point));
+      dot.addEventListener('click', () => {
+        if (point.id !== currentId) onSelect(point.id);
+      });
+      planBox.appendChild(dot);
+    }
+  }
+
+  root.querySelector('.kps-minimap-toggle').addEventListener('click', () => {
+    root.classList.toggle('is-big');
+    setTimeout(layout, 230);
+  });
+  if (typeof ResizeObserver === 'function') new ResizeObserver(layout).observe(stage);
+
+  container.appendChild(root);
+  return {
+    show(point) {
+      currentId = point.id;
+      if (point.floor !== floor) {
+        floor = point.floor;
+        const plan = tour.floorMap.get(floor);
+        if (plan) image.src = plan.image;
+        layout();
+        buildDots();
+      }
+      planBox.querySelectorAll('.kps-minimap-dot').forEach((dot) => {
+        dot.classList.toggle('is-current', Number(dot.dataset.pointId) === point.id);
+      });
+    },
+    destroy() {
+      root.remove();
+    },
+  };
+}
+
+// ไม่มีลิงก์ระหว่างจุด (ปลั๊กอินจะวาดลูกศรบนพื้นให้ทุกลิงก์) ผู้ใช้เลือกจุดจากแผนที่ย่อ
 function buildNode(tour, point) {
-  const plan = tour.pixel(point);
   return {
     id: String(point.id),
     panorama: point.image_url,
     name: pointName(point),
     links: [],
-    map: { x: plan.x, y: plan.y },
     data: { point },
   };
 }
@@ -55,7 +148,6 @@ function buildNode(tour, point) {
  */
 export function createTourViewer(container, tour, options = {}) {
   const startPoint = tour.pointMap.get(options.startPointId) || tour.points[0];
-  const startPlan = tour.floorMap.get(startPoint.floor);
 
   const viewer = new Viewer({
     container,
@@ -68,29 +160,12 @@ export function createTourViewer(container, tour, options = {}) {
     // ปิด MSAA: มุมมองทรงกลมมองจากศูนย์กลางมีขอบคมอยู่แค่รอยต่อภาพ (ทำ anti-alias ใน shader แล้ว)
     rendererParameters: { antialias: false, powerPreference: 'high-performance' },
     plugins: [
-      MapPlugin.withConfig({
-        imageUrl: startPlan?.image,
-        size: options.mapSize || '150px',
-        position: 'bottom left',
-        shape: 'square',
-        static: true,
-        pinSize: 26,
-        // ไม่รู้ทิศของภาพ จึงซ่อนกรวยทิศ เหลือแค่จุดตำแหน่ง
-        coneColor: 'rgba(0,0,0,0)',
-        coneSize: 1,
-        defaultZoom: 100,
-        minZoom: 5,
-        minimizeOnHotspotClick: true,
-        spotStyle: { size: 13, color: '#15803D', borderSize: 2, borderColor: '#ffffff', hoverSize: 17 },
-        buttons: { close: false, north: false },
-      }),
       VirtualTourPlugin.withConfig({
         positionMode: 'manual',
         renderMode: '3d',
         preload: false,
         startNodeId: String(startPoint.id),
         nodes: tour.points.map((point) => buildNode(tour, point)),
-        map: { imageUrl: startPlan?.image },
         showLinkTooltip: false,
         transitionOptions: { showLoader: false, effect: 'fade', speed: 700, rotation: false },
       }),
@@ -98,33 +173,16 @@ export function createTourViewer(container, tour, options = {}) {
   });
 
   const plugin = viewer.getPlugin(VirtualTourPlugin);
-  const map = viewer.getPlugin(MapPlugin);
-  let currentFloor = null;
-
-  // แผนที่มุมจอแสดงเฉพาะจุดในชั้นปัจจุบัน ซูมให้เห็นทุกจุดของชั้น (จุดที่ยืนอยู่อยู่กึ่งกลางเสมอ
-  // จึงยึดจุดที่อยู่ไกลที่สุดเป็นเกณฑ์) และเปลี่ยนรูปแผนผังเมื่อสลับชั้น
-  function syncMap(point) {
-    const spots = tour.points
-      .filter((other) => other.floor === point.floor)
-      .map((other) => ({ id: MAP_LINK_PREFIX + other.id, ...tour.pixel(other), tooltip: pointName(other) }))
-      .map(({ id, x, y, tooltip }) => ({ id, x, y, tooltip }));
-    if (point.floor !== currentFloor) {
-      currentFloor = point.floor;
-      const plan = tour.floorMap.get(point.floor);
-      if (plan) map.setImage(plan.image, { x: tour.pixel(point).x, y: tour.pixel(point).y });
-    }
-    map.setHotspots(spots);
-    const here = tour.pixel(point);
-    const farthest = spots.reduce((max, spot) => Math.max(max, Math.hypot(spot.x - here.x, spot.y - here.y)), 1);
-    const size = Number.parseInt(options.mapSize, 10) || 150;
-    map.setZoom(Math.max(5, Math.min(200, ((size / 2) * 0.8) / farthest * 100)));
-  }
+  const minimap = createMinimap(container, tour, {
+    size: options.mapSize || '150px',
+    onSelect: (pointId) => plugin.setCurrentNode(String(pointId)),
+  });
 
   // มุมเริ่มต้น: ใช้เฉพาะตอนเข้าเดินชมที่จุดแรก (ตอนไปจุดอื่นเริ่มที่มุมที่กำลังมองอยู่)
   let startViewApplied = false;
   plugin.addEventListener('node-changed', ({ node }) => {
     const point = node.data.point;
-    syncMap(point);
+    minimap.show(point);
     if (!startViewApplied) {
       startViewApplied = true;
       if (options.useInitialView !== false && point.initial_yaw != null && point.initial_pitch != null) {
@@ -152,6 +210,7 @@ export function createTourViewer(container, tour, options = {}) {
         .sort((a, b) => a.distance - b.distance)[0]?.point;
     },
     destroy() {
+      minimap.destroy();
       viewer.destroy();
     },
   };

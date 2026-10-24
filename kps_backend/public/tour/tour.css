@@ -177,8 +177,6 @@ html, body {
 @keyframes kps-spin { to { transform: rotate(360deg); } }
 
 /* ---------- ปรับแต่ง Photo Sphere Viewer ---------- */
-.psv-map { border-radius: 16px !important; margin: 0 0 calc(12px + var(--kps-safe-bottom)) 12px !important; }
-.psv-map__container { border: 2px solid #fff; }
 .psv-tooltip { font-family: inherit; }
 .psv-loader-container { display: none; }
 
