@@ -327,6 +327,7 @@
     .tour-unplaced.is-selected { border-color: #f59e0b; background: #fffbeb; }
     .tour-heading-view { position: relative; height: 420px; border-radius: 12px; overflow: hidden; background: #0d1511; }
     .tour-heading-view.is-placing-label, .tour-heading-view.is-placing-label .psv-container { cursor: crosshair !important; }
+    .tour-heading-view.is-placing-label .crosshair { display: none; }
     .kps-room-tag { padding: 4px 10px; border: 2px solid #fff; border-radius: 999px; background: #15803d; color: #fff;
       font-weight: 700; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.35); white-space: nowrap; }
     .kps-room-tag.is-maintenance { background: #b45309; }
@@ -1099,7 +1100,7 @@
           </section>
           <p class="text-secondary small mb-3">
             ขั้นตอน: ① อัปโหลดภาพ 360° ของชั้นนี้ (เลือกได้หลายไฟล์) → ② คลิกภาพในรายการ "ยังไม่วาง" แล้วคลิกบนแผนผังตรงจุดที่ถ่าย
-            → ③ กด "เชื่อมอัตโนมัติ" แล้วตัดเส้นที่ทะลุผนังในโหมด "เชื่อม / ตัดเส้น" → ④ เลือกแต่ละจุดแล้วกด "ตั้งทิศ"
+            → ③ กด "เชื่อมอัตโนมัติ" แล้วตัดเส้นที่ทะลุผนังในโหมด "เชื่อม / ตัดเส้น" → ④ เลือกแต่ละจุดแล้วกด "ปรับภาพ" (ตั้งทิศ • มุมเริ่มต้น • ป้ายห้อง)
           </p>
           <div class="row g-3">
             <div class="col-12 col-xl-8">
@@ -2387,66 +2388,55 @@
     </div>
   </div>
 
-  <!-- ============ Modal: CSV import ============ -->
-  <div class="modal fade" id="tourHeadingModal" tabindex="-1" aria-labelledby="tourHeadingModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">explore</span></div><div><h2 class="modal-title m-title" id="tourHeadingModalTitle">ตั้งทิศของภาพ</h2><p class="m-sub">ปรับทิศของภาพให้ตรงกับทางเดิน</p></div></div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-        </div>
-        <div class="modal-body">
-          <p class="small text-secondary mb-2">
-            ลากภาพให้<strong>เส้นสีส้มกลางจอ</strong>ตรงกับทางที่เดินไปยังจุดที่เลือกด้านล่าง (ดูจากผนัง ประตู หรือทางเดินในภาพ) แล้วกด "ตั้งทิศ"
-            — แผนที่ย่อและป้ายห้องทั้งหมดในภาพนี้จะหมุนตามให้เอง ถ้ามีจุดเดินชมจุดเดียว เลือก <strong>"ห้อง … (หมุดบนแผนผัง)"</strong>
-            เป็นจุดอ้างอิงได้ เช่น ลากให้เส้นกลางจอตรงประตูห้องน้ำ แล้วเลือกห้องน้ำ
-          </p>
-          <div class="row g-2 align-items-end mb-3">
-            <div class="col-12 col-md-6">
-              <label for="tourHeadingTarget" class="form-label fw-semibold small mb-1">หันไปทางจุด</label>
-              <select id="tourHeadingTarget" class="form-select"></select>
-            </div>
-            <div class="col-12 col-md-6 d-flex gap-2 justify-content-md-end">
-              <button type="button" class="btn btn-primary" id="tourHeadingSave" onclick="saveTourHeading()">ตั้งทิศ</button>
-            </div>
-          </div>
-          <div id="tourHeadingView" class="tour-heading-view"><div class="crosshair"></div></div>
-          <p class="small text-secondary mt-2 mb-0" id="tourHeadingInfo"></p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ Modal: ปรับป้ายห้องในภาพเดินชม ============ -->
+  <!-- ============ Modal: ปรับภาพของจุดเดินชม (ทิศ + มุมเริ่มต้น + ป้ายห้อง ในหน้าต่างเดียว) ============ -->
   <div class="modal fade" id="tourLabelModal" tabindex="-1" aria-labelledby="tourLabelModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">label</span></div><div><h2 class="modal-title m-title" id="tourLabelModalTitle">ปรับป้ายห้อง</h2><p class="m-sub">วางป้ายห้องและตั้งมุมเริ่มต้นของจุดนี้</p></div></div>
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">tune</span></div><div><h2 class="modal-title m-title" id="tourLabelModalTitle">ปรับภาพของจุดนี้</h2><p class="m-sub">ตั้งทิศ มุมเริ่มต้น และป้ายห้อง ในที่เดียว</p></div></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
         </div>
         <div class="modal-body">
           <p class="small text-secondary mb-2">
-            เลือกห้อง กด <strong>"วางป้าย"</strong> แล้วคลิกบนภาพตรงตำแหน่งที่ต้องการ (เช่น ที่ประตูห้องน้ำ) — เดินไปจุดอื่นได้โดยแตะพื้นในภาพ
-            ห้องที่ไม่ได้ตั้งเองจะใช้ตำแหน่งอัตโนมัติจากหมุดบนแผนผัง
+            ลากภาพ/แตะพื้นเพื่อเดินดูได้ตามปกติ แล้วตั้งค่าตามลำดับ: <strong>① ทิศ</strong> (ให้แผนที่ย่อตรงกับภาพ) →
+            <strong>② มุมเริ่มต้น</strong> (มุมที่ผู้ใช้เห็นตอนเข้าจุดนี้) → <strong>③ ป้ายห้อง</strong> — ภาพจะไม่กระโดดหลังบันทึกแต่ละขั้น
           </p>
-          <div class="row g-2 align-items-end mb-3">
-            <div class="col-12 col-md-5">
-              <label for="tourLabelRoom" class="form-label fw-semibold small mb-1">ห้อง</label>
-              <select id="tourLabelRoom" class="form-select" onchange="renderTourLabelPanel()"></select>
+          <div class="row g-2 mb-2">
+            <div class="col-12 col-lg-4">
+              <div class="border rounded-3 p-2 h-100">
+                <div class="fw-semibold small mb-1">① ตั้งทิศให้ตรงแผนผัง</div>
+                <div class="small text-secondary mb-1">ลากให้<strong>เส้นสีส้มกลางจอ</strong>ตรงกับจุดอ้างอิง (เช่น ประตูห้องน้ำ) แล้วเลือกจุดนั้นด้านล่าง</div>
+                <div class="input-group input-group-sm">
+                  <select id="tourHeadingTarget" class="form-select"></select>
+                  <button type="button" class="btn btn-primary" id="tourHeadingSave" onclick="saveTourHeading()">ตั้งทิศ</button>
+                </div>
+                <div class="small text-secondary mt-1" id="tourHeadingInfo"></div>
+              </div>
             </div>
-            <div class="col-12 col-md-7 d-flex flex-wrap gap-2">
-              <button type="button" class="btn btn-primary" id="tourLabelPlace" onclick="toggleTourLabelPlacing()">วางป้าย</button>
-              <button type="button" class="btn btn-outline-secondary" id="tourLabelHide" onclick="hideTourLabel()">ซ่อนป้ายห้องนี้ในจุดนี้</button>
-              <button type="button" class="btn btn-outline-danger" id="tourLabelReset" onclick="resetTourLabel()">กลับเป็นอัตโนมัติ</button>
+            <div class="col-12 col-lg-4">
+              <div class="border rounded-3 p-2 h-100">
+                <div class="fw-semibold small mb-1">② มุมเริ่มต้น</div>
+                <div class="small text-secondary mb-1">ลากภาพไปมุมที่อยากให้เห็นก่อน แล้วกดตั้ง</div>
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary" id="tourInitialSet" onclick="setTourInitialView()">ตั้งมุมที่เห็นอยู่</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="tourInitialClear" onclick="clearTourInitialView()">ล้างมุมเริ่มต้น</button>
+                </div>
+                <div class="small text-secondary mt-1" id="tourInitialState"></div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-4">
+              <div class="border rounded-3 p-2 h-100">
+                <div class="fw-semibold small mb-1">③ ป้ายห้อง</div>
+                <select id="tourLabelRoom" class="form-select form-select-sm mb-1" onchange="renderTourLabelPanel()"></select>
+                <div class="d-flex flex-wrap gap-1">
+                  <button type="button" class="btn btn-sm btn-primary" id="tourLabelPlace" onclick="toggleTourLabelPlacing()">วางป้าย</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="tourLabelHide" onclick="hideTourLabel()">ซ่อน</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" id="tourLabelReset" onclick="resetTourLabel()">กลับอัตโนมัติ</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div id="tourLabelView" class="tour-heading-view"></div>
-          <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-            <button type="button" class="btn btn-sm btn-outline-primary" id="tourInitialSet" onclick="setTourInitialView()">ตั้งมุมที่เห็นอยู่เป็นมุมเริ่มต้นของจุดนี้</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="tourInitialClear" onclick="clearTourInitialView()">ล้างมุมเริ่มต้น</button>
-            <span class="small text-secondary" id="tourInitialState"></span>
-          </div>
+          <div id="tourLabelView" class="tour-heading-view"><div class="crosshair"></div></div>
           <p class="small text-secondary mt-2 mb-1" id="tourLabelInfo"></p>
           <div id="tourLabelList" class="small"></div>
         </div>
