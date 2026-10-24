@@ -20,6 +20,9 @@ const tourState = {
 };
 let tourHeadingModal;
 let tourHeadingViewer = null;
+let tourLabelModal;
+let tourLabelViewer = null;
+const tourLabelState = { placing: false, labels: [] }; // labels = ป้ายที่ผู้ดูแลตั้งเองของทุกจุดในอาคาร
 
 function initTourPage() {
   const modalElement = document.getElementById('tourHeadingModal');
@@ -27,6 +30,13 @@ function initTourPage() {
   modalElement.addEventListener('hidden.bs.modal', () => {
     tourHeadingViewer?.destroy();
     tourHeadingViewer = null;
+  });
+  const labelModalElement = document.getElementById('tourLabelModal');
+  tourLabelModal = new bootstrap.Modal(labelModalElement);
+  labelModalElement.addEventListener('hidden.bs.modal', () => {
+    tourLabelViewer?.destroy();
+    tourLabelViewer = null;
+    tourLabelState.placing = false;
   });
   document.getElementById('tourPlan').addEventListener('click', onTourPlanClick);
 }
@@ -230,6 +240,7 @@ function renderTourDetail() {
     <div class="d-flex flex-wrap gap-2 mb-3">
       <button type="button" class="btn btn-sm btn-primary" id="tourSavePoint" onclick="saveTourPoint(${point.id})">บันทึก</button>
       <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTourHeading(${point.id})" ${point.x === null || neighbors.length === 0 ? 'disabled title="วางจุดและเชื่อมกับจุดอื่นก่อน"' : ''}>ตั้งทิศ</button>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTourLabels(${point.id})" ${point.x === null ? 'disabled title="วางจุดบนแผนผังก่อน"' : ''}>ปรับป้ายห้อง</button>
       <button type="button" class="btn btn-sm btn-outline-secondary" onclick="startPlacing(${point.id})">ย้ายตำแหน่ง</button>
       <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteTourPoint(${point.id})">ลบ</button>
     </div>
@@ -491,5 +502,140 @@ async function saveTourHeading() {
     reportError(error);
   } finally {
     setBusy(button, false, '', 'ตั้งทิศ');
+  }
+}
+
+// ---------- ปรับป้ายห้อง ----------
+// yaw ที่เก็บเป็นพิกัดของ "ภาพต้นฉบับ" (ไม่ผูกกับทิศ) จึงยังตรงตำแหน่งเดิมแม้ภายหลังตั้งทิศของภาพใหม่
+// พิกัดบนจอของตัวดู = พิกัดในภาพ - heading (ดู tour.js)
+const TOUR_DEG = Math.PI / 180;
+
+function wrapTourAngle(angle) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function tourLabelPointId() {
+  return tourLabelViewer?.currentPoint?.id ?? null;
+}
+
+async function openTourLabels(id) {
+  const point = tourPoint(id);
+  if (!point || point.x === null) return;
+  tourLabelState.placing = false;
+  tourLabelModal.show();
+  await mountTourLabelViewer(id);
+}
+
+async function mountTourLabelViewer(id) {
+  tourLabelViewer?.destroy();
+  tourLabelViewer = null;
+  const container = document.getElementById('tourLabelView');
+  container.querySelectorAll('.psv-container').forEach((element) => element.remove());
+  try {
+    const [{ createTourViewer, prepareTour }, data] = await Promise.all([
+      import('./tour.js'),
+      api(`/api/tour/${tourState.building.id}`),
+    ]);
+    tourLabelState.labels = data.labels || [];
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute; inset:0;';
+    container.appendChild(holder);
+    tourLabelViewer = createTourViewer(holder, prepareTour(data), {
+      startPointId: id,
+      mapSize: '140px',
+      onNodeChange: () => renderTourLabelPanel(),
+      onViewClick: onTourLabelViewClick,
+    });
+    renderTourLabelPanel();
+  } catch (error) {
+    reportError(error);
+  }
+}
+
+// ห้องทั้งหมดของอาคาร: ห้องในชั้นเดียวกับจุดขึ้นก่อน
+function tourLabelRoomOptions(point) {
+  return [...tourState.rooms]
+    .sort((a, b) => (a.floor === point.floor ? 0 : 1) - (b.floor === point.floor ? 0 : 1)
+      || String(a.room_code).localeCompare(String(b.room_code), 'th'));
+}
+
+function renderTourLabelPanel() {
+  const point = tourLabelViewer?.currentPoint;
+  if (!point) return;
+  const select = document.getElementById('tourLabelRoom');
+  const previous = select.value;
+  select.innerHTML = tourLabelRoomOptions(point)
+    .map((room) => `<option value="${room.id}">${escapeHtml(room.room_code)} (ชั้น ${escapeHtml(room.floor || '-')})</option>`)
+    .join('');
+  if (previous && [...select.options].some((option) => option.value === previous)) select.value = previous;
+
+  document.getElementById('tourLabelModalTitle').textContent = `ปรับป้ายห้อง: ${tourPointName(point)}`;
+  const mine = tourLabelState.labels.filter((label) => label.point_id === point.id);
+  const current = mine.find((label) => label.room_id === Number(select.value));
+  const hasRoom = Boolean(select.value);
+  document.getElementById('tourLabelPlace').disabled = !hasRoom;
+  document.getElementById('tourLabelPlace').textContent = tourLabelState.placing ? 'คลิกบนภาพ… (กดอีกครั้งเพื่อยกเลิก)' : (current && !current.hidden ? 'ย้ายป้าย' : 'วางป้าย');
+  document.getElementById('tourLabelPlace').classList.toggle('btn-warning', tourLabelState.placing);
+  document.getElementById('tourLabelPlace').classList.toggle('btn-primary', !tourLabelState.placing);
+  document.getElementById('tourLabelHide').disabled = !hasRoom || Boolean(current?.hidden);
+  document.getElementById('tourLabelReset').disabled = !current;
+  document.getElementById('tourLabelView').classList.toggle('is-placing-label', tourLabelState.placing);
+  document.getElementById('tourLabelInfo').textContent = tourLabelState.placing
+    ? '📍 คลิกบนภาพตรงตำแหน่งที่ต้องการวางป้ายห้องที่เลือก'
+    : 'ป้ายที่ตั้งเองมีผลเฉพาะในภาพของจุดนี้ (แต่ละจุดต้องตั้งแยก)';
+
+  const roomName = (roomId) => escapeHtml(tourState.rooms.find((room) => room.id === roomId)?.room_code || `#${roomId}`);
+  document.getElementById('tourLabelList').innerHTML = mine.length === 0
+    ? '<span class="text-secondary">จุดนี้ยังไม่มีป้ายที่ตั้งเอง — ใช้ตำแหน่งอัตโนมัติทั้งหมด</span>'
+    : `<div class="fw-semibold mb-1">ป้ายที่ตั้งเองในจุดนี้ (${mine.length})</div>` + mine.map((label) => `
+        <span class="badge text-bg-light border me-1 mb-1">
+          ${roomName(label.room_id)} · ${label.hidden ? 'ซ่อน' : 'ตั้งตำแหน่งแล้ว'}
+          <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1" onclick="resetTourLabel(${label.room_id})" aria-label="ล้าง">ล้าง</button>
+        </span>`).join('');
+}
+
+function toggleTourLabelPlacing() {
+  if (!document.getElementById('tourLabelRoom').value) return;
+  tourLabelState.placing = !tourLabelState.placing;
+  renderTourLabelPanel();
+}
+
+// คลิกบนภาพขณะอยู่ในโหมดวางป้าย: คืน true เพื่อบอกตัวดูว่าใช้คลิกนี้แล้ว (ไม่ต้องเดินไปจุดอื่น)
+function onTourLabelViewClick(data) {
+  if (!tourLabelState.placing) return false;
+  if (data.rightclick || data.marker) return true;
+  saveTourLabelPosition(data.yaw, data.pitch);
+  return true;
+}
+
+async function saveTourLabelPosition(screenYaw, pitch) {
+  const point = tourLabelViewer?.currentPoint;
+  const roomId = Number(document.getElementById('tourLabelRoom').value);
+  if (!point || !roomId) return;
+  tourLabelState.placing = false;
+  const yaw = wrapTourAngle(screenYaw + (Number(point.heading) || 0) * TOUR_DEG);
+  await sendTourLabel(point.id, roomId, jsonRequest('PUT', { yaw, pitch }));
+}
+
+async function hideTourLabel() {
+  const pointId = tourLabelPointId();
+  const roomId = Number(document.getElementById('tourLabelRoom').value);
+  if (pointId && roomId) await sendTourLabel(pointId, roomId, jsonRequest('PUT', { hidden: true }));
+}
+
+async function resetTourLabel(roomIdArg) {
+  const pointId = tourLabelPointId();
+  const roomId = Number(roomIdArg) || Number(document.getElementById('tourLabelRoom').value);
+  if (pointId && roomId) await sendTourLabel(pointId, roomId, { method: 'DELETE' });
+}
+
+async function sendTourLabel(pointId, roomId, request) {
+  try {
+    const data = await api(`/api/admin/tour/points/${pointId}/labels/${roomId}`, request);
+    showStatus(data.message);
+    await mountTourLabelViewer(pointId); // โหลดข้อมูลทัวร์ใหม่แล้วสร้างตัวดูใหม่ที่จุดเดิม เพื่อให้เห็นป้ายตามที่ตั้งไว้
+  } catch (error) {
+    reportError(error);
+    renderTourLabelPanel();
   }
 }

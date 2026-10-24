@@ -3285,16 +3285,30 @@ app.get('/api/tour/:buildingId', asyncRoute(async (req, res) => {
         'SELECT point_a, point_b FROM tour_links WHERE point_a IN (?) AND point_b IN (?) ORDER BY id', [ids, ids]);
     const [floors] = await pdb.query(
         'SELECT floor, image_url AS image, width, height FROM floor_plans WHERE building_id = ? ORDER BY floor', [buildingId]);
+    const [labels] = ids.length === 0 ? [[]] : await pdb.query(
+        'SELECT point_id, room_id, yaw, pitch, hidden FROM tour_room_labels WHERE point_id IN (?)', [ids]);
+    // ห้องที่มีหมุดบนแผนผัง (คำนวณป้ายอัตโนมัติ) + ห้องที่ผู้ดูแลวางป้ายเอง (ไม่ต้องมีหมุดก็ได้)
+    const labelRoomIds = [...new Set(labels.map(label => label.room_id))];
     const [rooms] = await pdb.query(
         `SELECT id, room_code, floor, pin_x, pin_y, status FROM rooms
-         WHERE building_id = ? AND pin_x IS NOT NULL AND pin_y IS NOT NULL ${isStaffRequest(req) ? '' : "AND status <> 'inactive'"}`, [buildingId]);
+         WHERE building_id = ? AND (pin_x IS NOT NULL AND pin_y IS NOT NULL ${labelRoomIds.length ? 'OR id IN (?)' : ''})
+         ${isStaffRequest(req) ? '' : "AND status <> 'inactive'"}`,
+        labelRoomIds.length ? [buildingId, labelRoomIds] : [buildingId]);
 
     res.json({
         building: buildings[0],
         floors,
         points: points.map(formatTourPoint),
         links: links.map(link => [link.point_a, link.point_b]),
-        rooms: rooms.map(room => ({ ...room, pin_x: Number(room.pin_x), pin_y: Number(room.pin_y) })),
+        rooms: rooms.map(room => ({
+            ...room,
+            pin_x: room.pin_x === null ? null : Number(room.pin_x),
+            pin_y: room.pin_y === null ? null : Number(room.pin_y),
+        })),
+        labels: labels.map(label => ({
+            point_id: label.point_id, room_id: label.room_id, hidden: Boolean(label.hidden),
+            yaw: label.yaw === null ? null : Number(label.yaw), pitch: label.pitch === null ? null : Number(label.pitch),
+        })),
     });
 }));
 
@@ -3437,6 +3451,49 @@ app.delete('/api/admin/tour/links', requirePerm('panoramas.hotspots'), asyncRout
     if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบเส้นเชื่อมนี้');
     logActivity(req, { action: 'delete', entity: 'tour_link', detail: `ตัดเส้นเชื่อม #${a} ↔ #${b}` });
     res.json({ message: 'ตัดเส้นเชื่อมสำเร็จ!' });
+}));
+
+// ตั้งตำแหน่งป้ายห้องในภาพของจุดเดินชม (yaw/pitch เรเดียน) หรือซ่อนป้ายห้องนั้นในจุดนี้
+app.put('/api/admin/tour/points/:id/labels/:roomId', requirePerm('panoramas.hotspots'), asyncRoute(async (req, res) => {
+    const pointId = parsePositiveInt(req.params.id);
+    const roomId = parsePositiveInt(req.params.roomId);
+    if (pointId === null || roomId === null) throw new HttpError(400, 'รหัสจุดหรือห้องไม่ถูกต้อง');
+
+    const [points] = await pdb.query('SELECT building_id FROM tour_points WHERE id = ?', [pointId]);
+    if (points.length === 0) throw new HttpError(404, 'ไม่พบจุดเดินชมนี้');
+    const [rooms] = await pdb.query('SELECT room_code FROM rooms WHERE id = ? AND building_id = ?', [roomId, points[0].building_id]);
+    if (rooms.length === 0) throw new HttpError(400, 'ห้องนี้ไม่ได้อยู่ในอาคารเดียวกับจุดเดินชม');
+
+    const body = req.body || {};
+    const hidden = body.hidden === true;
+    let yaw = null;
+    let pitch = null;
+    if (!hidden) {
+        yaw = Number(body.yaw);
+        pitch = Number(body.pitch);
+        if (!Number.isFinite(yaw) || Math.abs(yaw) > Math.PI + 0.001) throw new HttpError(400, 'ค่า yaw ต้องอยู่ระหว่าง -π ถึง π (เรเดียน)');
+        if (!Number.isFinite(pitch) || Math.abs(pitch) > Math.PI / 2 + 0.001) throw new HttpError(400, 'ค่า pitch ต้องอยู่ระหว่าง -π/2 ถึง π/2 (เรเดียน)');
+    }
+    await pdb.query(
+        `INSERT INTO tour_room_labels (point_id, room_id, yaw, pitch, hidden) VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE yaw = VALUES(yaw), pitch = VALUES(pitch), hidden = VALUES(hidden)`,
+        [pointId, roomId, yaw, pitch, hidden ? 1 : 0]);
+    logActivity(req, {
+        action: 'update', entity: 'tour_point', entityId: pointId,
+        detail: `${hidden ? 'ซ่อน' : 'ตั้งตำแหน่ง'}ป้ายห้อง "${rooms[0].room_code}" ในจุดเดินชม #${pointId}`,
+    });
+    res.json({ message: hidden ? 'ซ่อนป้ายห้องในจุดนี้แล้ว' : 'บันทึกตำแหน่งป้ายห้องแล้ว' });
+}));
+
+// ล้างการตั้งเอง: ป้ายของห้องนี้กลับไปใช้ตำแหน่งที่คำนวณจากหมุดบนแผนผัง
+app.delete('/api/admin/tour/points/:id/labels/:roomId', requirePerm('panoramas.hotspots'), asyncRoute(async (req, res) => {
+    const pointId = parsePositiveInt(req.params.id);
+    const roomId = parsePositiveInt(req.params.roomId);
+    if (pointId === null || roomId === null) throw new HttpError(400, 'รหัสจุดหรือห้องไม่ถูกต้อง');
+    const [result] = await pdb.query('DELETE FROM tour_room_labels WHERE point_id = ? AND room_id = ?', [pointId, roomId]);
+    if (result.affectedRows === 0) throw new HttpError(404, 'ไม่พบการตั้งป้ายนี้');
+    logActivity(req, { action: 'update', entity: 'tour_point', entityId: pointId, detail: `ล้างการตั้งป้ายห้อง #${roomId} ในจุดเดินชม #${pointId}` });
+    res.json({ message: 'กลับไปใช้ตำแหน่งอัตโนมัติแล้ว' });
 }));
 
 // เชื่อมอัตโนมัติในชั้นเดียว: ทุกจุดเชื่อมกับจุดที่ใกล้ที่สุด และจุดใกล้อื่น ๆ ที่อยู่คนละทิศ
@@ -4113,6 +4170,18 @@ const DASHBOARD_TABLES = [
         KEY fk_tour_links_b (point_b),
         CONSTRAINT fk_tour_links_a FOREIGN KEY (point_a) REFERENCES tour_points (id) ON DELETE CASCADE,
         CONSTRAINT fk_tour_links_b FOREIGN KEY (point_b) REFERENCES tour_points (id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
+    // ตำแหน่งป้ายห้องที่ผู้ดูแลกำหนดเองในภาพเดินชมของแต่ละจุด (yaw/pitch เรเดียนในระบบพิกัดของภาพต้นฉบับ) หรือซ่อนป้ายของห้องนั้น
+    `CREATE TABLE IF NOT EXISTS tour_room_labels (
+        point_id INT NOT NULL,
+        room_id INT NOT NULL,
+        yaw DOUBLE DEFAULT NULL,
+        pitch DOUBLE DEFAULT NULL,
+        hidden TINYINT(1) NOT NULL DEFAULT 0,
+        PRIMARY KEY (point_id, room_id),
+        KEY fk_tour_labels_room (room_id),
+        CONSTRAINT fk_tour_labels_point FOREIGN KEY (point_id) REFERENCES tour_points (id) ON DELETE CASCADE,
+        CONSTRAINT fk_tour_labels_room FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
 ];
 

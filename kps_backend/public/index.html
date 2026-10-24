@@ -323,6 +323,7 @@
     .tour-unplaced { cursor: pointer; border: 2px solid transparent; border-radius: 10px; padding: 4px; background: none; width: 100%; }
     .tour-unplaced.is-selected { border-color: #f59e0b; background: #fffbeb; }
     .tour-heading-view { position: relative; height: 420px; border-radius: 12px; overflow: hidden; background: #0d1511; }
+    .tour-heading-view.is-placing-label, .tour-heading-view.is-placing-label .psv-container { cursor: crosshair !important; }
     .kps-room-tag { padding: 4px 10px; border: 2px solid #fff; border-radius: 999px; background: #15803d; color: #fff;
       font-weight: 700; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.35); white-space: nowrap; }
     .kps-room-tag.is-maintenance { background: #b45309; }
@@ -2401,6 +2402,38 @@
           </div>
           <div id="tourHeadingView" class="tour-heading-view"><div class="crosshair"></div></div>
           <p class="small text-secondary mt-2 mb-0" id="tourHeadingInfo"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: ปรับป้ายห้องในภาพเดินชม ============ -->
+  <div class="modal fade" id="tourLabelModal" tabindex="-1" aria-labelledby="tourLabelModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="m-head"><div class="m-icon"><span class="material-symbols-outlined">label</span></div><div><h2 class="modal-title m-title" id="tourLabelModalTitle">ปรับป้ายห้อง</h2><p class="m-sub">วางป้ายห้องให้ตรงกับตำแหน่งจริงในภาพ</p></div></div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-secondary mb-2">
+            เลือกห้อง กด <strong>"วางป้าย"</strong> แล้วคลิกบนภาพตรงตำแหน่งที่ต้องการ (เช่น ที่ประตูห้องน้ำ) — เดินไปจุดอื่นได้โดยแตะพื้นในภาพ
+            ห้องที่ไม่ได้ตั้งเองจะใช้ตำแหน่งอัตโนมัติจากหมุดบนแผนผัง
+          </p>
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-md-5">
+              <label for="tourLabelRoom" class="form-label fw-semibold small mb-1">ห้อง</label>
+              <select id="tourLabelRoom" class="form-select" onchange="renderTourLabelPanel()"></select>
+            </div>
+            <div class="col-12 col-md-7 d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-primary" id="tourLabelPlace" onclick="toggleTourLabelPlacing()">วางป้าย</button>
+              <button type="button" class="btn btn-outline-secondary" id="tourLabelHide" onclick="hideTourLabel()">ซ่อนป้ายห้องนี้ในจุดนี้</button>
+              <button type="button" class="btn btn-outline-danger" id="tourLabelReset" onclick="resetTourLabel()">กลับเป็นอัตโนมัติ</button>
+            </div>
+          </div>
+          <div id="tourLabelView" class="tour-heading-view"></div>
+          <p class="small text-secondary mt-2 mb-1" id="tourLabelInfo"></p>
+          <div id="tourLabelList" class="small"></div>
         </div>
       </div>
     </div>

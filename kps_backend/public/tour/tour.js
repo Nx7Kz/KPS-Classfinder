@@ -70,10 +70,39 @@ function linkName(tour, from, to) {
   return pointName(to);
 }
 
+function roomTagHtml(tour, room) {
+  return `<button class="kps-room-tag${room.status === 'maintenance' ? ' is-maintenance' : ''}" type="button">${
+    escapeHtml(shortRoomCode(room.room_code, tour.building.code))}</button>`;
+}
+
+// ป้ายที่ผู้ดูแลตั้งตำแหน่งเองในภาพของจุดนี้ (yaw เก็บในพิกัดภาพต้นฉบับ จึงลบ heading ออกให้ตรงกับพิกัดบนจอ)
+// ห้องที่มีการตั้งไว้ (ซ่อนหรือย้าย) จะไม่ถูกคำนวณอัตโนมัติซ้ำ
+function manualRoomMarkers(tour, point, labels) {
+  const rooms = new Map(tour.rooms.map((room) => [room.id, room]));
+  return labels
+    .filter((label) => !label.hidden && label.yaw !== null && rooms.has(label.room_id))
+    .map((label) => {
+      const room = rooms.get(label.room_id);
+      return {
+        id: `room-${room.id}`,
+        position: { yaw: wrapAngle(label.yaw - rad(point.heading || 0)), pitch: label.pitch },
+        html: roomTagHtml(tour, room),
+        anchor: 'bottom center',
+        data: { roomId: room.id, roomCode: room.room_code, manual: true },
+      };
+    });
+}
+
 function roomMarkers(tour, point) {
   const here = tour.pixel(point);
+  const labels = (tour.labels || []).filter((label) => label.point_id === point.id);
+  const overridden = new Set(labels.map((label) => label.room_id));
+  return [...manualRoomMarkers(tour, point, labels), ...autoRoomMarkers(tour, point, here, overridden)];
+}
+
+function autoRoomMarkers(tour, point, here, overridden) {
   return tour.rooms
-    .filter((room) => room.floor === point.floor)
+    .filter((room) => room.floor === point.floor && room.pin_x !== null && room.pin_y !== null && !overridden.has(room.id))
     .map((room) => {
       const target = { x: room.pin_x / 100 * here.width, y: room.pin_y / 100 * here.height };
       const distance = Math.hypot(target.x - here.x, target.y - here.y);
@@ -85,8 +114,7 @@ function roomMarkers(tour, point) {
     .map(({ room, distance, yaw }) => ({
       id: `room-${room.id}`,
       position: { yaw, pitch: Math.min(0.12, 0.03 + distance / here.width) },
-      html: `<button class="kps-room-tag${room.status === 'maintenance' ? ' is-maintenance' : ''}" type="button">${
-        escapeHtml(shortRoomCode(room.room_code, tour.building.code))}</button>`,
+      html: roomTagHtml(tour, room),
       anchor: 'bottom center',
       data: { roomId: room.id, roomCode: room.room_code },
     }));
@@ -202,6 +230,7 @@ export function createTourViewer(container, tour, options = {}) {
 
   // แตะพื้นแล้วเดินไปทางนั้น (แบบ Street View): เลือกเส้นเชื่อมที่ทิศใกล้กับจุดที่แตะที่สุด
   viewer.addEventListener('click', ({ data }) => {
+    if (options.onViewClick?.(data)) return; // โหมดวางป้ายห้องในแดชบอร์ด: ใช้การคลิกเลือกตำแหน่ง ไม่เดินไปจุดอื่น
     if (data.rightclick || data.marker || data.pitch > -0.12) return;
     const node = plugin.getCurrentNode();
     if (!node) return;
