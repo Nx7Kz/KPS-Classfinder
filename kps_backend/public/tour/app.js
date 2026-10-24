@@ -77,6 +77,36 @@ function renderFloors(tour, viewerApi, currentFloor) {
   });
 }
 
+// รายการจุดในชั้นปัจจุบัน (แตะเพื่อไปดูจุดนั้น)
+function setupPointsList(tour, viewerApi) {
+  const sheet = $('pointsSheet');
+  const close = () => { sheet.hidden = true; };
+  sheet.querySelectorAll('[data-close]').forEach((element) => element.addEventListener('click', close));
+  $('pointsList').addEventListener('click', (event) => {
+    const item = event.target.closest('[data-point]');
+    if (!item) return;
+    close();
+    viewerApi.goTo(Number(item.dataset.point));
+  });
+  $('pointsButton').addEventListener('click', () => {
+    const current = viewerApi.currentPoint;
+    if (!current) return;
+    const floorPoints = tour.points.filter((point) => point.floor === current.floor);
+    $('pointsSheetTitle').textContent = `จุดในชั้น ${current.floor} (${floorPoints.length})`;
+    $('pointsList').innerHTML = floorPoints
+      .map((point) => `<button type="button" class="kps-sheet-item${point.id === current.id ? ' is-current' : ''}" data-point="${point.id}">
+        <span class="kps-dot"></span><span>${escapeHtml(pointSubtitle(point))}</span>${point.id === current.id ? '<small>ที่นี่</small>' : ''}</button>`)
+      .join('');
+    sheet.hidden = false;
+  });
+}
+
+function updatePointsButton(tour, point) {
+  const count = tour.points.filter((other) => other.floor === point.floor).length;
+  $('pointsButton').hidden = false;
+  $('pointsButtonText').textContent = `จุดในชั้นนี้ (${count})`;
+}
+
 async function main() {
   if (!Number.isInteger(buildingId) || buildingId <= 0) {
     showState('ไม่พบอาคารที่ต้องการเดินชม');
@@ -115,10 +145,12 @@ async function main() {
       $('state').hidden = true;
       $('pointName').textContent = `ชั้น ${point.floor} · ${pointSubtitle(point)}`;
       renderFloors(tour, viewerApi, point.floor);
+      updatePointsButton(tour, point);
       postToApp({ type: 'point', id: point.id, floor: point.floor });
     },
   });
   viewerApi.viewer.addEventListener('panorama-error', () => toast('โหลดภาพไม่สำเร็จ'));
+  setupPointsList(tour, viewerApi);
   showHintOnce();
   window.kpsTour = viewerApi; // ใช้ทดสอบ/ดีบัก
 }

@@ -43,7 +43,7 @@ const MINIMAP_CSS = `
   background: #fff; border: 2px solid #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.35);
   transition: width .2s ease, height .2s ease; touch-action: manipulation; }
 .kps-minimap.is-big { width: min(86vw, 62vh); height: min(86vw, 62vh); }
-.kps-minimap-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #f8faf9; }
+.kps-minimap-stage { position: absolute; inset: 0 0 26px 0; display: flex; align-items: center; justify-content: center; background: #f8faf9; }
 .kps-minimap-plan { position: relative; flex: none; }
 .kps-minimap-plan img { display: block; width: 100%; height: 100%; pointer-events: none; user-select: none; -webkit-user-drag: none; }
 .kps-minimap-dot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -52,6 +52,12 @@ const MINIMAP_CSS = `
 .kps-minimap-dot:hover::before { transform: scale(1.25); }
 .kps-minimap-dot.is-current { z-index: 2; cursor: default; }
 .kps-minimap-dot.is-current::before { width: 18px; height: 18px; margin: -9px 0 0 -9px; background: #2563eb; box-shadow: 0 0 0 5px rgba(37,99,235,.28); }
+.kps-minimap-dot.is-current::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+  border-radius: 50%; border: 2px solid #2563eb; animation: kps-minimap-pulse 1.8s ease-out infinite; pointer-events: none; }
+@keyframes kps-minimap-pulse { from { transform: scale(1); opacity: .7; } to { transform: scale(2.1); opacity: 0; } }
+.kps-minimap-caption { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; padding: 0 10px; display: flex; align-items: center;
+  justify-content: space-between; gap: 6px; background: #fff; border-top: 1px solid #e5ebe7; font: 700 11px/1 'IBM Plex Sans Thai', system-ui, sans-serif; color: #334155; }
+.kps-minimap-caption span:last-child { padding: 3px 8px; border-radius: 999px; background: #e7f4ea; color: #15803d; font-weight: 600; font-size: 10px; white-space: nowrap; }
 .kps-minimap-toggle { position: absolute; top: 6px; right: 6px; z-index: 3; width: 32px; height: 32px; border: 0; border-radius: 9px;
   background: rgba(0,0,0,.55); color: #fff; font-size: 17px; line-height: 1; cursor: pointer; }
 `;
@@ -67,6 +73,7 @@ function createMinimap(container, tour, { size, onSelect }) {
   root.className = 'kps-minimap';
   root.style.setProperty('--mini-size', size);
   root.innerHTML = `<div class="kps-minimap-stage"><div class="kps-minimap-plan"><img alt="แผนผังชั้น" draggable="false"></div></div>
+    <div class="kps-minimap-caption"><span class="kps-minimap-floor"></span><span>คุณอยู่ที่นี่</span></div>
     <button type="button" class="kps-minimap-toggle" aria-label="ขยายหรือย่อแผนที่">⤢</button>`;
   // ไม่ให้การแตะ/ลากบนแผนที่ไปหมุนภาพ 360° ข้างหลัง
   for (const type of ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel', 'dblclick']) {
@@ -97,12 +104,20 @@ function createMinimap(container, tour, { size, onSelect }) {
       dot.style.top = `${point.y}%`;
       dot.title = pointName(point);
       dot.setAttribute('aria-label', pointName(point));
-      dot.addEventListener('click', () => {
-        if (point.id !== currentId) onSelect(point.id);
-      });
       planBox.appendChild(dot);
     }
   }
+
+  // จุดที่อยู่ใกล้กันมากกรอบกดจะทับกัน จึงเลือกจุดที่ใกล้ตำแหน่งที่แตะที่สุดแทนจุดที่อยู่ชั้นบนสุด
+  planBox.addEventListener('click', (event) => {
+    let best = null;
+    for (const dot of planBox.querySelectorAll('.kps-minimap-dot')) {
+      const rect = dot.getBoundingClientRect();
+      const distance = Math.hypot(event.clientX - (rect.x + rect.width / 2), event.clientY - (rect.y + rect.height / 2));
+      if (distance <= 16 && (!best || distance < best.distance)) best = { id: Number(dot.dataset.pointId), distance };
+    }
+    if (best && best.id !== currentId) onSelect(best.id);
+  });
 
   root.querySelector('.kps-minimap-toggle').addEventListener('click', () => {
     root.classList.toggle('is-big');
@@ -116,6 +131,7 @@ function createMinimap(container, tour, { size, onSelect }) {
       currentId = point.id;
       if (point.floor !== floor) {
         floor = point.floor;
+        root.querySelector('.kps-minimap-floor').textContent = `ผังชั้น ${floor}`;
         const plan = tour.floorMap.get(floor);
         if (plan) image.src = plan.image;
         layout();

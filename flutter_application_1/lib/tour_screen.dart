@@ -47,6 +47,22 @@ class TourScreen extends StatefulWidget {
 
 class _TourScreenState extends State<TourScreen> {
   late Future<List<Map<String, dynamic>>> _future = Api.tourBuildings();
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> buildings) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return buildings;
+    return buildings
+        .where((b) => '${b['name'] ?? ''} ${b['code'] ?? ''}'.toLowerCase().contains(query))
+        .toList();
+  }
 
   Future<void> _refresh() async {
     final future = Api.tourBuildings();
@@ -65,8 +81,17 @@ class _TourScreenState extends State<TourScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PageHeader(title: 'เดินชมอาคาร', subtitle: 'เดินดูภายในอาคารแบบ 360° เหมือน Street View'),
-          const SizedBox(height: 16),
+          const _TourBadge(),
+          const SizedBox(height: 8),
+          const PageHeader(title: 'เดินชมอาคาร', subtitle: 'ดูภายในอาคารแบบ 360° เลือกจุดจากแผนที่ย่อได้ตามต้องการ'),
+          const SizedBox(height: 14),
+          AppSearchField(
+            controller: _searchController,
+            hint: 'ค้นหาชื่ออาคารหรือรหัสตึก...',
+            pill: true,
+            onChanged: (value) => setState(() => _query = value),
+          ),
+          const SizedBox(height: 12),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _future,
@@ -95,22 +120,151 @@ class _TourScreenState extends State<TourScreen> {
                     ),
                   );
                 }
+                final shown = _filter(buildings);
                 return RefreshIndicator(
                   onRefresh: _refresh,
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(bottom: 24),
-                    itemCount: buildings.length,
+                    // แถวแรก = ข้อความแนะนำ + จำนวนอาคาร
+                    itemCount: shown.length + 1 + (shown.isEmpty ? 1 : 0),
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) => FadeSlideIn(
-                      index: index,
-                      child: Pressable(child: _TourBuildingCard(building: buildings[index])),
-                    ),
+                    itemBuilder: (context, index) {
+                      if (index == 0) return _TourIntro(count: shown.length);
+                      if (shown.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: StateView(
+                            icon: Icons.search_off_rounded,
+                            title: 'ไม่พบอาคารที่ค้นหา',
+                            message: 'ลองค้นด้วยชื่อหรือรหัสตึกอื่น',
+                          ),
+                        );
+                      }
+                      return FadeSlideIn(
+                        index: index - 1,
+                        child: Pressable(child: _TourBuildingCard(building: shown[index - 1])),
+                      );
+                    },
                   ),
                 );
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ป้ายเล็กเหนือหัวข้อ
+class _TourBadge extends StatelessWidget {
+  const _TourBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'ทัวร์เสมือนจริง 360°',
+            style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// กล่องแนะนำวิธีใช้ + จำนวนอาคาร
+class _TourIntro extends StatelessWidget {
+  final int count;
+
+  const _TourIntro({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.touch_app_rounded, size: 18, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'สำรวจง่าย ๆ ในมุม 360°',
+                      style: TextStyle(color: AppColors.ink, fontSize: 13.5, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'ลากเพื่อหมุนมอง แล้วแตะจุดบนแผนที่ย่อมุมซ้ายล่างเพื่อไปดูจุดอื่น',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'อาคารที่เดินชมได้ · $count อาคาร',
+          style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.fill,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.primary),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
         ],
       ),
     );
@@ -206,10 +360,14 @@ class _TourBuildingCard extends StatelessWidget {
                             name,
                             style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$points จุด · $floors ชั้น',
-                            style: TextStyle(color: AppColors.muted, fontSize: 13),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _MetaChip(icon: Icons.place_outlined, label: '$points จุดสำรวจ'),
+                              _MetaChip(icon: Icons.layers_outlined, label: '$floors ชั้น'),
+                            ],
                           ),
                         ],
                       ),

@@ -29,10 +29,25 @@
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15.4 5.4 9 12l6.4 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="kps-title">
-      <div id="buildingName" class="kps-title-main">เดินชมอาคาร</div>
-      <div id="pointName" class="kps-title-sub"></div>
+      <div class="kps-title-row">
+        <div id="buildingName" class="kps-title-main">เดินชมอาคาร</div>
+        <span class="kps-badge">360°</span>
+      </div>
+      <div class="kps-title-sub"><span class="kps-dot"></span><span id="pointName"></span></div>
     </div>
   </header>
+
+  <button id="pointsButton" class="kps-points-button" type="button" hidden>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>
+    <span id="pointsButtonText">จุดในชั้นนี้</span>
+  </button>
+  <div id="pointsSheet" class="kps-sheet" hidden>
+    <div class="kps-sheet-backdrop" data-close></div>
+    <div class="kps-sheet-panel" role="dialog" aria-label="จุดในชั้นนี้">
+      <div class="kps-sheet-head"><strong id="pointsSheetTitle">จุดในชั้นนี้</strong><button type="button" class="kps-icon-button" data-close aria-label="ปิดรายการ">✕</button></div>
+      <div id="pointsList" class="kps-sheet-list"></div>
+    </div>
+  </div>
 
   <nav id="floorSwitch" class="kps-floors" aria-label="เปลี่ยนชั้น"></nav>
   <div id="hint" class="kps-hint" hidden>ลากเพื่อหมุนมอง · แตะจุดบนแผนที่มุมซ้ายล่างเพื่อไปดูจุดอื่น</div>

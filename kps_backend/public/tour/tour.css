@@ -81,14 +81,45 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.kps-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .kps-title-main { color: var(--kps-ink); font-weight: 700; font-size: 15px; }
-.kps-title-sub { color: var(--kps-muted); font-size: 12.5px; margin-top: 1px; }
+.kps-title-sub { display: flex; align-items: center; gap: 6px; color: var(--kps-muted); font-size: 12.5px; margin-top: 1px; min-width: 0; }
+.kps-title-sub #pointName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kps-badge { flex: none; padding: 2px 6px; border-radius: 6px; background: rgba(21, 128, 61, 0.14); color: var(--kps-primary); font-size: 10.5px; font-weight: 700; }
+.kps-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--kps-primary); }
+
+/* ---------- ปุ่ม/รายการจุดในชั้นนี้ ---------- */
+.kps-points-button {
+  position: fixed; right: 12px; bottom: calc(12px + var(--kps-safe-bottom)); z-index: 200;
+  display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px;
+  border: 1px solid var(--kps-line); border-radius: 16px; background: var(--kps-surface); color: var(--kps-ink);
+  font: 600 13px 'IBM Plex Sans Thai', system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); cursor: pointer;
+}
+.kps-points-button svg { color: var(--kps-primary); }
+.kps-points-button[hidden], .kps-sheet[hidden] { display: none; }
+.kps-sheet { position: fixed; inset: 0; z-index: 300; display: flex; align-items: flex-end; justify-content: center; }
+.kps-sheet-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
+.kps-sheet-panel {
+  position: relative; width: 100%; max-width: 520px; max-height: 65vh; display: flex; flex-direction: column;
+  border-radius: 22px 22px 0 0; background: var(--kps-surface); color: var(--kps-ink); backdrop-filter: blur(14px);
+  padding-bottom: var(--kps-safe-bottom);
+}
+.kps-sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 4px 18px; font-size: 15px; }
+.kps-sheet-list { overflow-y: auto; padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.kps-sheet-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; text-align: left;
+  border: 1px solid var(--kps-line); border-radius: 14px; background: transparent; color: inherit;
+  font: 600 14px 'IBM Plex Sans Thai', system-ui, sans-serif; cursor: pointer;
+}
+.kps-sheet-item small { margin-left: auto; color: var(--kps-muted); font-weight: 500; }
+.kps-sheet-item.is-current { border-color: var(--kps-primary); background: rgba(21, 128, 61, 0.1); }
+.kps-sheet-item .kps-dot { background: var(--kps-primary); }
 
 /* ---------- ปุ่มเปลี่ยนชั้น ---------- */
 .kps-floors {
   position: fixed;
   right: 12px;
-  top: calc(80px + var(--kps-safe-top));
+  top: calc(112px + var(--kps-safe-top));
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -101,8 +132,8 @@ html, body {
 }
 .kps-floors[hidden] { display: none; }
 .kps-floors button {
-  min-width: 64px;
-  height: 36px;
+  min-width: 56px;
+  height: 38px;
   padding: 0 10px;
   border: 0;
   border-radius: 11px;
@@ -146,7 +177,7 @@ html, body {
   text-align: center;
   pointer-events: none;
 }
-.kps-hint { bottom: calc(180px + var(--kps-safe-bottom)); }
+.kps-hint { bottom: auto; top: calc(74px + var(--kps-safe-top)); background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px); }
 .kps-hint[hidden], .kps-toast[hidden] { display: none; }
 
 .kps-state {
