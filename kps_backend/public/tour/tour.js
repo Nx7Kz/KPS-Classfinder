@@ -36,16 +36,14 @@ function pointName(point) {
   return point.label || (point.room_code ? `หน้าห้อง ${point.room_code}` : `จุดที่ ${point.id}`);
 }
 
-// ทุกจุดไปหากันได้ (เลือกจากแผนที่ย่อ) จึงสร้างลิงก์ไปทุกจุดอื่น ลูกศรบนพื้นของปลั๊กอินถูกซ่อนไว้ ไม่ใช้งาน
+// ไม่มีลิงก์ระหว่างจุด (ปลั๊กอินจะวาดลูกศรบนพื้นให้ทุกลิงก์) ผู้ใช้เลือกจุดจากแผนที่ย่อ ดู select-hotspot ด้านล่าง
 function buildNode(tour, point) {
   const plan = tour.pixel(point);
   return {
     id: String(point.id),
     panorama: point.image_url,
     name: pointName(point),
-    links: tour.points
-      .filter((other) => other.id !== point.id)
-      .map((other) => ({ nodeId: String(other.id), position: { yaw: 0, pitch: -0.3 }, data: { name: pointName(other) } })),
+    links: [],
     map: { x: plan.x, y: plan.y },
     data: { point },
   };
@@ -89,12 +87,11 @@ export function createTourViewer(container, tour, options = {}) {
       VirtualTourPlugin.withConfig({
         positionMode: 'manual',
         renderMode: '3d',
-        preload: false, // ทุกจุดลิงก์หากัน ไม่โหลดภาพล่วงหน้าทั้งหมด
+        preload: false,
         startNodeId: String(startPoint.id),
         nodes: tour.points.map((point) => buildNode(tour, point)),
         map: { imageUrl: startPlan?.image },
         showLinkTooltip: false,
-        arrowStyle: { size: { width: 80, height: 80 }, style: { opacity: '0', pointerEvents: 'none' } },
         transitionOptions: { showLoader: false, effect: 'fade', speed: 700, rotation: false },
       }),
     ],
