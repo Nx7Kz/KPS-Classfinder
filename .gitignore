@@ -25,3 +25,5 @@ kps_backend/backup/backups/
 # รายงาน HTML ที่ใช้สร้าง PDF (PDF เก็บขึ้น git ได้ ไว้ส่งอาจารย์/ทีม)
 sonar/reports/*.html
 __pycache__/
+
+tour-export/
