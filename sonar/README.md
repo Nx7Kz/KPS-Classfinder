@@ -50,9 +50,10 @@ URL ที่อยู่ในเครื่องเดียวกันใ�
 - **ตรวจเฉพาะ backend (`kps_backend/server.js`) และแดชบอร์ด admin (`kps_backend/public`)** — แอปมือถือ
   (Flutter/Dart) ยังไม่ได้ตรวจ เพราะ SonarQube Community Edition ยังไม่รองรับภาษา Dart โดยตรง
   (ต้องใช้ปลั๊กอินเสริมอย่าง `sonar-flutter` ถ้าอยากเพิ่มทีหลัง)
-- **ยังไม่มี coverage:** backend ยังไม่มีชุดทดสอบอัตโนมัติ (สคริปต์ `test` ใน `kps_backend/package.json`
-  เป็นแค่ placeholder) จึงยังไม่มีผลทดสอบส่งเข้า SonarQube — ตรวจ Bug/Vulnerability/Code Smell ได้ตามปกติ
-  ถ้าเพิ่มชุดทดสอบทีหลัง ต่อ coverage ได้ด้วย `sonar.javascript.lcov.reportPaths` ใน `sonar-project.properties`
+- **Coverage:** backend มีชุดทดสอบ Jest ใน `kps_backend/test/` (ตรรกะ TOTP, เวลาเปิด-ปิดห้อง, การแยกห้องเรียน/สิ่งอำนวยความสะดวก
+  ซึ่งย้ายไปอยู่ `kps_backend/lib/`) ก่อนสแกนให้รัน `cd kps_backend && npm test` เพื่อสร้าง `coverage/lcov.info`
+  แล้วค่อยรัน `python sonar/sonar_scan.py` — ไม่รัน `npm test` ก่อน coverage จะไม่ขึ้น
+  หน้าแดชบอร์ด (`public/**`) ไม่นับเข้า coverage เพราะยังไม่มีเทสต์อัตโนมัติ
 - **Quality Gate:** โปรเจกต์นี้ใช้เกต "KPS way (no test suite yet)" แทน "Sonar way" เริ่มต้น (`sonar_scan.py`
   สร้างให้เองตอนรันครั้งแรก) — เงื่อนไขเหมือนกันทุกข้อ ยกเว้นตัด "coverage บนโค้ดใหม่ ≥80%" ออก เพราะยังทำไม่ได้จริง
   ตามข้อข้างบน เมื่อมีชุดทดสอบจริงแล้วค่อยสลับโปรเจกต์กลับไปใช้ "Sonar way" ได้จากหน้าเว็บ

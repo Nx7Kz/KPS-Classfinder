@@ -27,3 +27,5 @@ sonar/reports/*.html
 __pycache__/
 
 tour-export/
+
+kps_backend/coverage/
