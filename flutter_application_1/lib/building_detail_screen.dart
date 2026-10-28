@@ -32,6 +32,7 @@ class BuildingDetailScreen extends StatefulWidget {
 class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
   late Future<List<Map<String, dynamic>>> _roomsFuture;
   String? _floor;
+  final Set<String> _openFacilityFloors = {};
   bool _showWeek = false;
 
   String get _name => widget.building['name']?.toString() ?? '-';
@@ -49,7 +50,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
     final text = [
       _name,
       if (_code.isNotEmpty) 'รหัสอาคาร $_code',
-      '${widget.building['floor_count'] ?? 0} ชั้น • ${widget.building['room_count'] ?? 0} ห้อง',
+      '${widget.building['floor_count'] ?? 0} ชั้น • ${classroomCountOf(widget.building)} ห้องเรียน',
       '',
       'ดูห้องและแผนที่ในแอป KPS ClassFinder',
     ].join('\n');
@@ -219,12 +220,18 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
   List<Widget> _buildFloors(List<Map<String, dynamic>> rooms) {
     final floors = sortFloors(rooms.map(floorOf));
     final floor = floors.contains(_floor) ? _floor! : floors.first;
-    final onFloor = rooms.where((room) => floorOf(room) == floor).toList()
-      ..sort((a, b) => (a['room_code']?.toString() ?? '').compareTo(b['room_code']?.toString() ?? ''));
+    int byCode(Map<String, dynamic> a, Map<String, dynamic> b) =>
+        (a['room_code']?.toString() ?? '').compareTo(b['room_code']?.toString() ?? '');
+    final allOnFloor = rooms.where((room) => floorOf(room) == floor);
+    final onFloor = allOnFloor.where((room) => !isFacilityRoom(room)).toList()..sort(byCode);
+    final facilitiesOnFloor = allOnFloor.where(isFacilityRoom).toList()..sort(byCode);
+    // ไม่มีห้องเรียนในชั้นนี้เลย (เช่น มีแต่ห้องน้ำ/ลิฟต์) ให้เปิดรายการสิ่งอำนวยความสะดวกไว้เลย
+    final facilitiesOpen = onFloor.isEmpty || _openFacilityFloors.contains(floor);
     final counts = <String, int>{};
-    for (final room in rooms) {
+    for (final room in rooms.where((room) => !isFacilityRoom(room))) {
       counts[floorOf(room)] = (counts[floorOf(room)] ?? 0) + 1;
     }
+    final classroomTotal = rooms.where((room) => !isFacilityRoom(room)).length;
 
     return [
       const SizedBox(height: 22),
@@ -244,7 +251,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(999)),
-            child: Text('รวม ${rooms.length} ห้อง', style: TextStyle(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w700)),
+            child: Text('รวม $classroomTotal ห้องเรียน', style: TextStyle(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -278,6 +285,32 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen> {
             onTap: () => openRoom(context, room),
           ),
         ),
+      if (facilitiesOnFloor.isNotEmpty) ...[
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _FacilityToggle(
+            count: facilitiesOnFloor.length,
+            open: facilitiesOpen,
+            // ไม่มีห้องเรียน = เปิดค้างไว้ ไม่ต้องมีปุ่มย่อ
+            onTap: onFloor.isEmpty
+                ? null
+                : () => setState(() {
+                      if (!_openFacilityFloors.remove(floor)) _openFacilityFloors.add(floor);
+                    }),
+          ),
+        ),
+        if (facilitiesOpen)
+          for (final (i, room) in facilitiesOnFloor.indexed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: RoomTile(
+                room: room,
+                entranceIndex: i,
+                showBuilding: false,
+                onTap: () => openRoom(context, room),
+              ),
+            ),
+      ],
       const SizedBox(height: 4),
       Row(
         children: [
@@ -534,15 +567,16 @@ class _QuickBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roomCount = int.tryParse('${building['room_count']}') ?? rooms.length;
+    final totalRooms = int.tryParse('${building['room_count']}') ?? rooms.length;
+    final roomCount = rooms.isNotEmpty ? rooms.where((r) => !isFacilityRoom(r)).length : classroomCountOf(building);
     final panoRooms = rooms.isNotEmpty ? rooms.where(hasPanorama).length : (int.tryParse('${building['panorama_room_count']}') ?? 0);
     final maintenance = int.tryParse('${building['maintenance_count']}') ?? 0;
     final hasElevator = rooms.any((r) => '${r['room_type'] ?? ''} ${r['room_code'] ?? ''}'.contains('ลิฟต์'));
 
     final badges = <(IconData, String, bool)>[
       (Icons.layers_outlined, '${building['floor_count'] ?? 0} ชั้น', false),
-      (Icons.meeting_room_outlined, '$roomCount ห้อง', false),
-      if (panoRooms > 0) (Icons.threesixty_rounded, panoRooms >= roomCount ? 'มีภาพ 360° ครบทุกห้อง' : 'ภาพ 360° $panoRooms ห้อง', false),
+      (Icons.meeting_room_outlined, '$roomCount ห้องเรียน', false),
+      if (panoRooms > 0) (Icons.threesixty_rounded, panoRooms >= totalRooms ? 'มีภาพ 360° ครบทุกห้อง' : 'ภาพ 360° $panoRooms ห้อง', false),
       if (hasElevator) (Icons.elevator_outlined, 'มีลิฟต์', false),
       if (maintenance > 0) (Icons.build_rounded, 'ปิดปรับปรุง $maintenance ห้อง', true),
     ];
@@ -820,6 +854,43 @@ class _ActionCard extends StatelessWidget {
 }
 
 /// แท็บเลือกชั้นแบบแคปซูลในกล่องเดียว มีเลขจำนวนห้องเล็ก ๆ ท้ายชื่อชั้น
+/// แถบย่อ/ขยายรายการสิ่งอำนวยความสะดวกของชั้น (ห้องน้ำ ลิฟต์ ร้านค้า ฯลฯ) onTap = null เมื่อเปิดค้างไว้
+class _FacilityToggle extends StatelessWidget {
+  final int count;
+  final bool open;
+  final VoidCallback? onTap;
+
+  const _FacilityToggle({required this.count, required this.open, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.tint,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.wc_rounded, size: 20, color: AppColors.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'สิ่งอำนวยความสะดวกในชั้นนี้ ($count)',
+                  style: TextStyle(color: AppColors.ink, fontSize: 13.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (onTap != null) Icon(open ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FloorTab extends StatelessWidget {
   final String label;
   final int count;

@@ -2544,6 +2544,12 @@ async function resolveMapCoordinates(mapUrl) {
     }
 }
 
+// แยก "ห้องเรียน" ออกจาก "สิ่งอำนวยความสะดวก" (ห้องน้ำ ลิฟต์ บันได โถง ร้านค้า สำนักงาน ห้องสมุด) จากประเภทห้องหรือรหัสห้อง
+// ห้องที่ไม่ระบุประเภทนับเป็นห้องเรียน (กันห้องหาย) คำที่ใช้ต้องตรงกับ isFacilityRoom ใน flutter_application_1/lib/room_utils.dart
+const FACILITY_WORDS = ['ห้องน้ำ', 'ลิฟต์', 'บันได', 'โถง', 'ร้านค้า', 'โรงอาหาร', 'สำนักงาน', 'ห้องสมุด', 'อ่านหนังสือ'];
+const facilitySql = (alias = 'rooms') => `(${alias}.id IS NOT NULL AND (${FACILITY_WORDS
+    .map((word) => `CONCAT_WS(' ', ${alias}.room_type, ${alias}.room_code) LIKE '%${word}%'`).join(' OR ')}))`;
+
 // รายชื่ออาคารทั้งหมด พร้อมสถิติจำนวนชั้น/จำนวนห้อง คำนวณสดจากตาราง rooms
 app.get('/api/buildings', (req, res) => {
     const visible = isStaffRequest(req) ? '' : "AND rooms.status <> 'inactive'";
@@ -2551,6 +2557,7 @@ app.get('/api/buildings', (req, res) => {
         SELECT buildings.id, buildings.code, buildings.name, buildings.description, buildings.location,
                buildings.cover_image, buildings.open_hours, buildings.map_url, buildings.latitude, buildings.longitude,
                COUNT(rooms.id) AS room_count,
+               SUM(CASE WHEN ${facilitySql()} THEN 1 ELSE 0 END) AS facility_count,
                COUNT(DISTINCT rooms.floor) AS floor_count,
                SUM(CASE WHEN rooms.status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_count,
                SUM(CASE WHEN rooms.status = 'suspended' THEN 1 ELSE 0 END) AS suspended_count,
@@ -2569,7 +2576,14 @@ app.get('/api/buildings', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(results.map((building) => {
             const hours = parseOpenHours(building.open_hours);
-            return { ...building, open_hours: hours, open_status: getOpenStatus({ hours, buildingId: building.id }) };
+            const facilityCount = Number(building.facility_count) || 0;
+            return {
+                ...building,
+                facility_count: facilityCount,
+                classroom_count: Math.max(Number(building.room_count) - facilityCount, 0),
+                open_hours: hours,
+                open_status: getOpenStatus({ hours, buildingId: building.id }),
+            };
         }));
     });
 });
@@ -3831,6 +3845,7 @@ app.get('/api/admin/overview', requirePerm('overview.view'), asyncRoute(async (r
         SELECT
             (SELECT COUNT(*) FROM buildings) AS building_count,
             (SELECT COUNT(*) FROM rooms) AS room_count,
+            (SELECT COUNT(*) FROM rooms WHERE ${facilitySql('rooms')}) AS facility_room_count,
             (SELECT COUNT(*) FROM rooms WHERE status = 'active') AS active_room_count,
             (SELECT COUNT(*) FROM rooms WHERE status = 'maintenance') AS maintenance_room_count,
             (SELECT COUNT(DISTINCT room_id) FROM panoramas) AS rooms_with_panorama_count,

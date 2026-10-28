@@ -6,6 +6,7 @@ import 'app_tabs.dart';
 import 'app_theme.dart';
 import 'motion.dart';
 import 'open_status.dart';
+import 'room_utils.dart';
 import 'building_detail_screen.dart';
 import 'skeleton.dart';
 import 'widgets.dart';
@@ -196,7 +197,7 @@ class _BuildingCard extends StatelessWidget {
     final name = building['name']?.toString() ?? '-';
     final location = building['location']?.toString().trim() ?? '';
     final floorCount = building['floor_count']?.toString() ?? '0';
-    final roomCount = building['room_count']?.toString() ?? '0';
+    final roomCount = classroomCountOf(building);
     final panoRooms = int.tryParse('${building['panorama_room_count']}') ?? 0;
     final maintenance = int.tryParse('${building['maintenance_count']}') ?? 0;
     final openStatus = buildingOpenStatus(building);
@@ -254,7 +255,7 @@ class _BuildingCard extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _Meta(icon: Icons.layers_outlined, label: '$floorCount ชั้น'),
-                        _Meta(icon: Icons.meeting_room_outlined, label: '$roomCount ห้อง'),
+                        _Meta(icon: Icons.meeting_room_outlined, label: '$roomCount ห้องเรียน'),
                       ],
                     ),
                     const SizedBox(height: 9),

@@ -602,7 +602,7 @@ class _BuildingShortcut extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = building['name']?.toString() ?? '-';
     final subtitle = [
-      '${building['room_count'] ?? 0} ห้อง',
+      '${classroomCountOf(building)} ห้องเรียน',
       '${building['floor_count'] ?? 0} ชั้น',
       if ((building['code']?.toString() ?? '').isNotEmpty) 'รหัส ${building['code']}',
     ].join(' • ');

@@ -622,7 +622,7 @@
             </article>
             <article class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] hover:tw-shadow-md tw-transition-shadow tw-duration-200">
               <div class="tw-flex tw-items-center tw-justify-between tw-text-on-surface-variant tw-mb-3">
-                <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline">ห้องเรียนในระบบ</span>
+                <span class="tw-text-label-md tw-font-label-md tw-font-medium tw-text-outline">ห้องในระบบ</span>
                 <div class="tw-w-8 tw-h-8 tw-rounded-lg tw-bg-secondary-container/40 tw-text-on-secondary-container tw-flex tw-items-center tw-justify-center"><span class="material-symbols-outlined tw-text-[1.25rem]">class</span></div>
               </div>
               <div class="tw-flex tw-items-baseline tw-gap-2 tw-mb-2">
@@ -2068,6 +2068,9 @@
                 <option value="ห้องสำนักงาน">ห้องสำนักงาน</option>
                 <option value="ร้านค้า / โรงอาหาร">ร้านค้า / โรงอาหาร</option>
                 <option value="ห้องน้ำ">ห้องน้ำ</option>
+                <option value="ลิฟต์">ลิฟต์</option>
+                <option value="ห้องโถง">ห้องโถง</option>
+                <option value="บันได">บันได</option>
                 <option value="__other__">อื่นๆ (ระบุเอง)</option>
               </select>
               <input id="roomTypeOther" class="form-control mt-2 d-none" maxlength="50" placeholder="ระบุประเภทห้อง" aria-label="ระบุประเภทห้อง">
@@ -2948,7 +2951,7 @@
               </div>
               <div>
                 <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">${escapeHtml(building.name)}</h4>
-                <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">${Number(building.room_count)} ห้องเรียน • ${Number(building.floor_count)} ชั้น</p>
+                <p class="tw-text-body-sm tw-font-body-sm tw-text-outline tw-m-0">${Number(building.classroom_count ?? building.room_count)} ห้องเรียน${Number(building.facility_count) > 0 ? ` + ${Number(building.facility_count)} จุดบริการ` : ''} • ${Number(building.floor_count)} ชั้น</p>
               </div>
             </div>
             <span class="tw-w-2.5 tw-h-2.5 tw-rounded-full ${dotClass} tw-flex-shrink-0" title="${escapeHtml(dotTitle)}"></span>
@@ -2997,6 +3000,8 @@
       document.getElementById('statBuildingMonth').textContent = `+${stats.buildings_this_month} จากเดือนนี้`;
       document.getElementById('statBuildingNote').textContent = maintenance === 0 ? 'พร้อมใช้งานครบ' : `มีห้องปิดปรับปรุง ${maintenance} ห้อง`;
       document.getElementById('statRoomCount').textContent = stats.room_count;
+      const facilityRooms = Number(stats.facility_room_count) || 0;
+      document.getElementById('statRoomCount').title = `ห้องเรียน ${Math.max(totalRooms - facilityRooms, 0)} · สิ่งอำนวยความสะดวก ${facilityRooms} (ห้องน้ำ ลิฟต์ ฯลฯ)`;
       document.getElementById('statActiveText').textContent = `เปิดใช้งาน ${stats.active_room_count}`;
       document.getElementById('statMaintenanceText').textContent = `ปิดปรับปรุง ${maintenance}`;
       document.getElementById('statPanoramaCount').textContent = stats.rooms_with_panorama_count;
@@ -3369,7 +3374,7 @@
               : '<span class="tw-text-label-sm tw-text-outline">ยังไม่ได้กำหนดเวลาทำการ</span>'}</div>
           </td>
           <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.floor_count)} ชั้น</td>
-          <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.room_count)} ห้อง</td>
+          <td class="tw-py-4 tw-px-6 tw-text-center tw-text-on-surface">${Number(building.classroom_count ?? building.room_count)} ห้องเรียน${Number(building.facility_count) > 0 ? `<div class="tw-text-body-sm tw-text-outline">+ ${Number(building.facility_count)} จุดบริการ</div>` : ''}</td>
           <td class="tw-py-4 tw-px-6 tw-text-right">
             <div class="tw-inline-flex tw-items-center tw-gap-2">
               <button type="button" onclick="openEditBuildingModal(${Number(building.id)})" class="need-image-write tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-2.5 tw-py-1 tw-text-label-sm tw-font-label-sm tw-rounded tw-border tw-border-outline-variant/50 tw-text-on-surface-variant hover:tw-bg-surface-container-high tw-transition-colors">แก้ไข</button>

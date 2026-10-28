@@ -38,6 +38,19 @@ String? statusReasonOf(Map<String, dynamic> room) {
   return reason == null || reason.isEmpty ? null : reason;
 }
 
+/// คำในประเภท/รหัสห้องที่นับเป็น "สิ่งอำนวยความสะดวก" (ไม่ใช่ห้องเรียน) ต้องตรงกับ FACILITY_WORDS ใน kps_backend/server.js
+const kFacilityWords = ['ห้องน้ำ', 'ลิฟต์', 'บันได', 'โถง', 'ร้านค้า', 'โรงอาหาร', 'สำนักงาน', 'ห้องสมุด', 'อ่านหนังสือ'];
+
+/// ห้องน้ำ ลิฟต์ บันได โถง ร้านค้า สำนักงาน ห้องสมุด ฯลฯ ห้องที่ไม่ระบุประเภทนับเป็นห้องเรียน
+bool isFacilityRoom(Map<String, dynamic> room) {
+  final text = '${room['room_type'] ?? ''} ${room['room_code'] ?? ''}';
+  return kFacilityWords.any(text.contains);
+}
+
+/// จำนวนห้องเรียนของอาคาร: ใช้ค่าจากเซิร์ฟเวอร์ ถ้าไม่มี (เซิร์ฟเวอร์รุ่นเก่า) ใช้จำนวนห้องทั้งหมด
+int classroomCountOf(Map<String, dynamic> building) =>
+    int.tryParse('${building['classroom_count']}') ?? int.tryParse('${building['room_count']}') ?? 0;
+
 /// ไอคอนตามประเภทห้อง (ลิฟต์ ห้องน้ำ ห้องบรรยาย ฯลฯ) ใช้บนการ์ดห้อง ถ้าไม่รู้จักประเภทใช้ไอคอนประตู
 IconData roomIcon(Map<String, dynamic> room) {
   final text = '${room['room_type'] ?? ''} ${room['room_code'] ?? ''}';
