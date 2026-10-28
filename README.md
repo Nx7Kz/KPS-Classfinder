@@ -374,6 +374,9 @@ GPS ในอาคารไม่แม่นพอที่จะแยกช�
 - ดาวน์โหลดไฟล์สำรองไปเก็บนอกเซิร์ฟเวอร์ และกู้คืนจากไฟล์ได้ (การกู้คืนต้องยืนยันรหัสผ่าน)
 - ใช้ย้ายข้อมูลข้ามเครื่องได้ (ดู [DEPLOY.md](kps_backend/DEPLOY.md))
 
+> ไฟล์สำรองที่สร้างก่อนวันที่ 28 ต.ค. 2569 อาจกู้คืนไม่ได้ถ้าอาคารหรือห้องมีเวลาทำการตั้งไว้ (บั๊กที่แก้แล้ว: ค่าคอลัมน์ JSON ถูกเขียนลงไฟล์ผิดรูปแบบ)
+> หลังอัปเดตระบบ ให้สร้างไฟล์สำรองใหม่ แล้วกด "ทดสอบกู้คืนจำลอง" ให้ผ่านก่อนไว้ใจไฟล์นั้น
+
 ---
 
 ## เทคโนโลยีที่ใช้
@@ -385,7 +388,7 @@ GPS ในอาคารไม่แม่นพอที่จะแยกช�
 | ฐานข้อมูล | MySQL 8.0 |
 | แดชบอร์ด | HTML + Bootstrap + Tailwind CSS (ธีม Material 3), Photo Sphere Viewer (`@photo-sphere-viewer/*`) |
 | ปรับใช้ | Docker, Docker Compose, Caddy (HTTPS อัตโนมัติ), Ubuntu VPS |
-| คุณภาพโค้ด | SonarQube (ไฟล์ตั้งค่าอยู่ในโฟลเดอร์ `sonar/`), `flutter analyze`, `flutter_test` |
+| คุณภาพโค้ด | SonarQube (ไฟล์ตั้งค่าอยู่ในโฟลเดอร์ `sonar/`), Jest (เทสต์ของเซิร์ฟเวอร์), `flutter analyze`, `flutter_test` |
 
 ---
 
@@ -412,6 +415,8 @@ KPS-Classfinder/
 │   └── test/                       # เทสต์ของแอป
 ├── kps_backend/                    # เซิร์ฟเวอร์ + แดชบอร์ด
 │   ├── server.js                   # REST API ทั้งหมด
+│   ├── lib/                        # ตรรกะที่แยกออกมาให้เทสต์ได้ (TOTP, เวลาเปิด-ปิด, แยกห้องเรียน, เขียนไฟล์สำรอง)
+│   ├── test/                       # เทสต์ของเซิร์ฟเวอร์ (Jest)
 │   ├── public/index.html           # หน้าแดชบอร์ดผู้ดูแล
 │   ├── db/init.sql                 # โครงสร้างฐานข้อมูลเริ่มต้น
 │   ├── docker-compose.yml          # สภาพแวดล้อมพัฒนา
@@ -478,6 +483,29 @@ flutter test
 ```
 
 > หมายเหตุ: มีเทสต์ widget 1 ข้อ (`shows the main navigation and switches tabs`) ที่ล้มในสภาพแวดล้อมเทสต์เพราะขาดไฟล์ shader ของเอฟเฟกต์ปุ่ม ไม่กระทบการทำงานจริงของแอป
+
+เซิร์ฟเวอร์ (ต้องมี Node.js):
+
+```bash
+cd kps_backend
+npm install
+npm test          # รัน Jest พร้อมรายงาน coverage (สร้าง coverage/lcov.info)
+```
+
+เทสต์ของเซิร์ฟเวอร์ครอบคลุมตรรกะที่อยู่ใน `kps_backend/lib/` (รหัส 2FA/TOTP, สถานะเปิด-ปิดตามเวลาไทยและวันปิดพิเศษ,
+การแยกห้องเรียนออกจากสิ่งอำนวยความสะดวก, การเขียนค่าลงไฟล์สำรอง) ส่วนเส้นทาง API ใน `server.js` ยังไม่มีเทสต์อัตโนมัติ
+จึงมี coverage รวมของโปรเจกต์ใน SonarQube ประมาณ 9% (ตรรกะใน `lib/` ครอบคลุม 100%)
+
+### 4) ตรวจคุณภาพโค้ดด้วย SonarQube
+
+```bash
+cd kps_backend && npm test && cd ..       # สร้างรายงาน coverage ก่อน
+docker compose -f sonar/docker-compose.yml up -d
+python sonar/sonar_scan.py                # สแกนและสรุปผล
+python sonar/sonar_report.py              # สร้างรายงาน PDF ที่ sonar/reports/
+```
+
+ผลล่าสุด: Quality Gate ผ่าน, Bugs 0, Vulnerabilities 0, Code Smells 0, โค้ดซ้ำ 0.4% รายละเอียดดู [sonar/README.md](sonar/README.md)
 
 ---
 
@@ -566,6 +594,7 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build
 - [ ] เลือกระดับซูมเริ่มต้นของภาพ 360°
 - [x] เพิ่มจุดเดินชมให้ครบทุกอาคารและทุกชั้นบนเว็บจริง (เสร็จแล้ว)
 - [ ] เข้าสู่ระบบด้วยบัญชีมหาวิทยาลัย (ไม่บังคับ) สำหรับรายงานที่ระบุตัวตนได้และซิงค์รายการโปรด
+- [ ] เพิ่มเทสต์อัตโนมัติของเส้นทาง API (เช่น `supertest` กับฐานข้อมูลทดสอบ) เพื่อเพิ่ม coverage
 - [ ] เผยแพร่บน Google Play
 
 ---
