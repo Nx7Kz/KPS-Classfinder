@@ -153,6 +153,22 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(_loadBuildings);
   }
 
+  /// ลากลงเพื่อรีเฟรช: โหลดอาคาร/วันปิดพิเศษใหม่ และค้นซ้ำถ้ามีคำค้นอยู่
+  Future<void> _refresh() async {
+    final query = _query;
+    setState(_loadBuildings);
+    try {
+      await _buildingsFuture;
+    } catch (_) {
+      // ข้อผิดพลาดแสดงที่ส่วน "เลือกจากอาคาร" อยู่แล้ว
+    }
+    await ClosureStore.refresh();
+    await _loadSaved();
+    if (query.isNotEmpty && mounted && _query == query) {
+      await _runSearch(query);
+    }
+  }
+
   String? _buildingCode(Map<String, dynamic> room) {
     final name = room['building_name']?.toString();
     for (final building in _buildings) {
@@ -193,7 +209,10 @@ class _SearchScreenState extends State<SearchScreen> {
           Expanded(
             child: ColoredBox(
               color: AppColors.fill,
-              child: ListView(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
                 children: [
@@ -230,6 +249,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     _WayfindingBanner(onTap: () => AppTabs.go(AppTabs.map)),
                   ],
                 ],
+                ),
               ),
             ),
           ),
