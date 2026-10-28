@@ -112,7 +112,7 @@ function applyTourZoom(zoom, anchor) {
 
 function zoomTourPlan(direction, anchor) {
   const index = TOUR_ZOOM_STEPS.indexOf(tourState.zoom);
-  const next = Math.min(TOUR_ZOOM_STEPS.length - 1, Math.max(0, (index < 0 ? 0 : index) + direction));
+  const next = Math.min(TOUR_ZOOM_STEPS.length - 1, Math.max(0, Math.max(index, 0) + direction));
   applyTourZoom(TOUR_ZOOM_STEPS[next], anchor);
 }
 

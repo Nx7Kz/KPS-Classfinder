@@ -48,7 +48,7 @@
       'on-secondary-fixed-variant': '#99f6e4', 'secondary-fixed': '#134e4a', 'secondary-fixed-dim': '#0f766e',
       'primary-fixed-dim': '#166534', 'on-tertiary-container': '#2f1500',
     };
-    const hexToChannels = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(' ');
+    const hexToChannels = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(' ');
     const m3Css = (palette) => Object.entries(palette).map(([k, v]) => `--m3-${k}:${hexToChannels(v)};`).join('');
     document.head.insertAdjacentHTML('beforeend',
       `<style>:root{${m3Css(M3_LIGHT)}}[data-bs-theme="dark"]{${m3Css(M3_DARK)}}</style>`);
@@ -96,7 +96,7 @@
     try {
       const saved = localStorage.getItem('kps_admin_theme');
       if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.setAttribute('data-bs-theme', 'dark');
+        document.documentElement.dataset.bsTheme = 'dark';
       }
     } catch (_) { /* เก็บค่าไม่ได้ (โหมดส่วนตัว) ก็ใช้โหมดสว่างไปก่อน */ }
   </script>
@@ -448,7 +448,7 @@
               <div class="tw-space-y-1.5">
                 <div class="tw-flex tw-items-center tw-justify-between">
                   <label for="loginPassword" class="tw-block tw-text-label-md tw-font-label-md tw-font-medium tw-text-on-surface">รหัสผ่าน (Password) <span class="tw-text-error">*</span></label>
-                  <a href="#" onclick="showStatus('หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบเพื่อรีเซ็ตให้', 'warning'); return false;" class="tw-text-label-sm tw-font-label-sm tw-text-primary tw-font-semibold hover:tw-underline tw-no-underline tw-transition-colors">ลืมรหัสผ่าน?</a>
+                  <button type="button" onclick="showStatus('หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบเพื่อรีเซ็ตให้', 'warning');" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-label-sm tw-font-label-sm tw-text-primary tw-font-semibold hover:tw-underline tw-no-underline tw-transition-colors">ลืมรหัสผ่าน?</button>
                 </div>
                 <div class="tw-relative tw-rounded-lg">
                   <div class="tw-absolute tw-inset-y-0 tw-left-0 tw-pl-3.5 tw-flex tw-items-center tw-pointer-events-none tw-text-outline"><span class="material-symbols-outlined tw-text-[1.25rem]">lock</span></div>
@@ -492,7 +492,7 @@
   </div>
 
   <div id="dashboardSection" class="app-shell d-none tw-font-body-md tw-text-on-surface tw-antialiased" style="font-family:'Prompt','Plus Jakarta Sans',sans-serif;">
-    <aside id="appSidebar" class="tw-w-64 tw-h-screen tw-fixed tw-left-0 tw-top-0 tw-flex tw-flex-col tw-justify-between tw-border-r tw-border-outline-variant/30 tw-bg-surface-container-lowest tw-z-40 tw-py-6 tw-px-4 tw-overflow-y-auto">
+    <aside id="appSidebar" aria-label="เมนูหลัก" class="tw-w-64 tw-h-screen tw-fixed tw-left-0 tw-top-0 tw-flex tw-flex-col tw-justify-between tw-border-r tw-border-outline-variant/30 tw-bg-surface-container-lowest tw-z-40 tw-py-6 tw-px-4 tw-overflow-y-auto">
       <div class="tw-flex tw-flex-col tw-gap-6">
         <div class="sidebar-brand-block tw-flex tw-items-center tw-gap-3 tw-px-2">
           <div class="tw-w-10 tw-h-10 tw-rounded-xl tw-bg-primary-container/10 tw-flex tw-items-center tw-justify-center tw-text-primary-container">
@@ -711,7 +711,7 @@
               <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
                 <div class="tw-flex tw-items-center tw-justify-between tw-mb-4">
                   <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">สถานะรายอาคาร</h3>
-                  <a href="#" onclick="showPage('buildings-rooms'); return false;" class="tw-text-label-sm tw-font-label-sm tw-text-primary tw-font-medium tw-cursor-pointer hover:tw-underline tw-no-underline">จัดการอาคาร</a>
+                  <button type="button" onclick="showPage('buildings-rooms');" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-label-sm tw-font-label-sm tw-text-primary tw-font-medium tw-cursor-pointer hover:tw-underline tw-no-underline">จัดการอาคาร</button>
                 </div>
                 <div id="buildingStatusList" class="tw-space-y-3"><div class="tw-text-body-sm tw-text-outline">กำลังโหลด...</div></div>
                 <div class="tw-mt-4 tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-flex tw-items-center tw-justify-between tw-text-body-sm tw-font-body-sm">
@@ -952,9 +952,9 @@
               <div id="fpMatchCard"></div>
               <div class="need-buildings-create tw-mt-4 tw-pt-4 tw-border-t tw-border-outline-variant/20 tw-flex tw-justify-between tw-items-center tw-text-body-sm">
                 <span class="tw-text-outline">ต้องการปักหมุดห้อง?</span>
-                <a href="#" onclick="managePins(); return false;" class="tw-text-primary tw-font-semibold hover:tw-underline tw-flex tw-items-center tw-gap-1 tw-text-label-md tw-no-underline">
+                <button type="button" onclick="managePins();" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-primary tw-font-semibold hover:tw-underline tw-flex tw-items-center tw-gap-1 tw-text-label-md tw-no-underline">
                   <span>ไปที่ Buildings &amp; Rooms</span><span class="material-symbols-outlined tw-text-[1rem]">chevron_right</span>
-                </a>
+                </button>
               </div>
             </div>
           </section>
@@ -1042,7 +1042,7 @@
               </div>
             </section>
 
-            <aside class="xl:tw-col-span-4 tw-space-y-6">
+            <aside class="xl:tw-col-span-4 tw-space-y-6" aria-label="ข้อมูลเสริม">
               <div class="tw-bg-surface-container-lowest tw-p-5 tw-rounded-xl tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)]">
                 <div class="tw-flex tw-items-center tw-justify-between tw-pb-3 tw-border-b tw-border-outline-variant/30">
                   <div class="tw-flex tw-items-center tw-gap-2">
@@ -1217,11 +1217,11 @@
             <div class="tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-center tw-justify-between tw-gap-4">
               <div class="tw-relative tw-flex-1">
                 <span class="tw-absolute tw-inset-y-0 tw-left-0 tw-pl-3.5 tw-flex tw-items-center tw-pointer-events-none tw-text-outline"><span class="material-symbols-outlined tw-text-[1.25rem]">search</span></span>
-                <input id="logSearch" type="search" oninput="debounceLogSearch()" placeholder="ค้นหาตามชื่อผู้ใช้, IP, หรือรายละเอียดกิจกรรม..." class="tw-w-full tw-pl-10 tw-pr-4 tw-py-2 tw-bg-surface tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-body-md tw-font-body-md tw-text-on-surface placeholder:tw-text-outline focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-transition-all">
+                <input id="logSearch" aria-label="ค้นหาบันทึกกิจกรรม" type="search" oninput="debounceLogSearch()" placeholder="ค้นหาตามชื่อผู้ใช้, IP, หรือรายละเอียดกิจกรรม..." class="tw-w-full tw-pl-10 tw-pr-4 tw-py-2 tw-bg-surface tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-body-md tw-font-body-md tw-text-on-surface placeholder:tw-text-outline focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-transition-all">
               </div>
               <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-2.5">
                 <div class="tw-relative tw-min-w-[150px]">
-                  <select id="logEntity" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
+                  <select id="logEntity" aria-label="กรองตามประเภทข้อมูล" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
                     <option value="">ประเภทข้อมูล: ทั้งหมด</option>
                     <option value="session">การเข้าสู่ระบบ</option>
                     <option value="room">ห้องเรียน</option>
@@ -1236,7 +1236,7 @@
                   <span class="material-symbols-outlined tw-absolute tw-right-2 tw-top-2.5 tw-text-outline tw-pointer-events-none tw-text-[1.125rem]">expand_more</span>
                 </div>
                 <div class="tw-relative tw-min-w-[160px]">
-                  <select id="logAction" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
+                  <select id="logAction" aria-label="กรองตามการกระทำ" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
                     <option value="">การกระทำ: ทั้งหมด</option>
                     <option value="login">เข้าสู่ระบบ</option>
                     <option value="login_failed">เข้าสู่ระบบไม่สำเร็จ</option>
@@ -1252,7 +1252,7 @@
                   <span class="material-symbols-outlined tw-absolute tw-right-2 tw-top-2.5 tw-text-outline tw-pointer-events-none tw-text-[1.125rem]">expand_more</span>
                 </div>
                 <div class="tw-relative tw-min-w-[130px]">
-                  <select id="logRangeFilter" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
+                  <select id="logRangeFilter" aria-label="กรองตามช่วงเวลา" onchange="loadLogs(0)" class="tw-w-full tw-appearance-none tw-pl-3 tw-pr-8 tw-py-2 tw-bg-surface-container-lowest tw-border tw-border-outline-variant/50 tw-rounded-lg tw-text-label-md tw-font-label-md tw-text-on-surface focus:tw-outline-none focus:tw-border-primary focus:tw-ring-2 focus:tw-ring-primary/20 tw-cursor-pointer">
                     <option value="">ทุกช่วงเวลา</option>
                     <option value="today">วันนี้</option>
                     <option value="7">7 วันล่าสุด</option>
@@ -1346,7 +1346,7 @@
                   <div class="tw-relative tw-shrink-0">
                     <div id="settingsAvatar" class="tw-w-16 tw-h-16 tw-rounded-xl tw-bg-primary tw-text-on-primary tw-flex tw-items-center tw-justify-center tw-text-headline-md tw-font-bold tw-overflow-hidden tw-ring-2 tw-ring-primary-container/30">--</div>
                     <button type="button" onclick="document.getElementById('avatarFile').click()" title="เปลี่ยนรูปโปรไฟล์" class="tw-appearance-none tw-cursor-pointer tw-absolute -tw-bottom-1 -tw-right-1 tw-p-1 tw-bg-surface-container-lowest tw-rounded-full tw-border tw-border-outline-variant/30 tw-shadow-sm tw-text-on-surface-variant hover:tw-text-primary tw-transition-colors tw-flex"><span class="material-symbols-outlined tw-text-[0.875rem]">photo_camera</span></button>
-                    <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp" class="tw-hidden" onchange="uploadAvatar(this)">
+                    <input id="avatarFile" aria-label="เลือกรูปโปรไฟล์" type="file" accept="image/png,image/jpeg,image/webp" class="tw-hidden" onchange="uploadAvatar(this)">
                   </div>
                   <div class="tw-flex-1">
                     <div class="tw-flex tw-items-center tw-gap-2">
@@ -1468,7 +1468,7 @@
                 <div>
                   <h4 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-mb-3 tw-mt-0 tw-flex tw-items-center tw-justify-between">
                     <span>การเข้าสู่ระบบล่าสุดของบัญชีนี้</span>
-                    <a href="#" onclick="showPage('logs'); return false;" class="tw-text-body-sm tw-text-primary tw-font-normal hover:tw-underline tw-no-underline">ดูทั้งหมด</a>
+                    <button type="button" onclick="showPage('logs');" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-body-sm tw-text-primary tw-font-normal hover:tw-underline tw-no-underline">ดูทั้งหมด</button>
                   </h4>
                   <div id="settingsSignIns" class="tw-space-y-3"><div class="tw-text-body-sm tw-text-outline">กำลังโหลด...</div></div>
                 </div>
@@ -1554,10 +1554,10 @@
                 <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-2.5">
                   <div class="tw-relative tw-min-w-[15rem]">
                     <span class="material-symbols-outlined tw-absolute tw-left-3 tw-top-2.5 tw-text-[1.125rem] tw-text-outline">search</span>
-                    <input id="adminSearch" type="text" oninput="renderAdminUsers()" placeholder="ค้นหาชื่อ อีเมล หรือ username..." class="tw-w-full tw-pl-9 tw-pr-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container focus:tw-ring-2 focus:tw-ring-primary-container/20 tw-outline-none tw-transition-all">
+                    <input id="adminSearch" aria-label="ค้นหาผู้ดูแลระบบ" type="text" oninput="renderAdminUsers()" placeholder="ค้นหาชื่อ อีเมล หรือ username..." class="tw-w-full tw-pl-9 tw-pr-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container focus:tw-ring-2 focus:tw-ring-primary-container/20 tw-outline-none tw-transition-all">
                   </div>
-                  <select id="adminRoleFilter" onchange="renderAdminUsers()" class="tw-px-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container tw-outline-none"><option value="">บทบาททั้งหมด</option></select>
-                  <select id="adminStatusFilter" onchange="renderAdminUsers()" class="tw-px-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container tw-outline-none">
+                  <select id="adminRoleFilter" aria-label="กรองตามบทบาท" onchange="renderAdminUsers()" class="tw-px-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container tw-outline-none"><option value="">บทบาททั้งหมด</option></select>
+                  <select id="adminStatusFilter" aria-label="กรองตามสถานะ" onchange="renderAdminUsers()" class="tw-px-3 tw-py-2 tw-text-body-md tw-rounded-lg tw-border tw-border-outline-variant/50 tw-bg-surface-container-lowest tw-text-on-surface focus:tw-border-primary-container tw-outline-none">
                     <option value="">สถานะทั้งหมด</option><option value="active">ใช้งานอยู่</option><option value="suspended">ถูกระงับ</option>
                   </select>
                 </div>
@@ -1593,7 +1593,7 @@
                   <h5 class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0 tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem] tw-text-primary-container">checklist</span>ตารางสิทธิ์จำแนกตามโมดูล</h5>
                   <span class="tw-text-body-sm tw-text-on-surface-variant">R / W / D = อ่าน สร้าง/แก้ไข ลบ • Read Only = ดูอย่างเดียว</span>
                 </div>
-                <div class="tw-overflow-x-auto"><table id="roleMatrix" class="tw-w-full tw-text-left tw-border-collapse"></table></div>
+                <div class="tw-overflow-x-auto"><table id="roleMatrix" class="tw-w-full tw-text-left tw-border-collapse"><thead class="tw-sr-only"><tr><th scope="col">โมดูลระบบ</th></tr></thead></table></div>
               </div>
             </section>
 
@@ -2241,7 +2241,7 @@
           <div class="need-buildings-create m-section">
             <div class="m-section-title"><span class="material-symbols-outlined">schedule</span>เวลาทำการ <span class="text-secondary small fw-normal">(ห้องในอาคารใช้เวลานี้ ถ้าไม่ได้กำหนดเอง)</span></div>
             <div class="form-check form-switch mb-3">
-              <input class="form-check-input" type="checkbox" role="switch" id="buildingHoursEnabled" onchange="toggleHoursEditor('building')">
+              <input class="form-check-input" type="checkbox" id="buildingHoursEnabled" onchange="toggleHoursEditor('building')">
               <label class="form-check-label" for="buildingHoursEnabled">กำหนดเวลาทำการของอาคาร</label>
             </div>
             <div id="buildingHoursEditor" class="d-none"></div>
@@ -2645,7 +2645,11 @@
     }
 
     function skeletonTableRows(colCount, rowCount = 4) {
-      const row = `<tr>${Array.from({ length: colCount }, () => `<td>${skeletonBar(`${55 + Math.random() * 35}%`)}</td>`).join('')}</tr>`;
+      const cells = Array.from({ length: colCount }, (_, index) => {
+        const width = 55 + ((index * 17 + 11) % 36);
+        return '<td>' + skeletonBar(width + '%') + '</td>';
+      });
+      const row = '<tr>' + cells.join('') + '</tr>';
       return row.repeat(rowCount);
     }
 
@@ -2678,11 +2682,11 @@
         const response = await fetch('/api/buildings');
         if (!response.ok) throw new Error('bad status');
         const list = await response.json();
-        const rooms = list.reduce((sum, building) => sum + (Number(building.room_count) || 0), 0);
+        const rooms = list.reduce((sum, building) => sum + (Number(building.classroom_count ?? building.room_count) || 0), 0);
         document.getElementById('loginStatBuildings').textContent = `จัดการ ${list.length} อาคาร • ${rooms} ห้องเรียน`;
         dot.className = 'tw-w-2 tw-h-2 tw-rounded-full tw-bg-primary tw-animate-pulse';
         text.textContent = 'เซิร์ฟเวอร์ออนไลน์ปกติ';
-      } catch (error) {
+      } catch { // ติดต่อเซิร์ฟเวอร์ไม่ได้ แสดงสถานะออฟไลน์แทน
         dot.className = 'tw-w-2 tw-h-2 tw-rounded-full tw-bg-error';
         text.textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้';
       }
@@ -3132,7 +3136,10 @@
         if (last && last.sig === sig) last.end = short;
         else groups.push({ sig, start: short, end: short });
       });
-      return groups.map(group => `${group.start === group.end ? group.start : `${group.start}–${group.end}`} ${group.sig}`).join(' • ');
+      return groups.map(group => {
+        const days = group.start === group.end ? group.start : group.start + '–' + group.end;
+        return `${days} ${group.sig}`;
+      }).join(' • ');
     }
 
     function toggleHoursEditor(prefix) {
@@ -3184,7 +3191,7 @@
         closed: 'tw-text-amber-700 dark:tw-text-amber-300',
         unknown: 'tw-text-outline',
       };
-      const icon = status.state === 'open' ? 'schedule' : status.state === 'closed' ? 'door_front' : 'schedule';
+      const icon = status.state === 'closed' ? 'door_front' : 'schedule';
       const detail = status.detail ? ` (${status.detail})` : '';
       return `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-text-label-sm tw-font-label-sm ${tones[status.state] || tones.unknown} ${compact ? '' : 'tw-font-medium'}">
         <span class="material-symbols-outlined tw-text-[0.875rem]">${icon}</span>${escapeHtml(status.label + detail)}</span>`;
@@ -3216,7 +3223,7 @@
     }
 
     function closureScopeLabel(closure) {
-      if (closure.room_id) return `ห้อง ${closure.room_code || ''}${closure.building_name ? ` • ${closure.building_name}` : ''}`;
+      if (closure.room_id) return `ห้อง ${closure.room_code || ''}` + (closure.building_name ? ` • ${closure.building_name}` : '');
       if (closure.building_id) return closure.building_name || 'อาคาร';
       return 'ทั้งมหาวิทยาลัย';
     }
@@ -3351,9 +3358,9 @@
 
     function renderBuildings() {
       const tbody = document.getElementById('buildingTableBody');
-      const totalRooms = buildings.reduce((sum, building) => sum + (Number(building.room_count) || 0), 0);
       document.getElementById('kpiBuildings').textContent = buildings.length;
-      document.getElementById('kpiRooms').textContent = totalRooms;
+      // นับเฉพาะห้องเรียน (ไม่รวมห้องน้ำ ลิฟต์ ฯลฯ) ให้ตรงกับป้าย "ห้องเรียนในระบบ"
+      document.getElementById('kpiRooms').textContent = buildings.reduce((sum, building) => sum + (Number(building.classroom_count ?? building.room_count) || 0), 0);
       document.getElementById('buildingCountPill').textContent = `${buildings.length} อาคาร`;
 
       if (buildings.length === 0) {
@@ -3708,17 +3715,14 @@
         const isPinned = room.pin_x !== null && room.pin_x !== undefined;
         const typeCapacity = [room.room_type, room.capacity ? `${room.capacity} ที่นั่ง` : null]
           .filter(Boolean).join(' • ') || '<span class="tw-text-outline">-</span>';
-        const statusBadge = room.status === 'suspended'
-          ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-red-100 tw-text-red-800 dark:tw-bg-red-500/15 dark:tw-text-red-300 tw-font-medium">
-              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-red-600 dark:tw-bg-red-300"></span>งดใช้งาน</span>`
-          : room.status === 'inactive'
-          ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline tw-font-medium">
-              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-outline"></span>ปิดใช้งาน</span>`
-          : room.status === 'maintenance'
-          ? `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-amber-100 tw-text-amber-800 dark:tw-bg-amber-500/15 dark:tw-text-amber-300 tw-font-medium">
-              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-amber-600 dark:tw-bg-amber-300"></span>ปิดปรับปรุง</span>`
-          : `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-green-100 tw-text-green-800 dark:tw-bg-green-500/15 dark:tw-text-green-300 tw-font-medium">
+        let statusBadge = `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-green-100 tw-text-green-800 dark:tw-bg-green-500/15 dark:tw-text-green-300 tw-font-medium">
               <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-green-700 dark:tw-bg-green-300"></span>เปิดใช้งาน</span>`;
+        if (room.status === 'suspended') statusBadge = `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-red-100 tw-text-red-800 dark:tw-bg-red-500/15 dark:tw-text-red-300 tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-red-600 dark:tw-bg-red-300"></span>งดใช้งาน</span>`;
+        else if (room.status === 'inactive') statusBadge = `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-surface-container tw-text-outline tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-outline"></span>ปิดใช้งาน</span>`;
+        else if (room.status === 'maintenance') statusBadge = `<span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-amber-100 tw-text-amber-800 dark:tw-bg-amber-500/15 dark:tw-text-amber-300 tw-font-medium">
+              <span class="tw-w-1.5 tw-h-1.5 tw-rounded-full tw-bg-amber-600 dark:tw-bg-amber-300"></span>ปิดปรับปรุง</span>`;
         const pinBadge = isPinned
           ? `<span class="tw-inline-flex tw-items-center tw-gap-1 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-primary/10 tw-text-primary tw-font-medium">
               <span class="material-symbols-outlined tw-text-[0.875rem]">pin_drop</span>ปักหมุดแล้ว</span>`
@@ -4259,19 +4263,25 @@
 
       const complete = totalRooms > 0 && unpinned.length === 0;
       const listItems = unpinned.slice(0, 4).map(room => `<li class="tw-text-body-sm tw-text-on-surface-variant">${escapeHtml(room.room_code)} <span class="tw-text-outline">(ชั้น ${escapeHtml(room.floor)})</span></li>`).join('');
+      let matchLabel = `เหลือ ${unpinned.length} ห้อง`;
+      let matchNote = 'ห้องเหล่านี้ยังไม่ได้ปักหมุดบนแผนผัง';
+      if (totalRooms === 0) { matchLabel = 'ยังไม่มีห้อง'; matchNote = 'อาคารนี้ยังไม่มีห้องเรียนในระบบ'; }
+      else if (complete) { matchLabel = 'ครบถ้วน'; matchNote = 'ห้องทั้งหมดในอาคารนี้มีหมุดพิกัดบนแผนผังแล้ว'; }
+      const moreRooms = unpinned.length > 4 ? `<p class="tw-text-[0.6875rem] tw-text-outline tw-m-0">และอีก ${unpinned.length - 4} ห้อง</p>` : '';
+      const unpinnedList = listItems ? `<ul class="tw-m-0 tw-pl-4">${listItems}</ul>${moreRooms}` : '';
       document.getElementById('fpMatchCard').innerHTML = `
         <div class="tw-flex tw-items-center tw-justify-between tw-mb-3">
           <h3 class="tw-text-headline-sm tw-font-headline-sm tw-font-bold tw-text-on-surface tw-m-0">สถานะการจับคู่ห้อง</h3>
-          <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${complete || totalRooms === 0 ? 'tw-bg-primary/10 tw-text-primary' : 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed'}">${totalRooms === 0 ? 'ยังไม่มีห้อง' : complete ? 'ครบถ้วน' : `เหลือ ${unpinned.length} ห้อง`}</span>
+          <span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${complete || totalRooms === 0 ? 'tw-bg-primary/10 tw-text-primary' : 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed'}">${matchLabel}</span>
         </div>
-        <p class="tw-text-body-sm tw-text-outline tw-mb-4">${complete ? 'ห้องทั้งหมดในอาคารนี้มีหมุดพิกัดบนแผนผังแล้ว' : totalRooms === 0 ? 'อาคารนี้ยังไม่มีห้องเรียนในระบบ' : 'ห้องเหล่านี้ยังไม่ได้ปักหมุดบนแผนผัง'}</p>
+        <p class="tw-text-body-sm tw-text-outline tw-mb-4">${matchNote}</p>
         <div class="tw-p-3 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/20 tw-flex tw-items-center tw-gap-3">
           <div class="tw-w-8 tw-h-8 tw-rounded-full tw-bg-primary/20 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0">
             <span class="material-symbols-outlined tw-text-[1.25rem]" style="font-variation-settings:'FILL' 1;">${complete ? 'check_circle' : 'pin_drop'}</span>
           </div>
           <div>
             <p class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface tw-m-0">${pinned} จาก ${totalRooms} ห้องเรียน</p>
-            ${listItems ? `<ul class="tw-m-0 tw-pl-4">${listItems}</ul>${unpinned.length > 4 ? `<p class="tw-text-[0.6875rem] tw-text-outline tw-m-0">และอีก ${unpinned.length - 4} ห้อง</p>` : ''}` : ''}
+            ${unpinnedList}
           </div>
         </div>`;
     }
@@ -4487,8 +4497,10 @@
       const covered = panoRooms.filter(room => Number(room.panorama_count) > 0).length;
       const images = panoRooms.reduce((sum, room) => sum + (Number(room.panorama_count) || 0), 0);
       document.getElementById('panoKpiCoverage').textContent = total > 0 ? `${covered} / ${total} ห้อง` : '-';
-      document.getElementById('panoKpiCoverageNote').textContent = total === 0 ? 'ยังไม่มีห้องในอาคารนี้'
-        : covered === total ? 'ครบทุกห้อง' : `ยังไม่มีภาพอีก ${total - covered} ห้อง`;
+      let coverageNote = `ยังไม่มีภาพอีก ${total - covered} ห้อง`;
+      if (total === 0) coverageNote = 'ยังไม่มีห้องในอาคารนี้';
+      else if (covered === total) coverageNote = 'ครบทุกห้อง';
+      document.getElementById('panoKpiCoverageNote').textContent = coverageNote;
       document.getElementById('panoKpiTotal').textContent = `${images} ภาพ`;
       document.getElementById('panoKpiTotalNote').textContent = covered > 0 ? `เฉลี่ย ${(images / covered).toFixed(1)} ภาพ/ห้อง` : 'ยังไม่มีภาพ';
     }
@@ -4697,7 +4709,7 @@
       if (!pano || !panoViewer) return Promise.resolve();
       panoViewerCurrentId = pano.id;
       const room = rooms.find(item => Number(item.id) === Number(pano.room_id));
-      document.getElementById('panoViewTitle').textContent = `${panoramaName(pano)}${room ? ` — ${room.room_code}` : ''}`;
+      document.getElementById('panoViewTitle').textContent = panoramaName(pano) + (room ? ` — ${room.room_code}` : '');
       document.getElementById('panoViewOriginal').href = pano.image_url;
       refreshPanoInitialControls(pano);
       const hasInitial = pano.initial_yaw !== null && pano.initial_yaw !== undefined && pano.initial_pitch !== null && pano.initial_pitch !== undefined;
@@ -5164,9 +5176,13 @@
           class="${base} tw-px-3 tw-py-1.5 tw-border tw-border-outline-variant/30 tw-bg-surface-container-lowest tw-flex tw-items-center tw-gap-1 ${disabled ? 'tw-text-outline tw-opacity-50 tw-cursor-not-allowed' : 'tw-text-on-surface hover:tw-bg-surface-container-high'}">
           ${iconFirst ? `<span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span>` : ''}<span class="tw-hidden sm:tw-inline">${label}</span>${iconFirst ? '' : `<span class="material-symbols-outlined tw-text-[1.125rem]">${icon}</span>`}
         </button>`;
-      const numbers = logPageNumbers(current, last).map(item => item === '…'
-        ? '<span class="tw-px-1 tw-text-outline tw-font-bold">…</span>'
-        : `<button type="button" onclick="loadLogs(${(item - 1) * LOG_PAGE_SIZE})" class="${base} tw-w-8 tw-h-8 tw-flex tw-items-center tw-justify-center ${item === current ? 'tw-border-0 tw-bg-primary-container tw-text-on-primary tw-font-semibold tw-shadow-sm' : 'tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-text-on-surface hover:tw-bg-surface-container-high'}">${item}</button>`);
+      const numbers = logPageNumbers(current, last).map(item => {
+        if (item === '…') return '<span class="tw-px-1 tw-text-outline tw-font-bold">…</span>';
+        const tone = item === current
+          ? 'tw-border-0 tw-bg-primary-container tw-text-on-primary tw-font-semibold tw-shadow-sm'
+          : 'tw-border tw-border-outline-variant/40 tw-bg-surface-container-lowest tw-text-on-surface hover:tw-bg-surface-container-high';
+        return `<button type="button" onclick="loadLogs(${(item - 1) * LOG_PAGE_SIZE})" class="${base} tw-w-8 tw-h-8 tw-flex tw-items-center tw-justify-center ${tone}">${item}</button>`;
+      });
       pager.innerHTML = nav('ก่อนหน้า', 'chevron_left', current - 1, current === 1, true) + numbers.join('') + nav('ถัดไป', 'chevron_right', current + 1, current === last, false);
     }
 
@@ -5633,15 +5649,20 @@
 
     function renderRoleMatrix() {
       const roles = rolesInfo.roles.filter(role => !matrixRoleFilter || role.key === matrixRoleFilter);
-      document.getElementById('roleMatrix').innerHTML = `
-        <thead><tr class="tw-border-b tw-border-outline-variant/30 tw-text-label-md tw-font-label-md tw-text-on-surface-variant">
-          <th class="tw-py-3 tw-px-4">โมดูลระบบ</th>${roles.map(role => `<th class="tw-py-3 tw-px-4 tw-text-center">${escapeHtml(role.label)}</th>`).join('')}
-        </tr></thead>
-        <tbody class="tw-divide-y tw-divide-outline-variant/20">${rolesInfo.modules.map(module => `
+      const headCells = roles.map(role => `<th class="tw-py-3 tw-px-4 tw-text-center">${escapeHtml(role.label)}</th>`).join('');
+      const bodyRows = rolesInfo.modules.map(module => {
+        const cells = roles.map(role => `<td class="tw-py-3 tw-px-4 tw-text-center">${permissionCellHtml(role, module)}</td>`).join('');
+        return `
           <tr class="hover:tw-bg-surface-container-low/60 tw-transition-colors">
             <td class="tw-py-3 tw-px-4"><div class="tw-font-medium tw-text-on-surface">${escapeHtml(module.label)}</div><div class="tw-text-body-sm tw-text-outline">${escapeHtml(module.description)}</div></td>
-            ${roles.map(role => `<td class="tw-py-3 tw-px-4 tw-text-center">${permissionCellHtml(role, module)}</td>`).join('')}
-          </tr>`).join('')}</tbody>`;
+            ${cells}
+          </tr>`;
+      }).join('');
+      document.getElementById('roleMatrix').innerHTML = `
+        <thead><tr class="tw-border-b tw-border-outline-variant/30 tw-text-label-md tw-font-label-md tw-text-on-surface-variant">
+          <th class="tw-py-3 tw-px-4">โมดูลระบบ</th>${headCells}
+        </tr></thead>
+        <tbody class="tw-divide-y tw-divide-outline-variant/20">${bodyRows}</tbody>`;
     }
 
     // ============ หน้าต่างแก้ไขและกำหนดสิทธิ์บทบาท ============
@@ -5725,55 +5746,87 @@
       }).join('');
     }
 
+    // ค่าตั้งต้นของบทบาทใหม่ ใช้แทนบทบาทเดิมตอนกด "สร้างบทบาทใหม่" เพื่อให้ฟอร์มเดียวกันใช้ได้ทั้งสร้างและแก้ไข
+    const NEW_ROLE_TEMPLATE = {
+      key: '', label: '', label_th: '', description: '', locked: false, is_system: false,
+      permissions: ['overview.view'], default_permissions: null,
+    };
+
+    function roleModalHeadings(role) {
+      if (!role) return { title: 'สร้างบทบาทใหม่ (New Role)', kind: 'บทบาทใหม่' };
+      return {
+        title: role.locked ? 'สิทธิ์ของบทบาท (Role Permissions)' : 'แก้ไขและกำหนดสิทธิ์บทบาท (Edit Role Permissions)',
+        kind: role.is_system ? 'บทบาทตั้งต้นของระบบ' : 'บทบาทที่สร้างเอง',
+      };
+    }
+
+    // ชิ้นส่วน HTML ของหน้าต่างบทบาทที่แสดงตามเงื่อนไข (บทบาทใหม่/เดิม, ถูกล็อก, มีสมาชิก) แยกออกมาให้ openRoleModal อ่านง่าย
+    function roleModalParts(role, members, avatars) {
+      const membersButton = role && members.length > 0 ? `<button type="button" onclick="showRoleMembers('${escapeHtml(role.key)}')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-0 tw-text-primary tw-text-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1 hover:tw-underline">ดูรายชื่อผู้ใช้งานทั้งหมด<span class="material-symbols-outlined tw-text-[0.875rem]">open_in_new</span></button>` : '';
+      const saveLabel = role ? 'บันทึกการเปลี่ยนแปลงสิทธิ์ (Save Changes)' : 'สร้างบทบาท (Create Role)';
+      const disabledAttr = roleDraft.locked ? 'disabled' : '';
+      const roleSubtitle = role ? ` สำหรับบทบาท: <strong class="tw-text-primary tw-font-semibold">${escapeHtml(role.label)} (${escapeHtml(role.label_th)})</strong>` : '';
+      const lockedNotice = roleDraft.locked ? '<div class="tw-p-3 tw-rounded-lg tw-bg-tertiary-fixed/60 tw-text-on-tertiary-fixed-variant tw-text-body-sm tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem]">lock</span>บทบาทผู้ดูแลระบบสูงสุดมีสิทธิ์ครบทุกอย่างเสมอ แก้ไขไม่ได้ เพื่อป้องกันการล็อกตัวเองออกจากระบบ</div>' : '';
+      const roleIdTag = role ? `Role ID: #${escapeHtml(role.key)}` : '';
+      const roleKeyField = role ? '' : `<div><label for="roleKey" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">รหัสบทบาท (Role ID — ตั้งแล้วแก้ไม่ได้)</label>
+                <input id="roleKey" maxlength="30" autocomplete="off" placeholder="เช่น library_staff" class="${roleInputClass} tw-font-mono"></div>`;
+      const membersSection = role ? `<div class="tw-flex tw-items-center tw-justify-between tw-pt-2 tw-border-t tw-border-outline-variant/20 tw-text-body-sm tw-flex-wrap tw-gap-2">
+              <div class="tw-flex tw-items-center tw-gap-3">
+                <span class="tw-text-label-md tw-text-on-surface-variant tw-font-medium">ผู้ใช้งานในบทบาทนี้:</span>
+                <div class="tw-flex -tw-space-x-2 tw-items-center">${avatars}</div>
+                <span class="tw-text-label-sm tw-bg-surface-container tw-text-on-surface tw-px-2 tw-py-0.5 tw-rounded-full tw-font-semibold">${members.length} บัญชี</span>
+              </div>
+              ${membersButton}
+            </div>` : '';
+      const deleteButton = role && !role.is_system ? `<button type="button" onclick="deleteRoleFromModal()" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-text-error hover:tw-bg-error-container/40 tw-rounded-lg tw-text-label-md tw-font-medium tw-transition-colors"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span>ลบบทบาทนี้ (Delete Role)</button>` : '';
+      const saveButton = roleDraft.locked ? '' : `<button id="roleSaveButton" type="button" onclick="saveRole()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-5 tw-py-2.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold tw-shadow-sm tw-transition-all tw-flex tw-items-center tw-gap-2 active:tw-scale-95"><span class="material-symbols-outlined tw-text-[1.125rem]">check_circle</span><span>${saveLabel}</span></button>`;
+      return { disabledAttr, roleSubtitle, lockedNotice, roleIdTag, roleKeyField, membersSection, deleteButton, saveButton };
+    }
+
     function openRoleModal(key) {
       const role = key ? rolesInfo.roles.find(item => item.key === key) : null;
       if (key && !role) return;
+      const source = role ?? NEW_ROLE_TEMPLATE;
       roleDraft = {
-        key: role ? role.key : '', isNew: !role, locked: Boolean(role && role.locked), isSystem: Boolean(role && role.is_system),
-        perms: new Set(role ? role.permissions : ['overview.view']), defaults: role ? role.default_permissions : null,
+        key: source.key, isNew: !role, locked: Boolean(source.locked), isSystem: Boolean(source.is_system),
+        perms: new Set(source.permissions), defaults: source.default_permissions,
       };
       const members = role ? adminUsers.filter(user => user.role === role.key) : [];
       const avatars = members.slice(0, 4).map(user => userAvatarHtml(user, 'tw-h-7 tw-w-7 tw-ring-2 tw-ring-surface-container-lowest')).join('');
-      const label = role ? role.label : '';
+      const label = source.label;
+      const { title: roleTitle, kind: roleKind } = roleModalHeadings(role);
+      const { disabledAttr, roleSubtitle, lockedNotice, roleIdTag, roleKeyField, membersSection, deleteButton, saveButton } = roleModalParts(role, members, avatars);
       document.getElementById('roleModalContent').innerHTML = `
         <div class="tw-px-6 tw-py-5 tw-border-b tw-border-outline-variant/20 tw-flex tw-items-start tw-justify-between tw-gap-3">
           <div class="tw-flex tw-items-start tw-gap-3.5">
             <div class="tw-w-11 tw-h-11 tw-rounded-xl tw-bg-primary/10 tw-text-primary tw-flex tw-items-center tw-justify-center tw-shrink-0"><span class="material-symbols-outlined tw-text-[1.5rem]">admin_panel_settings</span></div>
             <div>
               <div class="tw-flex tw-items-center tw-gap-3 tw-flex-wrap">
-                <h2 class="tw-text-headline-md tw-font-headline-md tw-font-bold tw-text-on-surface tw-tracking-tight tw-m-0">${role ? (role.locked ? 'สิทธิ์ของบทบาท (Role Permissions)' : 'แก้ไขและกำหนดสิทธิ์บทบาท (Edit Role Permissions)') : 'สร้างบทบาทใหม่ (New Role)'}</h2>
-                <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-primary-fixed tw-text-on-primary-fixed tw-font-semibold">${!role ? 'บทบาทใหม่' : role.is_system ? 'บทบาทตั้งต้นของระบบ' : 'บทบาทที่สร้างเอง'}</span>
+                <h2 class="tw-text-headline-md tw-font-headline-md tw-font-bold tw-text-on-surface tw-tracking-tight tw-m-0">${roleTitle}</h2>
+                <span class="tw-inline-flex tw-items-center tw-gap-1.5 tw-px-2.5 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-bg-primary-fixed tw-text-on-primary-fixed tw-font-semibold">${roleKind}</span>
               </div>
-              <p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">กำหนดขอบเขตการเข้าถึงและการกระทำ (Read / Write / Delete / Export)${role ? ` สำหรับบทบาท: <strong class="tw-text-primary tw-font-semibold">${escapeHtml(role.label)} (${escapeHtml(role.label_th)})</strong>` : ''}</p>
+              <p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">กำหนดขอบเขตการเข้าถึงและการกระทำ (Read / Write / Delete / Export)${roleSubtitle}</p>
             </div>
           </div>
           <button type="button" data-bs-dismiss="modal" aria-label="ปิด" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-1.5 tw-text-outline hover:tw-text-on-surface hover:tw-bg-surface-container tw-rounded-lg tw-flex"><span class="material-symbols-outlined tw-text-[1.5rem]">close</span></button>
         </div>
         <div class="tw-p-6 tw-space-y-6 tw-overflow-y-auto" style="max-height: 68vh;">
-          ${roleDraft.locked ? '<div class="tw-p-3 tw-rounded-lg tw-bg-tertiary-fixed/60 tw-text-on-tertiary-fixed-variant tw-text-body-sm tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-[1.125rem]">lock</span>บทบาทผู้ดูแลระบบสูงสุดมีสิทธิ์ครบทุกอย่างเสมอ แก้ไขไม่ได้ เพื่อป้องกันการล็อกตัวเองออกจากระบบ</div>' : ''}
+          ${lockedNotice}
           <section class="tw-rounded-xl tw-border tw-border-outline-variant/30 tw-bg-surface-container-low tw-p-4 tw-space-y-4">
             <div class="tw-flex tw-items-center tw-justify-between tw-border-b tw-border-outline-variant/20 tw-pb-3">
               <div class="tw-flex tw-items-center tw-gap-2"><span class="material-symbols-outlined tw-text-primary tw-text-[1.25rem]">badge</span><h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">ข้อมูลบทบาทพื้นฐาน</h3></div>
-              <span class="tw-text-label-sm tw-text-outline">${role ? `Role ID: #${escapeHtml(role.key)}` : ''}</span>
+              <span class="tw-text-label-sm tw-text-outline">${roleIdTag}</span>
             </div>
             <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
-              ${role ? '' : `<div><label for="roleKey" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">รหัสบทบาท (Role ID — ตั้งแล้วแก้ไม่ได้)</label>
-                <input id="roleKey" maxlength="30" autocomplete="off" placeholder="เช่น library_staff" class="${roleInputClass} tw-font-mono"></div>`}
+              ${roleKeyField}
               <div><label for="roleLabel" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">ชื่อบทบาท (Role Name - อังกฤษ)</label>
-                <input id="roleLabel" maxlength="60" value="${escapeHtml(label)}" ${roleDraft.locked ? 'disabled' : ''} class="${roleInputClass}"></div>
+                <input id="roleLabel" maxlength="60" value="${escapeHtml(label)}" ${disabledAttr} class="${roleInputClass}"></div>
               <div><label for="roleLabelTh" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">ชื่อแสดงในระบบ (Display Name - ภาษาไทย)</label>
-                <input id="roleLabelTh" maxlength="100" value="${escapeHtml(role ? role.label_th : '')}" ${roleDraft.locked ? 'disabled' : ''} class="${roleInputClass}"></div>
+                <input id="roleLabelTh" maxlength="100" value="${escapeHtml(source.label_th)}" ${disabledAttr} class="${roleInputClass}"></div>
               <div class="md:tw-col-span-2"><label for="roleDescription" class="tw-block tw-text-label-sm tw-text-outline tw-mb-1.5">คำอธิบายขอบเขตงาน (Role Description)</label>
-                <textarea id="roleDescription" rows="2" maxlength="300" ${roleDraft.locked ? 'disabled' : ''} class="${roleInputClass}">${escapeHtml(role ? role.description : '')}</textarea></div>
+                <textarea id="roleDescription" rows="2" maxlength="300" ${disabledAttr} class="${roleInputClass}">${escapeHtml(source.description)}</textarea></div>
             </div>
-            ${role ? `<div class="tw-flex tw-items-center tw-justify-between tw-pt-2 tw-border-t tw-border-outline-variant/20 tw-text-body-sm tw-flex-wrap tw-gap-2">
-              <div class="tw-flex tw-items-center tw-gap-3">
-                <span class="tw-text-label-md tw-text-on-surface-variant tw-font-medium">ผู้ใช้งานในบทบาทนี้:</span>
-                <div class="tw-flex -tw-space-x-2 tw-items-center">${avatars}</div>
-                <span class="tw-text-label-sm tw-bg-surface-container tw-text-on-surface tw-px-2 tw-py-0.5 tw-rounded-full tw-font-semibold">${members.length} บัญชี</span>
-              </div>
-              ${members.length > 0 ? `<button type="button" onclick="showRoleMembers('${escapeHtml(role.key)}')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-p-0 tw-text-primary tw-text-label-sm tw-font-semibold tw-flex tw-items-center tw-gap-1 hover:tw-underline">ดูรายชื่อผู้ใช้งานทั้งหมด<span class="material-symbols-outlined tw-text-[0.875rem]">open_in_new</span></button>` : ''}
-            </div>` : ''}
+            ${membersSection}
           </section>
           <div>
             <div class="tw-flex tw-items-center tw-justify-between tw-mb-2.5"><span class="tw-text-label-sm tw-text-outline">ชุดสิทธิ์ด่วน (Permission Presets)</span><span class="tw-text-label-sm tw-text-outline">คลิกเพื่อปรับค่าแบบกลุ่ม</span></div>
@@ -5791,10 +5844,10 @@
           </div>
         </div>
         <div class="tw-px-6 tw-py-4 tw-bg-surface-container-low tw-border-t tw-border-outline-variant/30 tw-flex tw-flex-col-reverse sm:tw-flex-row tw-items-center tw-justify-between tw-gap-3">
-          <div>${role && !role.is_system ? `<button type="button" onclick="deleteRoleFromModal()" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-inline-flex tw-items-center tw-gap-2 tw-px-3.5 tw-py-2 tw-text-error hover:tw-bg-error-container/40 tw-rounded-lg tw-text-label-md tw-font-medium tw-transition-colors"><span class="material-symbols-outlined tw-text-[1.125rem]">delete</span>ลบบทบาทนี้ (Delete Role)</button>` : ''}</div>
+          <div>${deleteButton}</div>
           <div class="tw-flex tw-items-center tw-gap-3">
             <button type="button" data-bs-dismiss="modal" class="tw-appearance-none tw-bg-transparent tw-cursor-pointer tw-px-4 tw-py-2.5 tw-rounded-lg tw-border tw-border-outline-variant hover:tw-bg-surface-container-lowest tw-text-on-surface tw-text-label-md tw-font-medium tw-transition-colors">${roleDraft.locked ? 'ปิด' : 'ยกเลิก (Cancel)'}</button>
-            ${roleDraft.locked ? '' : `<button id="roleSaveButton" type="button" onclick="saveRole()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-5 tw-py-2.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold tw-shadow-sm tw-transition-all tw-flex tw-items-center tw-gap-2 active:tw-scale-95"><span class="material-symbols-outlined tw-text-[1.125rem]">check_circle</span><span>${role ? 'บันทึกการเปลี่ยนแปลงสิทธิ์ (Save Changes)' : 'สร้างบทบาท (Create Role)'}</span></button>`}
+            ${saveButton}
           </div>
         </div>`;
       renderRolePermissionSection();
@@ -6012,7 +6065,7 @@
         if (manage) {
           secSettings = results[1].settings;
           secClientIp = results[1].client_ip;
-          secDraft = JSON.parse(JSON.stringify(secSettings));
+          secDraft = structuredClone(secSettings);
           secAudit = results[2];
           renderSecMetrics();
           renderSecScore();
@@ -6029,9 +6082,9 @@
     function renderSecScore() {
       const pill = document.getElementById('secScorePill');
       const score = secAudit.score;
-      const level = score >= 80 ? ['tw-bg-primary-fixed tw-text-on-primary-fixed-variant', 'tw-bg-primary', 'ดี']
-        : score >= 50 ? ['tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant', 'tw-bg-tertiary-container', 'พอใช้']
-          : ['tw-bg-error-container tw-text-on-error-container', 'tw-bg-error', 'ควรปรับปรุง'];
+      let level = ['tw-bg-error-container tw-text-on-error-container', 'tw-bg-error', 'ควรปรับปรุง'];
+      if (score >= 80) level = ['tw-bg-primary-fixed tw-text-on-primary-fixed-variant', 'tw-bg-primary', 'ดี'];
+      else if (score >= 50) level = ['tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant', 'tw-bg-tertiary-container', 'พอใช้'];
       pill.className = `need-settings-manage tw-inline-flex tw-items-center tw-gap-1.5 tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-semibold ${level[0]}`;
       pill.innerHTML = `<span class="tw-w-2 tw-h-2 tw-rounded-full ${level[1]}"></span>คะแนนความปลอดภัย: ${level[2]} (${score}/100)`;
     }
@@ -6063,8 +6116,9 @@
               <div class="tw-text-body-sm tw-text-outline">บัญชีที่ยังไม่เปิด 2FA จะต้องตั้งค่าก่อนใช้งานส่วนอื่น (กดบันทึกด้านล่างเพื่อให้มีผล)</div></div></div>
           ${switchHtml(secDraft.require_2fa, 'setSecDraft(\'require_2fa\', this.checked)', 'บังคับใช้ 2FA')}
         </div>` : '';
+      const disableAttrs = status.enforced ? 'disabled title="ระบบบังคับใช้ 2FA จึงปิดไม่ได้"' : '';
       const methodButton = status.enabled
-        ? `<button type="button" onclick="openTwoFaPassword('disable')" ${status.enforced ? 'disabled title="ระบบบังคับใช้ 2FA จึงปิดไม่ได้"' : ''} class="${secGhostButton} tw-text-error disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">ปิดใช้งาน</button>`
+        ? `<button type="button" onclick="openTwoFaPassword('disable')" ${disableAttrs} class="${secGhostButton} tw-text-error disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">ปิดใช้งาน</button>`
         : `<button type="button" onclick="openTwoFaSetup()" class="tw-whitespace-nowrap tw-shrink-0 tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-3.5 tw-py-1.5 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold tw-transition-colors active:tw-scale-95">เปิดใช้งาน</button>`;
       const backupSection = status.enabled ? `
         <div class="tw-mt-6 tw-pt-6 tw-border-t tw-border-outline-variant/30 tw-flex tw-items-center tw-justify-between tw-gap-3 tw-flex-wrap">
@@ -6213,10 +6267,11 @@
           </div>
         </div>`;
       }).join('');
+      const logsLink = can('logs.all') || can('logs.own') ? `<div class="tw-mt-4 tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-center"><button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-text-label-md tw-font-label-md tw-font-semibold tw-text-primary hover:tw-underline tw-inline-flex tw-items-center tw-gap-1">เปิดดูบันทึกทั้งหมด (System Logs)<span class="material-symbols-outlined tw-text-[1rem]">arrow_forward</span></button></div>` : '';
       document.getElementById('secEventsCard').innerHTML = `
         ${secCardHeader('notification_important', 'บันทึกความปลอดภัยล่าสุด', 'Security Alerts &amp; Audit Log')}
         <div class="tw-mt-4 tw-space-y-3">${list}</div>
-        ${can('logs.all') || can('logs.own') ? `<div class="tw-mt-4 tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-center"><button type="button" onclick="showPage('logs')" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-cursor-pointer tw-text-label-md tw-font-label-md tw-font-semibold tw-text-primary hover:tw-underline tw-inline-flex tw-items-center tw-gap-1">เปิดดูบันทึกทั้งหมด (System Logs)<span class="material-symbols-outlined tw-text-[1rem]">arrow_forward</span></button></div>` : ''}`;
+        ${logsLink}`;
     }
 
     async function saveSecuritySettings() {
@@ -6234,7 +6289,7 @@
     }
 
     function resetSecurityDraft() {
-      secDraft = JSON.parse(JSON.stringify(secSettings));
+      secDraft = structuredClone(secSettings);
       renderTwoFaCard();
       renderPolicyCard();
       renderIpCard();
@@ -6389,6 +6444,11 @@
       }
       const twoFa = activeRestrictions.includes('2fa_setup');
       const expired = activeRestrictions.includes('password_expired');
+      const twoFaBlock = twoFa ? `
+        <div class="tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-flex tw-items-center tw-justify-between tw-gap-3">
+          <div class="tw-flex tw-items-center tw-gap-2 tw-text-label-md tw-font-semibold tw-text-on-surface"><span class="material-symbols-outlined tw-text-primary">phonelink_lock</span>ระบบบังคับใช้ 2FA — ตั้งค่า Authenticator</div>
+          <button type="button" onclick="openTwoFaSetup()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold">ตั้งค่าเดี๋ยวนี้</button>
+        </div>` : '';
       document.getElementById('restrictionBody').innerHTML = `
         <p class="tw-text-body-md tw-text-on-surface-variant tw-mt-0">ผู้ดูแลระบบกำหนดให้ต้องทำรายการต่อไปนี้ก่อนจึงจะใช้งานส่วนอื่นได้</p>
         ${expired ? `
@@ -6399,11 +6459,7 @@
           <input id="rpConfirm" type="password" required autocomplete="new-password" placeholder="ยืนยันรหัสผ่านใหม่" class="${secSelectClass}">
           <button type="submit" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold">บันทึกรหัสผ่านใหม่</button>
         </form>` : ''}
-        ${twoFa ? `
-        <div class="tw-p-4 tw-rounded-xl tw-border tw-border-outline-variant/40 tw-flex tw-items-center tw-justify-between tw-gap-3">
-          <div class="tw-flex tw-items-center tw-gap-2 tw-text-label-md tw-font-semibold tw-text-on-surface"><span class="material-symbols-outlined tw-text-primary">phonelink_lock</span>ระบบบังคับใช้ 2FA — ตั้งค่า Authenticator</div>
-          <button type="button" onclick="openTwoFaSetup()" class="tw-appearance-none tw-border-0 tw-cursor-pointer tw-px-4 tw-py-2 tw-rounded-lg tw-bg-primary-container hover:tw-bg-primary tw-text-on-primary tw-text-label-md tw-font-semibold">ตั้งค่าเดี๋ยวนี้</button>
-        </div>` : ''}`;
+        ${twoFaBlock}`;
       restrictionModal.show();
     }
 
@@ -6446,7 +6502,9 @@
 
     function formatDuration(seconds) {
       const days = Math.floor(seconds / 86400); const hours = Math.floor((seconds % 86400) / 3600); const minutes = Math.floor((seconds % 3600) / 60);
-      return days > 0 ? `${days} วัน ${hours} ชม.` : hours > 0 ? `${hours} ชม. ${minutes} นาที` : `${minutes} นาที`;
+      if (days > 0) return `${days} วัน ${hours} ชม.`;
+      if (hours > 0) return `${hours} ชม. ${minutes} นาที`;
+      return `${minutes} นาที`;
     }
 
     async function loadSystemTab() {
@@ -6491,6 +6549,15 @@
       const disk = d.storage.disk;
       const used = disk ? Math.max(0, disk.total - disk.free) : 0;
       const usedPercent = disk && disk.total > 0 ? Math.min(100, used / disk.total * 100) : 0;
+      const diskTotalTag = disk ? `<span class="tw-text-label-sm tw-text-outline">ดิสก์ ${formatBytes(disk.total)}</span>` : '';
+      const diskBarTone = usedPercent > 90 ? 'tw-bg-error' : 'tw-bg-primary';
+      const diskBlock = disk
+        ? `<div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-2 tw-overflow-hidden"><div class="${diskBarTone} tw-h-2 tw-rounded-full" style="width:${usedPercent.toFixed(1)}%"></div></div>
+          <div class="tw-flex tw-justify-between tw-text-body-sm tw-text-outline"><span>ดิสก์ใช้ไป ${usedPercent.toFixed(1)}%</span><span class="tw-text-primary tw-font-medium">เหลือ ${formatBytes(disk.free)}</span></div>`
+        : '';
+      const panoFilesText = pano.files > 0 ? `ไฟล์ ${pano.files} ไฟล์ • เฉลี่ย ${formatBytes(pano.bytes / pano.files)} ต่อไฟล์` : 'ยังไม่มีไฟล์';
+      const plansFilesText = `ไฟล์ ${plans.files} ไฟล์ • รวม ${formatBytes(plans.bytes)}`;
+      const dbLatencyText = d.database.latency_ms === null ? 'เชื่อมต่อไม่ได้' : `ตอบสนองเฉลี่ย ${d.database.latency_ms.toFixed(1)} ms • ${d.database.tables} ตาราง`;
       const card = (label, icon, tone, body) => `
         <div class="tw-bg-surface-container-lowest tw-rounded-xl tw-p-5 tw-border tw-border-outline-variant/30 tw-shadow-[0_1px_3px_0_rgba(15,23,42,0.04)] tw-flex tw-flex-col tw-justify-between">
           <div class="tw-flex tw-items-start tw-justify-between"><span class="tw-text-label-md tw-font-label-md tw-text-outline">${label}</span>
@@ -6501,19 +6568,17 @@
       const sub = (icon, text) => `<div class="tw-flex tw-items-center tw-gap-1.5 tw-text-body-sm tw-text-outline"><span class="material-symbols-outlined tw-text-[1rem]">${icon}</span><span>${text}</span></div>`;
       document.getElementById('sysMetrics').innerHTML =
         card('ไฟล์ที่อัปโหลดทั้งหมด', 'folder', 'tw-bg-primary-fixed/50 tw-text-primary', `
-          <div class="tw-flex tw-items-baseline tw-justify-between">${big(formatBytes(d.storage.total_bytes))}${disk ? `<span class="tw-text-label-sm tw-text-outline">ดิสก์ ${formatBytes(disk.total)}</span>` : ''}</div>
-          ${disk ? `<div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-2 tw-overflow-hidden"><div class="${usedPercent > 90 ? 'tw-bg-error' : 'tw-bg-primary'} tw-h-2 tw-rounded-full" style="width:${usedPercent.toFixed(1)}%"></div></div>
-          <div class="tw-flex tw-justify-between tw-text-body-sm tw-text-outline"><span>ดิสก์ใช้ไป ${usedPercent.toFixed(1)}%</span><span class="tw-text-primary tw-font-medium">เหลือ ${formatBytes(disk.free)}</span></div>`
-            : sub('info', 'อ่านพื้นที่ดิสก์ไม่ได้บนระบบนี้')}`)
+          <div class="tw-flex tw-items-baseline tw-justify-between">${big(formatBytes(d.storage.total_bytes))}${diskTotalTag}</div>
+          ${disk ? diskBlock : sub('info', 'อ่านพื้นที่ดิสก์ไม่ได้บนระบบนี้')}`)
         + card('ภาพ 360° Panorama', 'photo_camera', 'tw-bg-secondary-container/60 tw-text-secondary', `
           ${big(`${Number(d.counts.panoramas || 0).toLocaleString('th-TH')} ภาพ`)}
-          ${sub('image', pano.files > 0 ? `ไฟล์ ${pano.files} ไฟล์ • เฉลี่ย ${formatBytes(pano.bytes / pano.files)} ต่อไฟล์` : 'ยังไม่มีไฟล์')}`)
+          ${sub('image', panoFilesText)}`)
         + card('แผนผังชั้น (Floor Plans)', 'layers', 'tw-bg-surface-container-high tw-text-on-surface-variant', `
           ${big(`${Number(d.counts.floor_plans || 0).toLocaleString('th-TH')} แผน`)}
-          ${sub('folder', `ไฟล์ ${plans.files} ไฟล์ • รวม ${formatBytes(plans.bytes)}`)}`)
+          ${sub('folder', plansFilesText)}`)
         + card('ฐานข้อมูล MySQL', 'database', 'tw-bg-primary-fixed/50 tw-text-primary', `
           ${big(d.database.size_bytes === null ? '-' : formatBytes(d.database.size_bytes))}
-          ${sub('timer', d.database.latency_ms === null ? 'เชื่อมต่อไม่ได้' : `ตอบสนองเฉลี่ย ${d.database.latency_ms.toFixed(1)} ms • ${d.database.tables} ตาราง`)}`);
+          ${sub('timer', dbLatencyText)}`);
     }
 
     function renderSysStorage() {
@@ -6696,12 +6761,23 @@
       renderBackupDrill();
     }
 
+    const backupBig = (text, cls = 'tw-text-on-surface') => `<div class="tw-text-headline-md tw-font-headline-md tw-font-bold ${cls}">${text}</div>`;
+    const backupSmall = text => `<p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">${text}</p>`;
+
+    // เนื้อการ์ด "สถานะการสำรองล่าสุด": ล้มเหลว / สำเร็จ / ยังไม่มีไฟล์
+    function backupStatusBody({ failed, run, latest }) {
+      if (failed) return backupBig('ล้มเหลว', 'tw-text-error') + backupSmall(escapeHtml(run.error || 'ไม่ทราบสาเหตุ'));
+      if (!latest) return backupBig('ยังไม่มีไฟล์สำรอง', 'tw-text-tertiary') + backupSmall('กดปุ่มสำรองข้อมูลทันทีเพื่อเริ่มต้น');
+      const typeLabel = BACKUP_TYPE_LABELS_TH[latest.type] || latest.type;
+      return backupBig('สำเร็จ') + backupSmall(`${timeAgo(latest.created_at)} • ${formatBytes(latest.size)} (${typeLabel})`);
+    }
+
     function renderBackupMetrics() {
       const d = backupData;
       const s = d.settings;
       const latest = d.backups[0];
       const run = s.last_run;
-      const failed = run && run.status === 'failed';
+      const failed = run?.status === 'failed';
       const card = (label, icon, tone, body, footer) => `
         <div class="tw-p-5 tw-rounded-xl tw-bg-surface-container-lowest tw-border tw-border-outline-variant/30 tw-shadow-sm tw-flex tw-flex-col tw-justify-between">
           <div class="tw-flex tw-items-center tw-justify-between tw-text-outline tw-mb-2"><span class="tw-text-label-md tw-font-label-md">${label}</span>
@@ -6709,24 +6785,31 @@
           <div>${body}</div>
           <div class="tw-mt-3 tw-pt-3 tw-border-t tw-border-outline-variant/20 tw-text-label-sm tw-text-outline tw-flex tw-items-center tw-gap-1">${footer}</div>
         </div>`;
-      const big = (text, cls = 'tw-text-on-surface') => `<div class="tw-text-headline-md tw-font-headline-md tw-font-bold ${cls}">${text}</div>`;
-      const small = text => `<p class="tw-text-body-sm tw-text-outline tw-mt-1 tw-mb-0">${text}</p>`;
+      const big = backupBig;
+      const small = backupSmall;
       const nextText = s.enabled && s.next_run_at ? `รอบถัดไป: ${thaiDateParts(s.next_run_at).day} ${thaiDateParts(s.next_run_at).time}` : 'ยังไม่ได้เปิดสำรองอัตโนมัติ';
       const disk = d.disk;
       const v = s.last_verify;
+      const statusBody = backupStatusBody({ failed, run, latest });
+      const backupCountText = `${d.backups.length} ไฟล์สำรอง` + (disk ? ` • ดิสก์เหลือ ${formatBytes(disk.free)}` : '');
+      const verifyFailed = v?.failed.length > 0;
+      let verifyBody = big('ยังไม่เคยตรวจ', 'tw-text-outline') + small('ตรวจว่าไฟล์ไม่เสียหายหลังเก็บไว้นาน');
+      if (v) {
+        const verifyNote = verifyFailed ? `ไม่ผ่าน: ${escapeHtml(v.failed.join(', '))}` : 'SHA-256 ตรงกับตอนสำรองทุกไฟล์';
+        verifyBody = big(`${v.ok} / ${v.total} ผ่าน`, verifyFailed ? 'tw-text-error' : 'tw-text-primary') + small(verifyNote);
+      }
+      const verifiedAt = v ? ` <span>• ตรวจล่าสุด ${timeAgo(v.at)}</span>` : '';
       document.getElementById('backupMetrics').innerHTML =
         card('สถานะการสำรองล่าสุด', failed ? 'error' : 'check_circle', failed ? 'tw-bg-error-container tw-text-on-error-container' : 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant',
-          failed ? big('ล้มเหลว', 'tw-text-error') + small(escapeHtml(run.error || 'ไม่ทราบสาเหตุ'))
-            : latest ? big('สำเร็จ') + small(`${timeAgo(latest.created_at)} • ${formatBytes(latest.size)} (${BACKUP_TYPE_LABELS_TH[latest.type] || latest.type})`)
-              : big('ยังไม่มีไฟล์สำรอง', 'tw-text-tertiary') + small('กดปุ่มสำรองข้อมูลทันทีเพื่อเริ่มต้น'),
+          statusBody,
           `<span class="material-symbols-outlined tw-text-[0.875rem]">update</span>${nextText}`)
         + card('พื้นที่ไฟล์สำรอง', 'pie_chart', 'tw-bg-surface-container-high tw-text-on-surface-variant',
-          big(formatBytes(d.total_bytes)) + small(`${d.backups.length} ไฟล์สำรอง${disk ? ` • ดิสก์เหลือ ${formatBytes(disk.free)}` : ''}`)
+          big(formatBytes(d.total_bytes)) + small(backupCountText)
           + (disk ? `<div class="tw-w-full tw-bg-surface-container tw-rounded-full tw-h-2 tw-mt-2 tw-overflow-hidden"><div class="tw-bg-primary-container tw-h-2 tw-rounded-full" style="width:${Math.min(100, (disk.total - disk.free) / disk.total * 100).toFixed(1)}%"></div></div>` : ''),
           `ชุดอัตโนมัติเก็บ ${s.retention_auto} ชุดล่าสุด ชุดอื่นไม่ถูกลบเอง`)
-        + card('ความสมบูรณ์ของไฟล์สำรอง', 'verified_user', v && v.failed.length > 0 ? 'tw-bg-error-container tw-text-on-error-container' : 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant',
-          v ? big(`${v.ok} / ${v.total} ผ่าน`, v.failed.length > 0 ? 'tw-text-error' : 'tw-text-primary') + small(v.failed.length > 0 ? `ไม่ผ่าน: ${escapeHtml(v.failed.join(', '))}` : 'SHA-256 ตรงกับตอนสำรองทุกไฟล์') : big('ยังไม่เคยตรวจ', 'tw-text-outline') + small('ตรวจว่าไฟล์ไม่เสียหายหลังเก็บไว้นาน'),
-          `<button type="button" onclick="verifyAllBackups()" id="backupVerifyAll" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-primary tw-font-semibold hover:tw-underline">ตรวจสอบทุกไฟล์เดี๋ยวนี้</button>${v ? ` <span>• ตรวจล่าสุด ${timeAgo(v.at)}</span>` : ''}`)
+        + card('ความสมบูรณ์ของไฟล์สำรอง', 'verified_user', verifyFailed ? 'tw-bg-error-container tw-text-on-error-container' : 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant',
+          verifyBody,
+          `<button type="button" onclick="verifyAllBackups()" id="backupVerifyAll" class="tw-appearance-none tw-bg-transparent tw-border-0 tw-p-0 tw-cursor-pointer tw-text-primary tw-font-semibold hover:tw-underline">ตรวจสอบทุกไฟล์เดี๋ยวนี้</button>${verifiedAt}`)
         + card('ที่เก็บไฟล์สำรอง', 'dns', 'tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant',
           big('ในเครื่องเซิร์ฟเวอร์', 'tw-text-tertiary') + small('ยังไม่มีสำเนานอกเครื่องอัตโนมัติ'),
           '<span class="material-symbols-outlined tw-text-[0.875rem]">download</span>ดาวน์โหลดไฟล์ไปเก็บนอกเครื่องเป็นประจำ');
@@ -6757,8 +6840,9 @@
       backupPage = Math.min(backupPage, pages);
       const pageRows = rows.slice((backupPage - 1) * BACKUP_PAGE_SIZE, backupPage * BACKUP_PAGE_SIZE);
       const chip = (text, cls) => `<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-label-sm ${cls}">${text}</span>`;
+      const emptyBackupText = backupData.backups.length === 0 ? 'ยังไม่มีไฟล์สำรอง กดปุ่ม "สำรองข้อมูลทันที" เพื่อเริ่มต้น' : 'ไม่พบไฟล์สำรองในหมวดนี้';
       document.getElementById('backupBody').innerHTML = pageRows.length === 0
-        ? `<tr><td colspan="6" class="tw-py-10 tw-text-center tw-text-outline">${backupData.backups.length === 0 ? 'ยังไม่มีไฟล์สำรอง กดปุ่ม "สำรองข้อมูลทันที" เพื่อเริ่มต้น' : 'ไม่พบไฟล์สำรองในหมวดนี้'}</td></tr>`
+        ? `<tr><td colspan="6" class="tw-py-10 tw-text-center tw-text-outline">${emptyBackupText}</td></tr>`
         : pageRows.map(item => {
           const when = thaiDateParts(item.created_at);
           const scope = item.scope
@@ -6785,7 +6869,11 @@
         }).join('');
       const from = rows.length === 0 ? 0 : (backupPage - 1) * BACKUP_PAGE_SIZE + 1;
       const to = Math.min(backupPage * BACKUP_PAGE_SIZE, rows.length);
-      const btn = (label, page, disabled, active) => `<button type="button" ${disabled ? 'disabled' : `onclick="goBackupPage(${page})"`} class="tw-appearance-none tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${active ? 'tw-border-0 tw-bg-primary-container tw-text-on-primary tw-font-semibold' : 'tw-border tw-border-outline-variant/40 tw-bg-transparent tw-text-on-surface hover:tw-bg-surface-container-high'} disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">${label}</button>`;
+      const btn = (label, page, disabled, active) => {
+        const action = disabled ? 'disabled' : `onclick="goBackupPage(${page})"`;
+        const tone = active ? 'tw-border-0 tw-bg-primary-container tw-text-on-primary tw-font-semibold' : 'tw-border tw-border-outline-variant/40 tw-bg-transparent tw-text-on-surface hover:tw-bg-surface-container-high';
+        return `<button type="button" ${action} class="tw-appearance-none tw-cursor-pointer tw-px-2.5 tw-py-1 tw-rounded ${tone} disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">${label}</button>`;
+      };
       document.getElementById('backupPager').innerHTML = `<div>แสดง ${from} ถึง ${to} จากทั้งหมด ${rows.length} รายการ</div>
         <div class="tw-flex tw-items-center tw-gap-1">${btn('ก่อนหน้า', backupPage - 1, backupPage <= 1, false)}${Array.from({ length: pages }, (_, i) => btn(i + 1, i + 1, false, i + 1 === backupPage)).join('')}${btn('ถัดไป', backupPage + 1, backupPage >= pages, false)}</div>`;
     }
@@ -6797,6 +6885,7 @@
 
     function renderBackupSchedule() {
       const d = backupDraft;
+      const weekdayOptions = WEEKDAYS.map((name, index) => `<option value="${index}" ${index === d.weekday ? 'selected' : ''}>${name}</option>`).join('');
       const hourOptions = Array.from({ length: 24 }, (_, hour) => `<option value="${hour}" ${hour === d.hour ? 'selected' : ''}>${String(hour).padStart(2, '0')}:00 น.</option>`).join('');
       const frequencyOptions = [['daily', 'ทุกวัน'], ['12h', 'ทุก 12 ชั่วโมง'], ['weekly', 'ทุกสัปดาห์']]
         .map(([value, label]) => `<option value="${value}" ${value === d.frequency ? 'selected' : ''}>${label}</option>`).join('');
@@ -6819,7 +6908,7 @@
             <div><label class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">${d.frequency === '12h' ? 'เริ่มรอบที่' : 'เวลา'}</label>
               <select onchange="setBackupDraft('hour', Number(this.value))" class="${secSelectClass}">${hourOptions}</select></div>
             ${d.frequency === 'weekly' ? `<div><label class="tw-block tw-text-label-md tw-font-label-md tw-text-on-surface tw-mb-1.5">วัน</label>
-              <select onchange="setBackupDraft('weekday', Number(this.value))" class="${secSelectClass}">${WEEKDAYS.map((name, index) => `<option value="${index}" ${index === d.weekday ? 'selected' : ''}>${name}</option>`).join('')}</select></div>` : ''}
+              <select onchange="setBackupDraft('weekday', Number(this.value))" class="${secSelectClass}">${weekdayOptions}</select></div>` : ''}
           </div>
           <p class="tw-text-body-sm tw-text-outline tw-m-0">${d.frequency === '12h' ? `สำรองวันละ 2 ครั้ง (${String(d.hour % 12).padStart(2, '0')}:00 และ ${String(d.hour % 12 + 12).padStart(2, '0')}:00 น.)` : 'เลือกช่วงที่ไม่มีคนใช้งานเพื่อไม่ให้ระบบช้า'} • ถ้าเครื่องปิดอยู่ตอนถึงรอบ ระบบจะสำรองชดเชยเมื่อเปิดเครื่องอีกครั้ง</p>
           <div class="tw-space-y-2.5 tw-pt-1"><div class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface">ขอบเขตที่สำรอง</div>
@@ -6857,10 +6946,19 @@
     function renderBackupDrill() {
       const s = backupData.settings;
       const drill = s.last_drill;
-      const rpoText = s.enabled
-        ? { daily: 'ไม่เกิน 24 ชั่วโมง', '12h': 'ไม่เกิน 12 ชั่วโมง', weekly: 'ไม่เกิน 7 วัน' }[s.frequency]
-        : (backupData.backups[0] ? `ถึงเวลา ${thaiDateParts(backupData.backups[0].created_at).day} ${thaiDateParts(backupData.backups[0].created_at).time} (ไม่ได้ตั้งสำรองอัตโนมัติ)` : 'ยังไม่มีไฟล์สำรอง');
+      const lastBackup = backupData.backups[0];
+      let rpoText = 'ยังไม่มีไฟล์สำรอง';
+      if (s.enabled) {
+        rpoText = { daily: 'ไม่เกิน 24 ชั่วโมง', '12h': 'ไม่เกิน 12 ชั่วโมง', weekly: 'ไม่เกิน 7 วัน' }[s.frequency];
+      } else if (lastBackup) {
+        const lastTime = thaiDateParts(lastBackup.created_at);
+        rpoText = `ถึงเวลา ${lastTime.day} ${lastTime.time} (ไม่ได้ตั้งสำรองอัตโนมัติ)`;
+      }
       const row = (label, value) => `<div class="tw-flex tw-items-center tw-justify-between tw-text-body-sm"><span class="tw-text-outline">${label}</span><span class="tw-font-medium tw-text-on-surface tw-text-right">${value}</span></div>`;
+      const drillTone = drill?.ok ? 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' : 'tw-bg-error-container tw-text-on-error-container';
+      const drillLabel = drill?.ok ? 'ผ่าน (Pass)' : 'ไม่ผ่าน (Fail)';
+      let compareValue = 'ไม่ได้ (ไฟล์จากสคริปต์ไม่มีข้อมูลเทียบ)';
+      if (drill?.compared) compareValue = drill.mismatches.length === 0 ? 'ตรงกันทุกตาราง' : `<span class="tw-text-error">ไม่ตรง ${drill.mismatches.length} ตาราง</span>`;
       document.getElementById('backupDrillCard').innerHTML = `
         <div class="tw-flex tw-items-center tw-gap-2 tw-pb-3 tw-mb-4 tw-border-b tw-border-outline-variant/20">
           <span class="tw-p-1.5 tw-rounded-md tw-bg-tertiary-fixed tw-text-on-tertiary-fixed-variant tw-flex"><span class="material-symbols-outlined tw-text-[1.125rem]">vital_signs</span></span>
@@ -6868,10 +6966,10 @@
         <p class="tw-text-body-sm tw-text-outline tw-mt-0 tw-mb-3">กู้ไฟล์สำรองล่าสุดลงฐานข้อมูลชั่วคราว นับจำนวนแถวเทียบกับตอนสำรอง แล้วลบทิ้ง เพื่อพิสูจน์ว่าไฟล์สำรองใช้กู้ได้จริง โดยไม่แตะข้อมูลจริง</p>
         <div class="tw-p-3.5 tw-rounded-lg tw-bg-surface-container-low tw-border tw-border-outline-variant/30 tw-space-y-2">
           <div class="tw-flex tw-items-center tw-justify-between"><span class="tw-text-body-sm tw-text-outline">ผลทดสอบล่าสุด:</span>
-            ${drill ? `<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${drill.ok ? 'tw-bg-primary-fixed tw-text-on-primary-fixed-variant' : 'tw-bg-error-container tw-text-on-error-container'}">${drill.ok ? 'ผ่าน (Pass)' : 'ไม่ผ่าน (Fail)'}</span>` : '<span class="tw-text-body-sm tw-text-outline">ยังไม่เคยทดสอบ</span>'}</div>
+            ${drill ? `<span class="tw-px-2 tw-py-0.5 tw-rounded-full tw-text-label-sm tw-font-semibold ${drillTone}">${drillLabel}</span>` : '<span class="tw-text-body-sm tw-text-outline">ยังไม่เคยทดสอบ</span>'}</div>
           ${drill ? row('ไฟล์ที่ทดสอบ', `<span class="tw-break-all">${escapeHtml(drill.backup)}</span>`) + row('เมื่อ', `${escapeHtml(timeAgo(drill.at))}`)
             + row('RTO (เวลาที่ใช้กู้ฐานข้อมูล)', `${(drill.duration_ms / 1000).toFixed(1)} วินาที`) + row('ตาราง / แถวที่กู้ได้', `${drill.tables} ตาราง / ${Number(drill.rows).toLocaleString('th-TH')} แถว`)
-            + (drill.compared ? row('เทียบกับตอนสำรอง', drill.mismatches.length === 0 ? 'ตรงกันทุกตาราง' : `<span class="tw-text-error">ไม่ตรง ${drill.mismatches.length} ตาราง</span>`) : row('เทียบกับตอนสำรอง', 'ไม่ได้ (ไฟล์จากสคริปต์ไม่มีข้อมูลเทียบ)')) : ''}
+            + row('เทียบกับตอนสำรอง', compareValue) : ''}
           ${row('RPO (ข้อมูลที่อาจสูญเสียสูงสุด)', escapeHtml(rpoText))}
         </div>
         <button id="backupDrillButton" type="button" onclick="runBackupDrill()" ${backupData.backups.length === 0 ? 'disabled' : ''} class="tw-appearance-none tw-cursor-pointer tw-w-full tw-mt-4 tw-py-2 tw-border tw-border-primary-container tw-text-primary-container tw-bg-transparent hover:tw-bg-primary-fixed/40 tw-rounded-lg tw-text-body-md tw-font-semibold tw-transition-colors tw-flex tw-items-center tw-justify-center tw-gap-2 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed">
@@ -6910,7 +7008,9 @@
       try {
         const data = await api(`/api/admin/backups/${encodeURIComponent(name)}/verify`, { method: 'POST' });
         const r = data.result;
-        showStatus(r.ok ? (r.checksum ? 'ไฟล์สมบูรณ์: SHA-256 ตรงกับตอนสำรอง' : 'เปิดไฟล์ zip ได้ปกติ (ไฟล์นี้ไม่มีค่า SHA-256 เทียบ)') : `ไฟล์มีปัญหา: ${r.reason}`, r.ok ? 'success' : 'danger');
+        let verifyMessage = `ไฟล์มีปัญหา: ${r.reason}`;
+        if (r.ok) verifyMessage = r.checksum ? 'ไฟล์สมบูรณ์: SHA-256 ตรงกับตอนสำรอง' : 'เปิดไฟล์ zip ได้ปกติ (ไฟล์นี้ไม่มีค่า SHA-256 เทียบ)';
+        showStatus(verifyMessage, r.ok ? 'success' : 'danger');
       } catch (error) {
         reportError(error);
       }
@@ -7120,7 +7220,8 @@
       const list = document.getElementById('reportList');
       list.innerHTML = '<div class="tw-p-10 tw-text-center tw-text-outline">กำลังโหลด...</div>';
       try {
-        const data = await api(`/api/admin/reports${reportFilter ? `?status=${reportFilter}` : ''}`);
+        const reportQuery = reportFilter ? `?status=${reportFilter}` : '';
+        const data = await api(`/api/admin/reports${reportQuery}`);
         reportItems = data.items;
         renderReportTabs(data.counts);
         renderReports();
@@ -7225,14 +7326,14 @@
 
     // โหมดมืด/สว่าง: ค่าที่เลือกจำไว้ใน localStorage (ค่าเริ่มต้นอ่านไว้แล้วในสคริปต์ที่หัวไฟล์ กันจอกะพริบ)
     function syncThemeToggleIcon() {
-      const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+      const dark = document.documentElement.dataset.bsTheme === 'dark';
       document.querySelectorAll('#themeToggle .material-symbols-outlined, #loginThemeToggle .material-symbols-outlined')
         .forEach(icon => { icon.textContent = dark ? 'light_mode' : 'dark_mode'; });
     }
 
     function toggleTheme() {
-      const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-      document.documentElement.setAttribute('data-bs-theme', dark ? 'light' : 'dark');
+      const dark = document.documentElement.dataset.bsTheme === 'dark';
+      document.documentElement.dataset.bsTheme = dark ? 'light' : 'dark';
       try { localStorage.setItem('kps_admin_theme', dark ? 'light' : 'dark'); } catch (_) { /* โหมดส่วนตัว เก็บไม่ได้ก็ไม่เป็นไร */ }
       syncThemeToggleIcon();
     }
