@@ -829,11 +829,13 @@
 
             <div class="tw-px-6 tw-py-3.5 tw-bg-surface-container-low tw-border-b tw-border-outline-variant/20 tw-flex tw-items-center tw-justify-between">
               <div>
-                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">รายการห้องเรียน</h3>
+                <h3 class="tw-text-headline-sm tw-font-headline-sm tw-text-on-surface tw-m-0">รายการห้อง</h3>
                 <p id="buildingSummary" class="tw-text-label-sm tw-font-label-sm tw-text-outline tw-m-0"></p>
               </div>
-              <span id="roomCount" class="tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium tw-border tw-border-indigo-100 dark:tw-border-indigo-400/20">0 ห้อง</span>
+              <span id="roomCount" class="tw-px-3 tw-py-1 tw-rounded-full tw-text-label-sm tw-font-label-sm tw-bg-indigo-50 tw-text-indigo-700 dark:tw-bg-indigo-500/20 dark:tw-text-indigo-300 tw-font-medium tw-border tw-border-indigo-100 dark:tw-border-indigo-400/20">0 ห้องเรียน · 0 จุดบริการ</span>
             </div>
+
+            <div id="roomGroupTabs" class="tw-px-6 tw-py-2.5 tw-flex tw-flex-wrap tw-gap-2 tw-border-b tw-border-outline-variant/20" role="group" aria-label="กรองกลุ่มห้อง"></div>
 
             <div id="bulkBar" class="need-buildings-delete d-none tw-justify-between tw-items-center tw-gap-2 tw-flex-wrap tw-px-6 tw-py-2.5 tw-bg-error-container/40 tw-border-b tw-border-outline-variant/20">
               <span class="tw-text-label-md tw-font-label-md tw-font-semibold tw-text-on-surface" id="bulkCount"></span>
@@ -3584,9 +3586,10 @@
     function showRoomsEmptyState() {
       document.getElementById('addRoomButton').disabled = true;
       document.getElementById('buildingSummary').textContent = '';
-      document.getElementById('roomCount').textContent = '0 ห้อง';
+      document.getElementById('roomCount').textContent = '0 ห้องเรียน · 0 จุดบริการ';
+      document.getElementById('roomGroupTabs').innerHTML = '';
       document.getElementById('roomTableBody').innerHTML =
-        '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-building"></i>เลือกอาคารด้านบนเพื่อดูรายการห้องเรียน</td></tr>';
+        '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-building"></i>เลือกอาคารด้านบนเพื่อดูรายการห้อง</td></tr>';
       setRoomFooter(0, 0, 0);
       document.getElementById('roomPager').innerHTML = '';
     }
@@ -3595,6 +3598,7 @@
       const building = currentBuilding();
       if (!building) return showRoomsEmptyState();
       roomPage = 1;
+      roomGroup = 'all';
       document.getElementById('addRoomButton').disabled = false;
       document.getElementById('buildingSummary').textContent = building;
       document.getElementById('roomTableBody').innerHTML = skeletonTableRows(7, 5);
@@ -3611,9 +3615,39 @@
       }
     }
 
+    // ห้องน้ำ ลิฟต์ บันได โถง ร้านค้า สำนักงาน ห้องสมุด = สิ่งอำนวยความสะดวก ที่เหลือและห้องที่ไม่ระบุประเภทนับเป็นห้องเรียน
+    // (ชุดคำเดียวกับ FACILITY_WORDS ใน server.js และ kFacilityWords ในแอป)
+    const FACILITY_WORDS = ['ห้องน้ำ', 'ลิฟต์', 'บันได', 'โถง', 'ร้านค้า', 'โรงอาหาร', 'สำนักงาน', 'ห้องสมุด', 'อ่านหนังสือ'];
+    const isFacilityRoom = (room) => {
+      const text = `${room.room_type ?? ''} ${room.room_code ?? ''}`;
+      return FACILITY_WORDS.some(word => text.includes(word));
+    };
+    let roomGroup = 'all'; // all | classroom | facility เปิดมาแสดงทั้งหมดเสมอ ผู้ดูแลต้องเห็นทุกห้องเพื่อแก้ไข/ลบ
+
+    function setRoomGroup(group) {
+      roomGroup = group;
+      roomPage = 1;
+      renderRooms();
+    }
+
+    function renderRoomGroupTabs(facilityCount) {
+      const total = rooms.length;
+      const tabs = [
+        ['all', 'ทั้งหมด', total],
+        ['classroom', 'ห้องเรียน', total - facilityCount],
+        ['facility', 'สิ่งอำนวยความสะดวก', facilityCount],
+      ];
+      document.getElementById('roomGroupTabs').innerHTML = tabs.map(([key, label, count]) => `
+        <button type="button" onclick="setRoomGroup('${key}')" aria-pressed="${roomGroup === key}"
+          class="tw-appearance-none tw-cursor-pointer tw-px-3 tw-py-1 tw-rounded-full tw-text-label-md tw-font-label-md tw-font-medium tw-transition-colors ${roomGroup === key
+            ? 'tw-bg-primary tw-text-on-primary tw-border-0'
+            : 'tw-bg-transparent tw-text-on-surface-variant tw-border tw-border-outline-variant/50 hover:tw-bg-surface-container-high'}">${label} (${count})</button>`).join('');
+    }
+
     function getVisibleRooms() {
       const query = document.getElementById('roomFilter').value.trim().toLocaleLowerCase();
       return rooms
+        .filter(room => roomGroup === 'all' || (roomGroup === 'facility') === isFacilityRoom(room))
         .filter(room => String(room.room_code ?? '').toLocaleLowerCase().includes(query))
         .sort(roomSort);
     }
@@ -3649,7 +3683,9 @@
     function renderRooms() {
       const visibleRooms = getVisibleRooms();
       const tbody = document.getElementById('roomTableBody');
-      document.getElementById('roomCount').textContent = `${visibleRooms.length} ห้อง`;
+      const facilityCount = rooms.filter(isFacilityRoom).length;
+      document.getElementById('roomCount').textContent = `${rooms.length - facilityCount} ห้องเรียน · ${facilityCount} จุดบริการ`;
+      renderRoomGroupTabs(facilityCount);
 
       // เก็บไว้เฉพาะห้องที่ยังมองเห็นอยู่ เพื่อให้จำนวนที่แสดงตรงกับที่จะถูกลบจริงเสมอ
       const visibleIds = new Set(visibleRooms.map(room => Number(room.id)));
@@ -3664,7 +3700,7 @@
       renderRoomPager(pageCount);
 
       if (visibleRooms.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-search"></i>ไม่พบห้องเรียนที่ค้นหา</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-state"><i class="bi bi-search"></i>ไม่พบห้องที่ค้นหา</td></tr>';
         return;
       }
 
