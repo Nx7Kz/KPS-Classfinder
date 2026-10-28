@@ -15,6 +15,13 @@ const sharp = require('sharp');
 const QRCode = require('qrcode');
 const archiver = require('archiver');
 const yauzl = require('yauzl');
+const { base32Encode, verifyTotp } = require('./lib/totp');
+const {
+    WEEK_KEYS, WEEK_LABELS_TH, TIME_PATTERN,
+    parseOpenHours, sanitizeOpenHours, bangkokParts, setClosures, getOpenStatus,
+} = require('./lib/open-hours');
+const { FACILITY_WORDS, facilitySql } = require('./lib/facility');
+const { toSqlLiteral } = require('./lib/sql-dump');
 
 const app = express();
 const port = 3000;
@@ -126,17 +133,17 @@ const PERMISSION_MODULES = [
 ];
 const PERMISSION_DEFS = new Map(PERMISSION_MODULES.flatMap(module => module.permissions.map(permission => [permission.key, permission])));
 // สิทธิ์จัดการผู้ดูแล/บทบาทมีเฉพาะบทบาท admin เท่านั้น มอบให้บทบาทอื่นไม่ได้
-const GRANTABLE_PERMISSIONS = [...PERMISSION_DEFS.values()].filter(permission => !permission.locked).map(permission => permission.key);
+const GRANTABLE_PERMISSIONS = new Set([...PERMISSION_DEFS.values()].filter(permission => !permission.locked).map(permission => permission.key));
 const ALL_PERMISSIONS = [...PERMISSION_DEFS.keys()];
 const SUPER_ROLE = 'admin';
 
 // กรองเฉพาะสิทธิ์ที่มีจริงและมอบได้ แล้วเติมสิทธิ์ที่ต้องมีควบคู่ให้ครบ
 function normalizePermissions(list) {
-    const granted = new Set(Array.isArray(list) ? list.filter(key => GRANTABLE_PERMISSIONS.includes(key)) : []);
+    const granted = new Set(Array.isArray(list) ? list.filter(key => GRANTABLE_PERMISSIONS.has(key)) : []);
     let changed = true;
     while (changed) {
         changed = false;
-        for (const key of [...granted]) {
+        for (const key of granted) {
             for (const required of PERMISSION_DEFS.get(key).requires || []) {
                 if (!granted.has(required)) { granted.add(required); changed = true; }
             }
@@ -172,7 +179,7 @@ const DEFAULT_ROLES = [
 ];
 const DEFAULT_ROLE_BY_KEY = new Map(DEFAULT_ROLES.map(role => [role.key, role]));
 const ROLE_KEY_PATTERN = /^[a-z][a-z0-9_]{2,29}$/;
-const USER_STATUSES = ['active', 'suspended'];
+const USER_STATUSES = new Set(['active', 'suspended']);
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
 
 // บทบาททั้งหมดเก็บในหน่วยความจำ (โหลดจาก admin_roles ตอนเริ่มระบบและทุกครั้งที่แก้ไข) เพื่อไม่ต้อง query ทุกคำขอ
@@ -301,49 +308,6 @@ function ipGate(req, res, next) {
     res.status(403).json({ error: `ระบบจัดการอนุญาตเฉพาะเครือข่ายที่กำหนด (IP ของคุณ: ${normalizeIp(req.ip)})`, code: 'IP_BLOCKED' });
 }
 
-// ----- TOTP (RFC 6238: HMAC-SHA1, 6 หลัก, ทุก 30 วินาที — ใช้ได้กับ Google Authenticator / Microsoft Authenticator / Authy) -----
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-function base32Encode(buffer) {
-    let bits = 0; let value = 0; let output = '';
-    for (const byte of buffer) {
-        value = (value << 8) | byte; bits += 8;
-        while (bits >= 5) { output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31]; bits -= 5; }
-    }
-    if (bits > 0) output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
-    return output;
-}
-function base32Decode(text) {
-    let bits = 0; let value = 0; const bytes = [];
-    for (const char of text.replace(/=+$/, '').toUpperCase()) {
-        const index = BASE32_ALPHABET.indexOf(char);
-        if (index < 0) continue;
-        value = (value << 5) | index; bits += 5;
-        if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; }
-    }
-    return Buffer.from(bytes);
-}
-function hotp(secret, counter) {
-    const message = Buffer.alloc(8);
-    message.writeBigUInt64BE(BigInt(counter));
-    const digest = crypto.createHmac('sha1', secret).update(message).digest();
-    const offset = digest[19] & 0xf;
-    const code = (((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) | (digest[offset + 2] << 8) | digest[offset + 3]) % 1000000;
-    return String(code).padStart(6, '0');
-}
-// คืนเลขช่วงเวลา (step) ที่ตรงกับรหัส หรือ null ถ้าไม่ตรง — ไม่รับ step ที่เคยใช้แล้ว (lastStep) กันการใช้รหัสซ้ำ
-function verifyTotp(secretBase32, code, lastStep = 0) {
-    const clean = String(code || '').replace(/\s/g, '');
-    if (!/^\d{6}$/.test(clean)) return null;
-    const secret = base32Decode(secretBase32);
-    const now = Math.floor(Date.now() / 30000);
-    for (const delta of [0, -1, 1]) {
-        const step = now + delta;
-        if (step <= lastStep) continue;
-        if (crypto.timingSafeEqual(Buffer.from(hotp(secret, step)), Buffer.from(clean))) return step;
-    }
-    return null;
-}
-
 // ----- รหัสสำรองฉุกเฉิน (เก็บเป็น bcrypt hash ใช้ได้ครั้งเดียว) -----
 async function generateBackupCodes() {
     const plain = Array.from({ length: BACKUP_CODE_COUNT }, () => {
@@ -354,7 +318,7 @@ async function generateBackupCodes() {
     return { plain, hashes };
 }
 function parseBackupHashes(stored) {
-    try { const list = JSON.parse(stored || '[]'); return Array.isArray(list) ? list : []; } catch (err) { return []; }
+    try { const list = JSON.parse(stored || '[]'); return Array.isArray(list) ? list : []; } catch { /* ค่าที่เก็บไว้เสีย ใช้รายการว่างแทน */ return []; }
 }
 async function consumeBackupCode(user, input) {
     const normalized = String(input || '').trim().toLowerCase();
@@ -399,7 +363,7 @@ async function loadSessionUser(req) {
     const [rows] = await pdb.query(
         'SELECT id, username, role, status, full_name, totp_enabled, password_changed_at FROM admin_users WHERE id = ?', [id]);
     const user = rows[0];
-    if (!user || user.status !== 'active' || !rolesCache.has(user.role)) return null;
+    if (user?.status !== 'active' || !rolesCache.has(user.role)) return null;
     user.restrictions = computeRestrictions(user);
     return user;
 }
@@ -537,7 +501,7 @@ class MysqlSessionStore extends session.Store {
     }
 
     static expiresAt(sess) {
-        const expires = sess?.cookie?.expires ? new Date(sess.cookie.expires).getTime() : NaN;
+        const expires = sess?.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Number.NaN;
         return Number.isFinite(expires) ? expires : Date.now() + 24 * 60 * 60 * 1000;
     }
 
@@ -548,17 +512,17 @@ class MysqlSessionStore extends session.Store {
 
     set(sid, sess, callback) {
         this.run('REPLACE INTO admin_sessions (sid, data, expires_at) VALUES (?, ?, ?)', [sid, JSON.stringify(sess), MysqlSessionStore.expiresAt(sess)])
-            .then(() => callback && callback(null), err => callback && callback(err));
+            .then(() => callback?.(null), err => callback?.(err));
     }
 
     touch(sid, sess, callback) {
         this.run('UPDATE admin_sessions SET expires_at = ? WHERE sid = ?', [MysqlSessionStore.expiresAt(sess), sid])
-            .then(() => callback && callback(null), err => callback && callback(err));
+            .then(() => callback?.(null), err => callback?.(err));
     }
 
     destroy(sid, callback) {
         this.run('DELETE FROM admin_sessions WHERE sid = ?', [sid])
-            .then(() => callback && callback(null), err => callback && callback(err));
+            .then(() => callback?.(null), err => callback?.(err));
     }
 
     async countLoggedIn() {
@@ -703,7 +667,7 @@ app.post('/api/login/2fa', loginLimiter, asyncRoute(async (req, res) => {
         `SELECT id, username, role, status, full_name, totp_secret, totp_enabled, totp_last_step, backup_codes
          FROM admin_users WHERE id = ?`, [pending.userId]);
     const user = rows[0];
-    if (!user || user.status !== 'active' || !user.totp_enabled || !rolesCache.has(user.role)) {
+    if (user?.status !== 'active' || !user.totp_enabled || !rolesCache.has(user.role)) {
         throw new HttpError(401, 'บัญชีนี้ไม่สามารถเข้าสู่ระบบได้');
     }
 
@@ -869,7 +833,7 @@ const PROFILE_FIELDS = {
     phone: { label: 'เบอร์โทรศัพท์', max: 40 },
     department: { label: 'สังกัด / หน่วยงาน', max: 150 },
 };
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 const AVATAR_SIZE = 256;
 
 function readProfileFields(body) {
@@ -994,7 +958,7 @@ app.put('/api/admin/roles/:key', requireUserAdmin, asyncRoute(async (req, res) =
     const removed = [...existing.permissions].filter(permission => !fields.permissions.includes(permission));
     logActivity(req, {
         action: 'update', entity: 'admin',
-        detail: `แก้ไขสิทธิ์บทบาท ${fields.label}: เพิ่ม ${added.length} เอาออก ${removed.length} สิทธิ์${removed.length > 0 ? ` (${removed.join(', ')})` : ''}`,
+        detail: `แก้ไขสิทธิ์บทบาท ${fields.label}: เพิ่ม ${added.length} เอาออก ${removed.length} สิทธิ์` + (removed.length > 0 ? ` (${removed.join(', ')})` : ''),
     });
     const [[{ total }]] = await pdb.query('SELECT COUNT(*) AS total FROM admin_users WHERE role = ?', [key]);
     res.json({ message: 'บันทึกการเปลี่ยนแปลงสิทธิ์สำเร็จ! มีผลกับบัญชีในบทบาทนี้ทันที', role: roleView(rolesCache.get(key), total) });
@@ -1054,7 +1018,7 @@ app.put('/api/admin/users/:id', requireUserAdmin, asyncRoute(async (req, res) =>
 
     const body = req.body || {};
     assertValidRole(body.role);
-    if (!USER_STATUSES.includes(body.status)) throw new HttpError(400, 'สถานะบัญชีไม่ถูกต้อง');
+    if (!USER_STATUSES.has(body.status)) throw new HttpError(400, 'สถานะบัญชีไม่ถูกต้อง');
     if (id === req.user.id && (body.role !== target.role || body.status !== target.status)) {
         throw new HttpError(400, 'ไม่สามารถเปลี่ยนบทบาทหรือระงับบัญชีของตัวเองได้');
     }
@@ -1068,7 +1032,7 @@ app.put('/api/admin/users/:id', requireUserAdmin, asyncRoute(async (req, res) =>
     if (body.status !== target.status) changes.push(body.status === 'active' ? 'เปิดใช้งานบัญชี' : 'ระงับบัญชี');
     logActivity(req, {
         action: 'update', entity: 'admin', entityId: id,
-        detail: `แก้ไขบัญชี ${target.username}${changes.length > 0 ? `: ${changes.join(', ')}` : ''}`,
+        detail: `แก้ไขบัญชี ${target.username}` + (changes.length > 0 ? `: ${changes.join(', ')}` : ''),
     });
     res.json({ message: 'บันทึกการแก้ไขบัญชีสำเร็จ!', user: await readUser(id) });
 }));
@@ -1131,13 +1095,39 @@ app.put('/api/admin/security/settings', requireUserAdmin, asyncRoute(async (req,
         [SECURITY_SETTING_KEY, JSON.stringify(next)]);
     const changed = Object.keys(next).filter(key => JSON.stringify(next[key]) !== JSON.stringify(securitySettings[key]));
     securitySettings = next;
-    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขนโยบายความปลอดภัย${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
+    logActivity(req, { action: 'update', entity: 'admin', detail: 'แก้ไขนโยบายความปลอดภัย' + changedSuffix(changed) });
     res.json({ message: 'บันทึกการตั้งค่าความปลอดภัยสำเร็จ!', settings: securitySettings });
 }));
 
 // นับ session ที่ล็อกอินอยู่และยังไม่หมดอายุ
 function countActiveSessions() {
     return sessionStore.countLoggedIn().catch(() => 0);
+}
+
+// รายการตรวจความปลอดภัย แยกเป็น 3 กลุ่ม (บัญชี / รหัสผ่านและเซสชัน / การเข้าถึง) เพื่อให้แต่ละฟังก์ชันอ่านง่าย
+function accountSecurityChecks({ activeUsers, twoFactorCount, weakAccounts }) {
+    const ratio = activeUsers.length === 0 ? 1 : twoFactorCount / activeUsers.length;
+    return [
+        { key: 'two_factor', label: 'เปิด 2FA ครบทุกบัญชีที่ใช้งาน', weight: 25, score: ratio, ok: ratio === 1, detail: `${twoFactorCount} จาก ${activeUsers.length} บัญชี`, fix: 'ให้แต่ละบัญชีเปิด 2FA ที่แท็บ ความปลอดภัย หรือเปิด "บังคับใช้ 2FA"' },
+        { key: 'default_passwords', label: 'ไม่มีบัญชีที่ใช้รหัสผ่านเริ่มต้น', weight: 25, score: weakAccounts.length === 0 ? 1 : 0, ok: weakAccounts.length === 0, detail: weakAccounts.length === 0 ? 'ไม่พบ' : `พบ: ${weakAccounts.join(', ')}`, fix: 'รีเซ็ตหรือเปลี่ยนรหัสผ่านของบัญชีเหล่านี้ทันที' },
+    ];
+}
+
+function passwordSecurityChecks(s) {
+    return [
+        { key: 'enforce_2fa', label: 'บังคับใช้ 2FA กับทุกบัญชี', weight: 10, score: s.require_2fa ? 1 : 0, ok: s.require_2fa, detail: s.require_2fa ? 'เปิดอยู่' : 'ปิดอยู่', fix: 'เปิดสวิตช์บังคับใช้ 2FA' },
+        { key: 'password_policy', label: 'นโยบายรหัสผ่านเข้มแข็ง (ยาว ≥ 10 และซับซ้อน)', weight: 10, score: (s.password_min_length >= 10 ? 0.5 : 0) + (s.password_complexity ? 0.5 : 0), ok: s.password_min_length >= 10 && s.password_complexity, detail: `ขั้นต่ำ ${s.password_min_length} ตัว • ความซับซ้อน ${s.password_complexity ? 'เปิด' : 'ปิด'}`, fix: 'เพิ่มความยาวขั้นต่ำเป็น 10 ขึ้นไปและเปิดความซับซ้อน' },
+        { key: 'session_timeout', label: 'เซสชันหมดอายุเมื่อไม่ใช้งาน ≤ 1 ชั่วโมง', weight: 10, score: s.session_timeout_minutes <= 60 ? 1 : 0, ok: s.session_timeout_minutes <= 60, detail: `${s.session_timeout_minutes} นาที`, fix: 'ลดเวลาเซสชันเหลือ 60 นาทีหรือน้อยกว่า' },
+    ];
+}
+
+function accessSecurityChecks(s, https) {
+    return [
+        { key: 'lockout', label: 'ล็อกบัญชีอัตโนมัติเมื่อใส่รหัสผิด', weight: 5, score: s.account_lockout ? 1 : 0, ok: s.account_lockout, detail: s.account_lockout ? `ล็อก ${LOCKOUT_MINUTES} นาที เมื่อผิด ${LOCKOUT_MAX_ATTEMPTS} ครั้ง` : 'ปิดอยู่', fix: 'เปิดการล็อกบัญชีอัตโนมัติ' },
+        { key: 'password_expiry', label: 'กำหนดอายุรหัสผ่าน', weight: 5, score: s.password_expiry_days > 0 ? 1 : 0, ok: s.password_expiry_days > 0, detail: s.password_expiry_days > 0 ? `ทุก ${s.password_expiry_days} วัน` : 'ไม่หมดอายุ', fix: 'ตั้งให้เปลี่ยนรหัสผ่านทุก 90 วัน' },
+        { key: 'ip_allowlist', label: 'จำกัด IP ที่เข้าระบบจัดการได้', weight: 5, score: s.ip_allowlist_enabled ? 1 : 0, ok: s.ip_allowlist_enabled, detail: s.ip_allowlist_enabled ? `${s.ip_allowlist.length} รายการ` : 'ปิดอยู่', fix: 'เพิ่มช่วง IP ของหน่วยงานแล้วเปิดใช้งาน (ถ้ามี IP คงที่)' },
+        { key: 'https', label: 'เชื่อมต่อผ่าน HTTPS', weight: 5, score: https ? 1 : 0, ok: https, detail: https ? 'ใช่' : 'ยังเป็น HTTP (ปกติบนเครื่องพัฒนา)', fix: 'ใช้ HTTPS บนโฮสต์จริง' },
+    ];
 }
 
 app.get('/api/admin/security/audit', requireUserAdmin, asyncRoute(async (req, res) => {
@@ -1151,17 +1141,10 @@ app.get('/api/admin/security/audit', requireUserAdmin, asyncRoute(async (req, re
     const sessions = await countActiveSessions();
     const https = req.secure;
     const s = securitySettings;
-    const ratio = activeUsers.length === 0 ? 1 : twoFactorCount / activeUsers.length;
     const checks = [
-        { key: 'two_factor', label: 'เปิด 2FA ครบทุกบัญชีที่ใช้งาน', weight: 25, score: ratio, ok: ratio === 1, detail: `${twoFactorCount} จาก ${activeUsers.length} บัญชี`, fix: 'ให้แต่ละบัญชีเปิด 2FA ที่แท็บ ความปลอดภัย หรือเปิด "บังคับใช้ 2FA"' },
-        { key: 'default_passwords', label: 'ไม่มีบัญชีที่ใช้รหัสผ่านเริ่มต้น', weight: 25, score: weakAccounts.length === 0 ? 1 : 0, ok: weakAccounts.length === 0, detail: weakAccounts.length === 0 ? 'ไม่พบ' : `พบ: ${weakAccounts.join(', ')}`, fix: 'รีเซ็ตหรือเปลี่ยนรหัสผ่านของบัญชีเหล่านี้ทันที' },
-        { key: 'enforce_2fa', label: 'บังคับใช้ 2FA กับทุกบัญชี', weight: 10, score: s.require_2fa ? 1 : 0, ok: s.require_2fa, detail: s.require_2fa ? 'เปิดอยู่' : 'ปิดอยู่', fix: 'เปิดสวิตช์บังคับใช้ 2FA' },
-        { key: 'password_policy', label: 'นโยบายรหัสผ่านเข้มแข็ง (ยาว ≥ 10 และซับซ้อน)', weight: 10, score: (s.password_min_length >= 10 ? 0.5 : 0) + (s.password_complexity ? 0.5 : 0), ok: s.password_min_length >= 10 && s.password_complexity, detail: `ขั้นต่ำ ${s.password_min_length} ตัว • ความซับซ้อน ${s.password_complexity ? 'เปิด' : 'ปิด'}`, fix: 'เพิ่มความยาวขั้นต่ำเป็น 10 ขึ้นไปและเปิดความซับซ้อน' },
-        { key: 'session_timeout', label: 'เซสชันหมดอายุเมื่อไม่ใช้งาน ≤ 1 ชั่วโมง', weight: 10, score: s.session_timeout_minutes <= 60 ? 1 : 0, ok: s.session_timeout_minutes <= 60, detail: `${s.session_timeout_minutes} นาที`, fix: 'ลดเวลาเซสชันเหลือ 60 นาทีหรือน้อยกว่า' },
-        { key: 'lockout', label: 'ล็อกบัญชีอัตโนมัติเมื่อใส่รหัสผิด', weight: 5, score: s.account_lockout ? 1 : 0, ok: s.account_lockout, detail: s.account_lockout ? `ล็อก ${LOCKOUT_MINUTES} นาที เมื่อผิด ${LOCKOUT_MAX_ATTEMPTS} ครั้ง` : 'ปิดอยู่', fix: 'เปิดการล็อกบัญชีอัตโนมัติ' },
-        { key: 'password_expiry', label: 'กำหนดอายุรหัสผ่าน', weight: 5, score: s.password_expiry_days > 0 ? 1 : 0, ok: s.password_expiry_days > 0, detail: s.password_expiry_days > 0 ? `ทุก ${s.password_expiry_days} วัน` : 'ไม่หมดอายุ', fix: 'ตั้งให้เปลี่ยนรหัสผ่านทุก 90 วัน' },
-        { key: 'ip_allowlist', label: 'จำกัด IP ที่เข้าระบบจัดการได้', weight: 5, score: s.ip_allowlist_enabled ? 1 : 0, ok: s.ip_allowlist_enabled, detail: s.ip_allowlist_enabled ? `${s.ip_allowlist.length} รายการ` : 'ปิดอยู่', fix: 'เพิ่มช่วง IP ของหน่วยงานแล้วเปิดใช้งาน (ถ้ามี IP คงที่)' },
-        { key: 'https', label: 'เชื่อมต่อผ่าน HTTPS', weight: 5, score: https ? 1 : 0, ok: https, detail: https ? 'ใช่' : 'ยังเป็น HTTP (ปกติบนเครื่องพัฒนา)', fix: 'ใช้ HTTPS บนโฮสต์จริง' },
+        ...accountSecurityChecks({ activeUsers, twoFactorCount, weakAccounts }),
+        ...passwordSecurityChecks(s),
+        ...accessSecurityChecks(s, https),
     ];
     const totalWeight = checks.reduce((sum, item) => sum + item.weight, 0);
     const score = Math.round(checks.reduce((sum, item) => sum + item.weight * item.score, 0) / totalWeight * 100);
@@ -1211,7 +1194,7 @@ app.get('/api/admin/system', requireUserAdmin, asyncRoute(async (req, res) => {
     try {
         const stat = await fs.promises.statfs(PUBLIC_DIR);
         disk = { total: stat.blocks * stat.bsize, free: stat.bavail * stat.bsize };
-    } catch (err) { disk = null; }
+    } catch { /* อ่านพื้นที่ดิสก์ไม่ได้ ถือว่าไม่ทราบค่า */ disk = null; }
 
     const timings = [];
     let version = null;
@@ -1223,7 +1206,7 @@ app.get('/api/admin/system', requireUserAdmin, asyncRoute(async (req, res) => {
             timings.push(Number(process.hrtime.bigint() - started) / 1e6);
             version = row.version;
         }
-    } catch (err) { healthy = false; }
+    } catch { /* เชื่อมต่อฐานข้อมูลไม่ได้ ถือว่าไม่พร้อม */ healthy = false; }
     let dbSize = null;
     let counts = {};
     if (healthy) {
@@ -1256,14 +1239,14 @@ app.get('/api/admin/system', requireUserAdmin, asyncRoute(async (req, res) => {
 }));
 
 app.put('/api/admin/system/settings', requireUserAdmin, asyncRoute(async (req, res) => {
-    const next = sanitizeSystemSettings({ ...systemSettings, ...(req.body || {}) }, systemSettings);
+    const next = sanitizeSystemSettings({ ...systemSettings, ...req.body }, systemSettings);
     await pdb.query(
         `INSERT INTO admin_settings (setting_key, setting_value) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
         [SYSTEM_SETTING_KEY, JSON.stringify(next)]);
     const changed = Object.keys(next).filter(key => next[key] !== systemSettings[key]);
     systemSettings = next;
-    logActivity(req, { action: 'update', entity: 'admin', detail: `แก้ไขการตั้งค่าระบบ${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
+    logActivity(req, { action: 'update', entity: 'admin', detail: 'แก้ไขการตั้งค่าระบบ' + changedSuffix(changed) });
     res.json({ message: 'บันทึกการตั้งค่าระบบสำเร็จ!', settings: systemSettings });
 }));
 
@@ -1315,7 +1298,7 @@ async function loadBackupSettings() {
 // ค่าสถานะที่เซิร์ฟเวอร์เขียนเอง (ไม่รับจากหน้าเว็บ)
 function pickBackupState(source) {
     const state = {};
-    for (const key of ['armed_at', 'last_auto_at', 'last_run', 'last_verify', 'last_drill']) state[key] = source && source[key] !== undefined ? source[key] : null;
+    for (const key of ['armed_at', 'last_auto_at', 'last_run', 'last_verify', 'last_drill']) state[key] = source?.[key] ?? null;
     return state;
 }
 async function saveBackupSettings() {
@@ -1388,7 +1371,7 @@ const dumpConnection = (extra = {}) => mysql.createConnection({ ...DB_CONFIG, da
 
 // สร้าง SQL ทั้งฐานข้อมูล (DROP + CREATE + INSERT) ภายใน snapshot เดียว ตัวเลขจำนวนแถวจึงตรงกับข้อมูลที่ dump
 async function buildSqlDump() {
-    const connection = await dumpConnection();
+    const connection = dumpConnection();
     try {
         await connection.query('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         await connection.query('START TRANSACTION WITH CONSISTENT SNAPSHOT');
@@ -1409,7 +1392,7 @@ async function buildSqlDump() {
                 const columns = Object.keys(rows[0]).map(column => `\`${column.replaceAll('`', '``')}\``).join(', ');
                 for (let index = 0; index < rows.length; index += 200) {
                     const values = rows.slice(index, index + 200)
-                        .map(item => `(${Object.values(item).map(value => connection.escape(value)).join(', ')})`).join(',\n');
+                        .map(item => `(${Object.values(item).map(value => toSqlLiteral(value, connection.escape.bind(connection))).join(', ')})`).join(',\n');
                     parts.push(`INSERT INTO ${quoted} (${columns}) VALUES\n${values};`);
                 }
             }
@@ -1428,8 +1411,10 @@ async function createBackupFile({ type, createdBy, note = '', plans = true, pano
     const started = Date.now();
     const suffix = type === 'pre-restore' ? '_pre-restore' : '';
     let name = `kps-backup_${bangkokStamp()}${suffix}.zip`;
-    for (let attempt = 2; fs.existsSync(path.join(BACKUP_DIR, name)); attempt += 1) {
+    let attempt = 2;
+    while (fs.existsSync(path.join(BACKUP_DIR, name))) {
         name = `kps-backup_${bangkokStamp()}${suffix}-${attempt}.zip`;
+        attempt += 1;
     }
     const finalPath = path.join(BACKUP_DIR, name);
     const partPath = `${finalPath}.part`;
@@ -1478,6 +1463,9 @@ async function applyRetention() {
 }
 
 // ----- อ่านไฟล์ zip แบบสตรีม (ไม่โหลดทั้งไฟล์เข้าหน่วยความจำ) -----
+const openZipEntry = (zip, entry) => new Promise((resolve, reject) => {
+    zip.openReadStream(entry, (err, stream) => (err ? reject(err) : resolve(stream)));
+});
 function iterateZip(zipPath, handler) {
     return new Promise((resolve, reject) => {
         yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, (openError, zip) => {
@@ -1485,7 +1473,7 @@ function iterateZip(zipPath, handler) {
             zip.on('error', reject);
             zip.on('end', resolve);
             zip.on('entry', (entry) => {
-                const open = () => new Promise((res, rej) => zip.openReadStream(entry, (err, stream) => (err ? rej(err) : res(stream))));
+                const open = () => openZipEntry(zip, entry);
                 Promise.resolve(handler(entry, open)).then(() => zip.readEntry(), (err) => { zip.close(); reject(err); });
             });
             zip.readEntry();
@@ -1527,7 +1515,7 @@ async function runRecoveryDrill(name) {
     const meta = readBackupMeta(name);
     const sql = await readZipSql(zipPath);
     const drillDb = `kps_drill_${Date.now()}`;
-    const connection = await dumpConnection({ database: undefined });
+    const connection = dumpConnection({ database: undefined });
     const started = process.hrtime.bigint();
     try {
         try {
@@ -1572,7 +1560,8 @@ async function backupSchedulerTick() {
             const meta = await createBackupFile({ type: 'auto', createdBy: 'ระบบอัตโนมัติ', plans: backupSettings.scope_plans, panoramas: backupSettings.scope_panoramas });
             const removed = await applyRetention();
             backupSettings.last_run = { at: meta.created_at, status: 'success', type: 'auto', name: meta.name, size: meta.size };
-            systemLog('create', `สำรองข้อมูลอัตโนมัติสำเร็จ (${meta.name}, ${(meta.size / 1048576).toFixed(1)} MB${removed ? `, ลบชุดเก่า ${removed} ชุด` : ''})`);
+            const removedText = removed ? `, ลบชุดเก่า ${removed} ชุด` : '';
+            systemLog('create', `สำรองข้อมูลอัตโนมัติสำเร็จ (${meta.name}, ${(meta.size / 1048576).toFixed(1)} MB${removedText})`);
         });
     } catch (err) {
         console.error('สำรองข้อมูลอัตโนมัติไม่สำเร็จ:', err.message);
@@ -1601,7 +1590,7 @@ app.get('/api/admin/backups', requireUserAdmin, asyncRoute(async (req, res) => {
     try {
         const stat = await fs.promises.statfs(BACKUP_DIR);
         disk = { total: stat.blocks * stat.bsize, free: stat.bavail * stat.bsize };
-    } catch (err) { disk = null; }
+    } catch { /* อ่านพื้นที่ดิสก์ไม่ได้ ถือว่าไม่ทราบค่า */ disk = null; }
     res.json({
         backups, total_bytes: backups.reduce((sum, item) => sum + item.size, 0), disk, busy: backupBusy,
         settings: backupSettingsView(), choices: BACKUP_CHOICES, type_labels: BACKUP_TYPE_LABELS,
@@ -1620,12 +1609,12 @@ app.post('/api/admin/backups', requireUserAdmin, asyncRoute(async (req, res) => 
 }));
 
 app.put('/api/admin/backups/settings', requireUserAdmin, asyncRoute(async (req, res) => {
-    const next = { ...sanitizeBackupSettings({ ...backupSettings, ...(req.body || {}) }, backupSettings), ...pickBackupState(backupSettings) };
+    const next = { ...sanitizeBackupSettings({ ...backupSettings, ...req.body }, backupSettings), ...pickBackupState(backupSettings) };
     if (next.enabled && !backupSettings.enabled) next.armed_at = new Date().toISOString(); // เริ่มนับรอบจากตอนที่เปิด
     const changed = Object.keys(BACKUP_DEFAULTS).filter(key => !['armed_at', 'last_auto_at', 'last_run', 'last_verify', 'last_drill'].includes(key) && next[key] !== backupSettings[key]);
     backupSettings = next;
     await saveBackupSettings();
-    logActivity(req, { action: 'update', entity: 'backup', detail: `แก้ไขกำหนดการสำรองข้อมูล${changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)'}` });
+    logActivity(req, { action: 'update', entity: 'backup', detail: 'แก้ไขกำหนดการสำรองข้อมูล' + changedSuffix(changed) });
     res.json({ message: 'บันทึกกำหนดการสำรองข้อมูลสำเร็จ!', settings: backupSettingsView() });
 }));
 
@@ -1655,7 +1644,7 @@ async function verifyBackup(name) {
         if (!meta?.sha256) return { name, ok: true, checksum: false, entries };
         const actual = await sha256File(file);
         return actual === meta.sha256 ? { name, ok: true, checksum: true, entries } : { name, ok: false, checksum: true, reason: 'ค่า SHA-256 ไม่ตรงกับตอนสำรอง ไฟล์อาจเสียหาย' };
-    } catch (err) {
+    } catch { // เปิด zip ไม่ได้ รายงานเป็นไฟล์เสียด้านล่าง
         return { name, ok: false, reason: 'เปิดไฟล์ zip ไม่ได้ ไฟล์อาจเสียหาย' };
     }
 }
@@ -1702,7 +1691,7 @@ app.post('/api/admin/backups/:name/restore', requireUserAdmin, changePasswordLim
     const outcome = await withBackupLock('กู้คืนข้อมูล', async () => {
         const sql = await readZipSql(file); // ตรวจว่าไฟล์อ่านได้ก่อนแตะข้อมูลจริง
         const safety = await createBackupFile({ type: 'pre-restore', createdBy: actor, note: `สำรองอัตโนมัติก่อนกู้คืนจาก ${name}` });
-        const connection = await dumpConnection();
+        const connection = dumpConnection();
         try { await connection.query(sql); } finally { await connection.end(); }
         const files = await extractUploadsFromZip(file);
         await ensureDashboardSchema(); // เติมตาราง/คอลัมน์ที่ไฟล์สำรองรุ่นเก่าอาจไม่มี และโหลดบทบาท/นโยบายใหม่
@@ -1726,7 +1715,7 @@ let defaultPasswordCache = null; // { signature, at, accounts }
 async function findDefaultPasswordAccounts() {
     const [users] = await pdb.query("SELECT id, username, password_hash FROM admin_users WHERE status = 'active' ORDER BY id");
     const signature = crypto.createHash('sha256').update(users.map(user => `${user.id}:${user.password_hash}`).join('|')).digest('hex');
-    if (defaultPasswordCache && defaultPasswordCache.signature === signature && Date.now() - defaultPasswordCache.at < DEFAULT_PASSWORD_CACHE_MS) {
+    if (defaultPasswordCache?.signature === signature && Date.now() - defaultPasswordCache.at < DEFAULT_PASSWORD_CACHE_MS) {
         return defaultPasswordCache.accounts;
     }
     const defaults = new Set(['admin1234', 'editor1234', process.env.ADMIN_PASSWORD, process.env.EDITOR_PASSWORD].filter(Boolean));
@@ -1745,14 +1734,10 @@ function daysAgoText(iso) {
     return days <= 0 ? 'วันนี้' : `${days} วันที่แล้ว`;
 }
 
-async function buildNotifications(user) {
-    const items = [];
-    const can = key => hasPermission(user.role, key);
-    const add = (id, severity, icon, title, detail, action = null) => items.push({ id, severity, icon, title, detail, action });
-    const manage = can('settings.manage');
-    const seesAllLogs = can('logs.all');
+// ---- ส่วนย่อยของ buildNotifications: แต่ละฟังก์ชันตรวจเรื่องเดียวแล้วเพิ่มรายการผ่าน add ----
 
-    // --- เรื่องของบัญชีตัวเอง (ทุกบทบาท) ---
+// เรื่องของบัญชีตัวเอง (ทุกบทบาท)
+async function notifyOwnAccount(user, manage, add) {
     const [[self]] = await pdb.query('SELECT totp_enabled, password_changed_at FROM admin_users WHERE id = ?', [user.id]);
     const expiryDays = securitySettings.password_expiry_days;
     if (expiryDays > 0 && self.password_changed_at) {
@@ -1764,81 +1749,107 @@ async function buildNotifications(user) {
     if (!manage && !self.totp_enabled) {
         add('own_2fa', 'info', 'phonelink_lock', 'บัญชีของคุณยังไม่ได้เปิด 2FA', 'เปิดการยืนยันตัวตน 2 ขั้นตอนเพื่อปกป้องบัญชีของคุณ', { page: 'settings', tab: 'security' });
     }
+}
 
-    // --- ความพยายามล็อกอินผิด (ผู้ที่ดูบันทึกของทุกคนได้) ---
-    if (seesAllLogs || manage) {
-        const [[failed]] = await pdb.query("SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
-        if (failed.total > 0) {
-            add(`failed_logins:${failed.total}`, failed.total >= 10 ? 'warning' : 'info', 'gpp_maybe', `ล็อกอินไม่สำเร็จ ${failed.total} ครั้งใน 24 ชั่วโมง`,
-                failed.total >= 10 ? 'มากผิดปกติ อาจมีคนพยายามเดารหัสผ่าน ตรวจ IP ใน System Logs' : 'ตรวจรายละเอียดและ IP ใน System Logs', { page: 'logs' });
-        }
+// ความพยายามล็อกอินผิด (ผู้ที่ดูบันทึกของทุกคนได้)
+async function notifyFailedLogins(add) {
+    const [[failed]] = await pdb.query("SELECT COUNT(*) AS total FROM activity_logs WHERE action = 'login_failed' AND created_at >= NOW() - INTERVAL 1 DAY");
+    if (failed.total > 0) {
+        add(`failed_logins:${failed.total}`, failed.total >= 10 ? 'warning' : 'info', 'gpp_maybe', `ล็อกอินไม่สำเร็จ ${failed.total} ครั้งใน 24 ชั่วโมง`,
+            failed.total >= 10 ? 'มากผิดปกติ อาจมีคนพยายามเดารหัสผ่าน ตรวจ IP ใน System Logs' : 'ตรวจรายละเอียดและ IP ใน System Logs', { page: 'logs' });
     }
+}
 
-    // --- รายงานข้อมูลไม่ถูกต้องจากผู้ใช้แอปที่ยังไม่ได้ตรวจ (ผู้ที่ดูข้อมูลอาคารได้) ---
-    if (can('buildings.read')) {
-        const [[pending]] = await pdb.query("SELECT COUNT(*) AS total FROM reports WHERE status = 'new'");
-        if (pending.total > 0) {
-            add(`reports_new:${pending.total}`, 'warning', 'feedback', `มีรายงานจากผู้ใช้ที่ยังไม่ได้ตรวจ ${pending.total} เรื่อง`,
-                'ผู้ใช้แอปแจ้งว่าข้อมูลห้อง/อาคารอาจไม่ถูกต้อง', { page: 'reports' });
-        }
+// รายงานข้อมูลไม่ถูกต้องจากผู้ใช้แอปที่ยังไม่ได้ตรวจ (ผู้ที่ดูข้อมูลอาคารได้)
+async function notifyPendingReports(add) {
+    const [[pending]] = await pdb.query("SELECT COUNT(*) AS total FROM reports WHERE status = 'new'");
+    if (pending.total > 0) {
+        add(`reports_new:${pending.total}`, 'warning', 'feedback', `มีรายงานจากผู้ใช้ที่ยังไม่ได้ตรวจ ${pending.total} เรื่อง`,
+            'ผู้ใช้แอปแจ้งว่าข้อมูลห้อง/อาคารอาจไม่ถูกต้อง', { page: 'reports' });
     }
+}
 
-    // --- เรื่องของผู้จัดการระบบ ---
+// บัญชีผู้ดูแลที่เสี่ยง: รหัสผ่านเริ่มต้น / ถูกล็อก / ยังไม่เปิด 2FA
+async function notifyAccountSecurity(add) {
+    const weak = await findDefaultPasswordAccounts();
+    if (weak.length > 0) {
+        add(`default_passwords:${weak.join(',')}`, 'critical', 'key_off', `${weak.length} บัญชียังใช้รหัสผ่านเริ่มต้น`, `บัญชี: ${weak.join(', ')} — เปลี่ยนรหัสผ่านทันที`, { page: 'settings', tab: 'admins' });
+    }
+    const [locked] = await pdb.query("SELECT username FROM admin_users WHERE locked_until IS NOT NULL AND locked_until > NOW()");
+    if (locked.length > 0) {
+        add(`locked:${locked.map(row => row.username).join(',')}`, 'warning', 'lock', `${locked.length} บัญชีถูกล็อกชั่วคราว`, `${locked.map(row => row.username).join(', ')} — ใส่รหัสผิดหลายครั้ง (ล็อกอัตโนมัติ 15 นาที) ตรวจว่าเป็นเจ้าของบัญชีหรือผู้บุกรุก`, { page: 'logs' });
+    }
+    const [noTwoFa] = await pdb.query("SELECT username FROM admin_users WHERE status = 'active' AND totp_enabled = 0 ORDER BY id");
+    if (noTwoFa.length > 0) {
+        add(`no_2fa:${noTwoFa.length}`, 'info', 'phonelink_lock', `${noTwoFa.length} บัญชียังไม่ได้เปิด 2FA`,
+            `${noTwoFa.slice(0, 3).map(row => row.username).join(', ')}${noTwoFa.length > 3 ? ' และอื่นๆ' : ''} — แนะนำให้เปิด ก่อนขึ้นระบบจริง`, { page: 'settings', tab: 'security' });
+    }
+}
+
+// ไฟล์สำรองเก่าเกินไป หรือยังไม่ได้ตั้งสำรองอัตโนมัติ
+function notifyBackupFreshness(add, latest) {
+    if (!latest) {
+        add('backup_none', 'warning', 'backup', 'ยังไม่มีไฟล์สำรองข้อมูล', 'สร้างไฟล์สำรองไว้ก่อน เผื่อข้อมูลเสียหาย', { page: 'settings', tab: 'backups' });
+    } else if (backupSettings.enabled && Date.now() - new Date(latest.created_at).getTime() > 2 * 86400000) {
+        add(`backup_stale:${latest.name}`, 'warning', 'schedule', `ไม่มีการสำรองข้อมูลมา ${daysAgoText(latest.created_at).replace(' ที่แล้ว', '')}`, 'เปิดสำรองอัตโนมัติไว้แต่ไม่ได้ทำงาน ตรวจว่าเซิร์ฟเวอร์เปิดอยู่ตามเวลา', { page: 'settings', tab: 'backups' });
+    } else if (!backupSettings.enabled) {
+        const old = Date.now() - new Date(latest.created_at).getTime() > 7 * 86400000;
+        add(`backup_manual_only:${old ? 'old' : 'ok'}`, old ? 'warning' : 'info', 'backup', 'ยังไม่ได้เปิดสำรองข้อมูลอัตโนมัติ',
+            old ? `ไฟล์สำรองล่าสุดอายุ ${daysAgoText(latest.created_at).replace(' ที่แล้ว', '')} แล้ว` : 'แนะนำให้ตั้งสำรองทุกวันเพื่อไม่ต้องจำ', { page: 'settings', tab: 'backups' });
+    }
+}
+
+// สำรองข้อมูล
+async function notifyBackups(add) {
+    const backups = await listBackups();
+    const latest = backups[0];
+    const run = backupSettings.last_run;
+    if (run?.status === 'failed') {
+        add(`backup_failed:${run.at}`, 'critical', 'error', 'การสำรองข้อมูลล้มเหลว', `${run.error || 'ไม่ทราบสาเหตุ'} (${daysAgoText(run.at)})`, { page: 'settings', tab: 'backups' });
+    }
+    notifyBackupFreshness(add, latest);
+    if (backupSettings.last_verify && backupSettings.last_verify.failed.length > 0) {
+        add(`verify_failed:${backupSettings.last_verify.at}`, 'critical', 'broken_image', 'ไฟล์สำรองบางไฟล์ไม่ผ่านการตรวจสอบ', `${backupSettings.last_verify.failed.join(', ')} อาจเสียหาย ควรสำรองใหม่`, { page: 'settings', tab: 'backups' });
+    }
+    if (backupSettings.last_drill && !backupSettings.last_drill.ok) {
+        add(`drill_failed:${backupSettings.last_drill.at}`, 'warning', 'vital_signs', 'ทดสอบกู้คืนจำลองไม่ผ่าน', `ไฟล์ ${backupSettings.last_drill.backup} กู้แล้วข้อมูลไม่ตรงกับตอนสำรอง`, { page: 'settings', tab: 'backups' });
+    }
+}
+
+// พื้นที่ดิสก์และโฟลเดอร์ไฟล์
+async function notifyStorage(add) {
+    try {
+        const stat = await fs.promises.statfs(PUBLIC_DIR);
+        const total = stat.blocks * stat.bsize;
+        const free = stat.bavail * stat.bsize;
+        const freePercent = total > 0 ? free / total * 100 : 100;
+        if (freePercent < 15) {
+            add(`disk_low:${freePercent < 5 ? 'critical' : 'warning'}`, freePercent < 5 ? 'critical' : 'warning', 'hard_drive',
+                `พื้นที่ดิสก์เหลือน้อย (${freePercent.toFixed(1)}%)`, `เหลือ ${(free / 1073741824).toFixed(1)} GB จาก ${(total / 1073741824).toFixed(0)} GB ลบไฟล์สำรองเก่าหรือเพิ่มพื้นที่`, { page: 'settings', tab: 'system' });
+        }
+    } catch { /* อ่านพื้นที่ดิสก์ไม่ได้บนระบบนี้ ข้ามการเตือน */ }
+    const unwritable = [FLOORPLAN_DIR, PANORAMA_DIR, COVER_DIR, TOUR_IMAGE_DIR].filter((dir) => {
+        try { fs.accessSync(dir, fs.constants.W_OK); return false; } catch { /* เขียนโฟลเดอร์ไม่ได้ ถือว่าไม่มีสิทธิ์ */ return true; }
+    });
+    if (unwritable.length > 0) {
+        add(`storage_unwritable:${unwritable.length}`, 'critical', 'folder_off', 'โฟลเดอร์เก็บรูปภาพเขียนไฟล์ไม่ได้', 'อัปโหลดรูปจะล้มเหลว ตรวจสิทธิ์ของโฟลเดอร์ใน Docker volume', { page: 'settings', tab: 'system' });
+    }
+}
+
+async function buildNotifications(user) {
+    const items = [];
+    const can = key => hasPermission(user.role, key);
+    const add = (id, severity, icon, title, detail, action = null) => items.push({ id, severity, icon, title, detail, action });
+    const manage = can('settings.manage');
+    const seesAllLogs = can('logs.all');
+
+    await notifyOwnAccount(user, manage, add);
+    if (seesAllLogs || manage) await notifyFailedLogins(add);
+    if (can('buildings.read')) await notifyPendingReports(add);
     if (manage) {
-        const weak = await findDefaultPasswordAccounts();
-        if (weak.length > 0) {
-            add(`default_passwords:${weak.join(',')}`, 'critical', 'key_off', `${weak.length} บัญชียังใช้รหัสผ่านเริ่มต้น`, `บัญชี: ${weak.join(', ')} — เปลี่ยนรหัสผ่านทันที`, { page: 'settings', tab: 'admins' });
-        }
-        const [locked] = await pdb.query("SELECT username FROM admin_users WHERE locked_until IS NOT NULL AND locked_until > NOW()");
-        if (locked.length > 0) {
-            add(`locked:${locked.map(row => row.username).join(',')}`, 'warning', 'lock', `${locked.length} บัญชีถูกล็อกชั่วคราว`, `${locked.map(row => row.username).join(', ')} — ใส่รหัสผิดหลายครั้ง (ล็อกอัตโนมัติ 15 นาที) ตรวจว่าเป็นเจ้าของบัญชีหรือผู้บุกรุก`, { page: 'logs' });
-        }
-        const [noTwoFa] = await pdb.query("SELECT username FROM admin_users WHERE status = 'active' AND totp_enabled = 0 ORDER BY id");
-        if (noTwoFa.length > 0) {
-            add(`no_2fa:${noTwoFa.length}`, 'info', 'phonelink_lock', `${noTwoFa.length} บัญชียังไม่ได้เปิด 2FA`,
-                `${noTwoFa.slice(0, 3).map(row => row.username).join(', ')}${noTwoFa.length > 3 ? ' และอื่นๆ' : ''} — แนะนำให้เปิด ก่อนขึ้นระบบจริง`, { page: 'settings', tab: 'security' });
-        }
-
-        // สำรองข้อมูล
-        const backups = await listBackups();
-        const latest = backups[0];
-        const run = backupSettings.last_run;
-        if (run && run.status === 'failed') {
-            add(`backup_failed:${run.at}`, 'critical', 'error', 'การสำรองข้อมูลล้มเหลว', `${run.error || 'ไม่ทราบสาเหตุ'} (${daysAgoText(run.at)})`, { page: 'settings', tab: 'backups' });
-        }
-        if (!latest) {
-            add('backup_none', 'warning', 'backup', 'ยังไม่มีไฟล์สำรองข้อมูล', 'สร้างไฟล์สำรองไว้ก่อน เผื่อข้อมูลเสียหาย', { page: 'settings', tab: 'backups' });
-        } else if (backupSettings.enabled && Date.now() - new Date(latest.created_at).getTime() > 2 * 86400000) {
-            add(`backup_stale:${latest.name}`, 'warning', 'schedule', `ไม่มีการสำรองข้อมูลมา ${daysAgoText(latest.created_at).replace(' ที่แล้ว', '')}`, 'เปิดสำรองอัตโนมัติไว้แต่ไม่ได้ทำงาน ตรวจว่าเซิร์ฟเวอร์เปิดอยู่ตามเวลา', { page: 'settings', tab: 'backups' });
-        } else if (!backupSettings.enabled) {
-            const old = Date.now() - new Date(latest.created_at).getTime() > 7 * 86400000;
-            add(`backup_manual_only:${old ? 'old' : 'ok'}`, old ? 'warning' : 'info', 'backup', 'ยังไม่ได้เปิดสำรองข้อมูลอัตโนมัติ',
-                old ? `ไฟล์สำรองล่าสุดอายุ ${daysAgoText(latest.created_at).replace(' ที่แล้ว', '')} แล้ว` : 'แนะนำให้ตั้งสำรองทุกวันเพื่อไม่ต้องจำ', { page: 'settings', tab: 'backups' });
-        }
-        if (backupSettings.last_verify && backupSettings.last_verify.failed.length > 0) {
-            add(`verify_failed:${backupSettings.last_verify.at}`, 'critical', 'broken_image', 'ไฟล์สำรองบางไฟล์ไม่ผ่านการตรวจสอบ', `${backupSettings.last_verify.failed.join(', ')} อาจเสียหาย ควรสำรองใหม่`, { page: 'settings', tab: 'backups' });
-        }
-        if (backupSettings.last_drill && !backupSettings.last_drill.ok) {
-            add(`drill_failed:${backupSettings.last_drill.at}`, 'warning', 'vital_signs', 'ทดสอบกู้คืนจำลองไม่ผ่าน', `ไฟล์ ${backupSettings.last_drill.backup} กู้แล้วข้อมูลไม่ตรงกับตอนสำรอง`, { page: 'settings', tab: 'backups' });
-        }
-
-        // พื้นที่ดิสก์และโฟลเดอร์ไฟล์
-        try {
-            const stat = await fs.promises.statfs(PUBLIC_DIR);
-            const total = stat.blocks * stat.bsize;
-            const free = stat.bavail * stat.bsize;
-            const freePercent = total > 0 ? free / total * 100 : 100;
-            if (freePercent < 15) {
-                add(`disk_low:${freePercent < 5 ? 'critical' : 'warning'}`, freePercent < 5 ? 'critical' : 'warning', 'hard_drive',
-                    `พื้นที่ดิสก์เหลือน้อย (${freePercent.toFixed(1)}%)`, `เหลือ ${(free / 1073741824).toFixed(1)} GB จาก ${(total / 1073741824).toFixed(0)} GB ลบไฟล์สำรองเก่าหรือเพิ่มพื้นที่`, { page: 'settings', tab: 'system' });
-            }
-        } catch (err) { /* อ่านพื้นที่ดิสก์ไม่ได้บนระบบนี้ ข้ามการเตือน */ }
-        const unwritable = [FLOORPLAN_DIR, PANORAMA_DIR, COVER_DIR, TOUR_IMAGE_DIR].filter((dir) => {
-            try { fs.accessSync(dir, fs.constants.W_OK); return false; } catch (err) { return true; }
-        });
-        if (unwritable.length > 0) {
-            add(`storage_unwritable:${unwritable.length}`, 'critical', 'folder_off', 'โฟลเดอร์เก็บรูปภาพเขียนไฟล์ไม่ได้', 'อัปโหลดรูปจะล้มเหลว ตรวจสิทธิ์ของโฟลเดอร์ใน Docker volume', { page: 'settings', tab: 'system' });
-        }
+        await notifyAccountSecurity(add);
+        await notifyBackups(add);
+        await notifyStorage(add);
     }
 
     items.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
@@ -1940,7 +1951,7 @@ async function processPanoramaImage(buffer, info, ext) {
     try {
         const { data, info: out } = await pipeline.toBuffer({ resolveWithObject: true });
         return { buffer: data, ext: outExt, width: out.width, height: out.height };
-    } catch (err) {
+    } catch { // sharp ประมวลผลภาพไม่ได้ แปลงเป็น HttpError ด้านล่าง
         throw new HttpError(400, 'ประมวลผลภาพไม่สำเร็จ ไฟล์อาจเสียหายหรือใหญ่เกินไป');
     }
 }
@@ -1970,104 +1981,11 @@ const TOUR_IMAGE_RULE = UPLOAD_RULES[3];
 // ==========================================
 // open_hours เก็บเป็น JSON รายวัน { mon: { open: '08:00', close: '20:00' }, tue: null, ... } (null = ปิดวันนั้น)
 // ห้องที่ไม่ได้กำหนดเอง (open_hours เป็น NULL) ใช้เวลาของอาคาร ถ้าอาคารก็ไม่กำหนดสถานะจะเป็น "ไม่ระบุ"
-const WEEK_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const WEEK_LABELS_TH = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-let closuresCache = [];
-
-function parseOpenHours(value) {
-    if (value === null || value === undefined) return null;
-    let parsed = value;
-    if (typeof parsed === 'string') {
-        try { parsed = JSON.parse(parsed); } catch (err) { return null; }
-    }
-    return parsed && typeof parsed === 'object' ? parsed : null;
-}
-
-// คืน { value } เมื่อถูกต้อง (null = ไม่กำหนดเวลาทำการ) หรือ { error }
-function sanitizeOpenHours(input) {
-    if (input === null || input === undefined) return { value: null };
-    if (typeof input !== 'object' || Array.isArray(input)) return { error: 'รูปแบบเวลาทำการไม่ถูกต้อง' };
-    const result = {};
-    for (let index = 0; index < WEEK_KEYS.length; index += 1) {
-        const key = WEEK_KEYS[index];
-        const day = input[key];
-        if (day === null || day === undefined) {
-            result[key] = null;
-            continue;
-        }
-        if (typeof day !== 'object' || !TIME_PATTERN.test(day.open) || !TIME_PATTERN.test(day.close)) {
-            return { error: `เวลาทำการของ${WEEK_LABELS_TH[index]}ไม่ถูกต้อง (ต้องเป็นรูปแบบ HH:MM)` };
-        }
-        if (day.open >= day.close) return { error: `${WEEK_LABELS_TH[index]}: เวลาปิดต้องอยู่หลังเวลาเปิด` };
-        result[key] = { open: day.open, close: day.close };
-    }
-    return { value: result };
-}
-
 function isValidDateString(value) {
     if (typeof value !== 'string' || !DATE_PATTERN.test(value)) return false;
     const parsed = new Date(`${value}T00:00:00Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-// วัน/เวลาตามเขตเวลาไทย (UTC+7 ไม่มี DST) ไม่ขึ้นกับเขตเวลาของเครื่องเซิร์ฟเวอร์
-function bangkokParts(at = new Date()) {
-    const shifted = new Date(at.getTime() + 7 * 3600 * 1000);
-    return { date: shifted.toISOString().slice(0, 10), day: shifted.getUTCDay(), minutes: shifted.getUTCHours() * 60 + shifted.getUTCMinutes() };
-}
-
-function shiftDate(dateString, offset) {
-    const shifted = new Date(`${dateString}T00:00:00Z`);
-    shifted.setUTCDate(shifted.getUTCDate() + offset);
-    return { date: shifted.toISOString().slice(0, 10), day: shifted.getUTCDay() };
-}
-
-const timeToMinutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
-
-// วันปิดที่ตรงวันนั้น: ระดับห้องเด่นกว่าระดับอาคาร และระดับอาคารเด่นกว่าทั้งมหาวิทยาลัย
-function findClosure(dateString, roomId, buildingId) {
-    let best = null;
-    let bestRank = 0;
-    for (const closure of closuresCache) {
-        if (dateString < closure.start_date || dateString > closure.end_date) continue;
-        let rank = 1;
-        if (closure.room_id) rank = closure.room_id === roomId ? 3 : 0;
-        else if (closure.building_id) rank = closure.building_id === buildingId ? 2 : 0;
-        if (rank > bestRank) {
-            best = closure;
-            bestRank = rank;
-        }
-    }
-    return best;
-}
-
-function getOpenStatus({ status = 'active', statusReason = null, hours = null, roomId = null, buildingId = null }, at = new Date()) {
-    if (status === 'maintenance') return { state: 'closed', reason: 'maintenance', label: 'ปิดปรับปรุง', detail: statusReason || null };
-    if (status === 'suspended') return { state: 'closed', reason: 'suspended', label: 'งดใช้งาน', detail: statusReason || null };
-    if (status === 'inactive') return { state: 'closed', reason: 'inactive', label: 'ปิดใช้งาน' };
-    const now = bangkokParts(at);
-    const closure = findClosure(now.date, roomId, buildingId);
-    if (closure) {
-        return { state: 'closed', reason: 'closure', label: 'ปิดทำการ', detail: closure.reason || null, until: closure.end_date };
-    }
-    if (!hours) return { state: 'unknown', label: 'ไม่ระบุเวลาทำการ' };
-
-    const today = hours[WEEK_KEYS[now.day]];
-    if (today && now.minutes >= timeToMinutes(today.open) && now.minutes < timeToMinutes(today.close)) {
-        return { state: 'open', label: `เปิดอยู่ · ปิด ${today.close} น.`, closes_at: today.close };
-    }
-    for (let offset = 0; offset <= 7; offset += 1) {
-        const target = offset === 0 ? { date: now.date, day: now.day } : shiftDate(now.date, offset);
-        const slot = hours[WEEK_KEYS[target.day]];
-        if (!slot) continue;
-        if (offset === 0 && now.minutes >= timeToMinutes(slot.open)) continue; // เลยเวลาปิดของวันนี้ไปแล้ว
-        if (offset > 0 && findClosure(target.date, roomId, buildingId)) continue;
-        const when = offset === 0 ? 'วันนี้' : offset === 1 ? 'พรุ่งนี้' : WEEK_LABELS_TH[target.day];
-        return { state: 'closed', reason: 'hours', label: `ปิดอยู่ · เปิด${when} ${slot.open} น.`, opens_at: slot.open, opens_in_days: offset };
-    }
-    return { state: 'closed', reason: 'hours', label: 'ปิดทำการ' };
 }
 
 // เติมเวลาทำการและสถานะ "เปิดอยู่ตอนนี้" ให้แถวห้องจาก ROOM_SELECT_BASE
@@ -2087,7 +2005,7 @@ async function loadClosures() {
         `SELECT id, building_id, room_id, DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
                 DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date, reason
          FROM closures WHERE end_date >= CURDATE() - INTERVAL 2 DAY ORDER BY start_date, id`);
-    closuresCache = rows;
+    setClosures(rows);
 }
 
 // 🌟 rooms ตอนนี้ผูกกับ buildings ผ่าน building_id (FK) แทนการเก็บชื่อตึกซ้ำในทุกแถว
@@ -2513,7 +2431,7 @@ function extractCoordinates(urlString) {
     const text = String(urlString || '');
     const patterns = [/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/, /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/, /[?&](?:q|ll|query)=(-?\d+(?:\.\d+)?)(?:,|%2C)(-?\d+(?:\.\d+)?)/i];
     for (const pattern of patterns) {
-        const match = text.match(pattern);
+        const match = pattern.exec(text);
         if (!match) continue;
         const lat = Number(match[1]);
         const lng = Number(match[2]);
@@ -2537,18 +2455,17 @@ async function resolveMapCoordinates(mapUrl) {
         const finalHost = new URL(response.url).hostname.toLowerCase();
         if (!['www.google.com', 'google.com', 'maps.google.com'].includes(finalHost)) return null;
         return extractCoordinates(response.url);
-    } catch (err) {
+    } catch { // ลิงก์แผนที่เปิดไม่ได้ ไม่มีพิกัดให้ใช้
         return null;
     } finally {
         clearTimeout(timer);
     }
 }
 
-// แยก "ห้องเรียน" ออกจาก "สิ่งอำนวยความสะดวก" (ห้องน้ำ ลิฟต์ บันได โถง ร้านค้า สำนักงาน ห้องสมุด) จากประเภทห้องหรือรหัสห้อง
-// ห้องที่ไม่ระบุประเภทนับเป็นห้องเรียน (กันห้องหาย) คำที่ใช้ต้องตรงกับ isFacilityRoom ใน flutter_application_1/lib/room_utils.dart
-const FACILITY_WORDS = ['ห้องน้ำ', 'ลิฟต์', 'บันได', 'โถง', 'ร้านค้า', 'โรงอาหาร', 'สำนักงาน', 'ห้องสมุด', 'อ่านหนังสือ'];
-const facilitySql = (alias = 'rooms') => `(${alias}.id IS NOT NULL AND (${FACILITY_WORDS
-    .map((word) => `CONCAT_WS(' ', ${alias}.room_type, ${alias}.room_code) LIKE '%${word}%'`).join(' OR ')}))`;
+// ต่อท้ายข้อความ log: ": a, b" เมื่อมีการเปลี่ยนแปลง หรือ " (ไม่มีการเปลี่ยนแปลง)" เมื่อไม่มี
+function changedSuffix(changed) {
+    return changed.length > 0 ? `: ${changed.join(', ')}` : ' (ไม่มีการเปลี่ยนแปลง)';
+}
 
 // รายชื่ออาคารทั้งหมด พร้อมสถิติจำนวนชั้น/จำนวนห้อง คำนวณสดจากตาราง rooms
 app.get('/api/buildings', (req, res) => {
@@ -2563,7 +2480,7 @@ app.get('/api/buildings', (req, res) => {
                SUM(CASE WHEN rooms.status = 'suspended' THEN 1 ELSE 0 END) AS suspended_count,
                -- จำนวนห้องในอาคารที่มีภาพ 360° อย่างน้อย 1 ภาพ (แอปใช้แสดงป้าย 360° บนการ์ดอาคาร)
                (SELECT COUNT(DISTINCT p.room_id) FROM panoramas p JOIN rooms r ON r.id = p.room_id
-                WHERE r.building_id = buildings.id ${visible.replace(/rooms\./g, 'r.')}) AS panorama_room_count,
+                WHERE r.building_id = buildings.id ${visible.replaceAll('rooms.', 'r.')}) AS panorama_room_count,
                -- ภาพสำรองเมื่อยังไม่มีรูปปก: แผนผังชั้น 1 (ถ้าไม่มีใช้ชั้นแรกที่มี)
                (SELECT fp.image_url FROM floor_plans fp WHERE fp.building_id = buildings.id
                 ORDER BY fp.floor = '1' DESC, fp.floor LIMIT 1) AS floor_plan_image
@@ -2617,6 +2534,25 @@ app.post('/api/buildings', requirePerm('buildings.create'), asyncRoute(async (re
     });
 }));
 
+// ลิงก์แผนที่: ไม่ส่งมา = คงค่าเดิม ส่งลิงก์เดิมซ้ำ = ไม่ต้องดึงพิกัดใหม่ ส่งค่าว่าง = ลบลิงก์และพิกัด
+// คืน { error } เมื่อลิงก์ไม่ถูกต้อง ไม่เช่นนั้นคืนส่วนของ SQL (columns) กับค่า (params) ที่ต้องต่อท้าย UPDATE
+async function buildMapUpdate(buildingId, body) {
+    const mapResult = sanitizeMapUrl(body?.map_url);
+    if (mapResult.error) return { error: mapResult.error };
+    if (!body || !('map_url' in body)) return { columns: '', params: [] };
+
+    const [[existing]] = await pdb.query('SELECT map_url, latitude, longitude FROM buildings WHERE id = ?', [buildingId]);
+    let coordinates = null;
+    if (mapResult.value) {
+        const unchanged = existing?.map_url === mapResult.value && existing.latitude !== null;
+        coordinates = unchanged ? { latitude: existing.latitude, longitude: existing.longitude } : await resolveMapCoordinates(mapResult.value);
+    }
+    return {
+        columns: ', map_url=?, latitude=?, longitude=?',
+        params: [mapResult.value, coordinates?.latitude ?? null, coordinates?.longitude ?? null],
+    };
+}
+
 app.put('/api/buildings/:id', requirePerm('buildings.create'), asyncRoute(async (req, res) => {
     const buildingId = req.params.id;
     const { code, name, description, location } = req.body || {};
@@ -2629,31 +2565,13 @@ app.put('/api/buildings/:id', requirePerm('buildings.create'), asyncRoute(async 
     const hoursResult = sanitizeOpenHours(req.body?.open_hours);
     if (hoursResult.error) return res.status(400).json({ error: hoursResult.error });
 
-    // ลิงก์แผนที่: ไม่ส่งมา = คงค่าเดิม ส่งลิงก์เดิมซ้ำ = ไม่ต้องดึงพิกัดใหม่ ส่งค่าว่าง = ลบลิงก์และพิกัด
-    const hasMap = Boolean(req.body) && 'map_url' in req.body;
-    const mapResult = sanitizeMapUrl(req.body?.map_url);
-    if (mapResult.error) return res.status(400).json({ error: mapResult.error });
-    let mapColumns = '';
-    let mapParams = [];
-    if (hasMap) {
-        const [[existing]] = await pdb.query('SELECT map_url, latitude, longitude FROM buildings WHERE id = ?', [buildingId]);
-        let coordinates = null;
-        if (mapResult.value) {
-            coordinates = existing && existing.map_url === mapResult.value && existing.latitude !== null
-                ? { latitude: existing.latitude, longitude: existing.longitude }
-                : await resolveMapCoordinates(mapResult.value);
-        }
-        mapColumns = ', map_url=?, latitude=?, longitude=?';
-        mapParams = [mapResult.value, coordinates?.latitude ?? null, coordinates?.longitude ?? null];
-    }
+    const mapUpdate = await buildMapUpdate(buildingId, req.body);
+    if (mapUpdate.error) return res.status(400).json({ error: mapUpdate.error });
 
-    const sql = `UPDATE buildings SET code=?, name=?, description=?, location=?${hasHours ? ', open_hours=?' : ''}${mapColumns} WHERE id=?`;
-    const params = [
-        code.trim(), name.trim(), description || null, location || null,
-        ...(hasHours ? [hoursResult.value ? JSON.stringify(hoursResult.value) : null] : []),
-        ...mapParams,
-        buildingId,
-    ];
+    const hoursColumn = hasHours ? ', open_hours=?' : '';
+    const hoursParams = hasHours ? [hoursResult.value ? JSON.stringify(hoursResult.value) : null] : [];
+    const sql = `UPDATE buildings SET code=?, name=?, description=?, location=?${hoursColumn}${mapUpdate.columns} WHERE id=?`;
+    const params = [code.trim(), name.trim(), description || null, location || null, ...hoursParams, ...mapUpdate.params, buildingId];
     db.query(sql, params, (err) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
@@ -2740,7 +2658,7 @@ app.post('/api/admin/closures', requirePerm('buildings.create'), asyncRoute(asyn
     await loadClosures();
     logActivity(req, {
         action: 'create', entity: 'closure', entityId: result.insertId,
-        detail: `เพิ่มวันปิดทำการ ${scope} ${startDate}${endDate !== startDate ? ` ถึง ${endDate}` : ''}${cleanReason ? ` (${cleanReason})` : ''}`,
+        detail: `เพิ่มวันปิดทำการ ${scope} ${startDate}` + (endDate === startDate ? '' : ` ถึง ${endDate}`) + (cleanReason ? ` (${cleanReason})` : ''),
     });
     res.json({ message: 'เพิ่มวันปิดทำการแล้ว', id: result.insertId });
 }));
@@ -3451,7 +3369,7 @@ function formatOpenHoursCsv(value) {
     const hours = parseOpenHours(value);
     if (!hours) return '';
     return WEEK_KEYS
-        .filter(key => hours[key] && hours[key].open && hours[key].close)
+        .filter(key => hours[key]?.open && hours[key]?.close)
         .map(key => `${key} ${hours[key].open}-${hours[key].close}`)
         .join(';');
 }
@@ -3568,13 +3486,15 @@ function parseImportAmenities(record, has, errors) {
 }
 
 // อ่านเฉพาะคอลัมน์ที่มีในไฟล์ (คอลัมน์ที่ไม่ได้ส่งมาจะไม่ถูกแตะตอนอัปเดต)
+const numberOrNull = (value) => (blankToNull(value) === null ? null : Number(value));
+
 function parseImportFields(record, has, errors) {
     const fields = {};
     if (has('room_type')) fields.room_type = blankToNull(record.room_type);
-    if (has('capacity')) fields.capacity = blankToNull(record.capacity) === null ? null : Number(record.capacity);
+    if (has('capacity')) fields.capacity = numberOrNull(record.capacity);
     if (has('status')) fields.status = blankToNull(record.status) || 'active';
-    if (has('pin_x')) fields.pin_x = blankToNull(record.pin_x) === null ? null : Number(record.pin_x);
-    if (has('pin_y')) fields.pin_y = blankToNull(record.pin_y) === null ? null : Number(record.pin_y);
+    if (has('pin_x')) fields.pin_x = numberOrNull(record.pin_x);
+    if (has('pin_y')) fields.pin_y = numberOrNull(record.pin_y);
     if (has('status_reason')) fields.status_reason = blankToNull(record.status_reason);
     if (has('open_hours')) {
         const hoursResult = parseOpenHoursCsv(record.open_hours);
@@ -3807,7 +3727,7 @@ app.get('/api/admin/logs/export.csv', requirePerm('logs.own', 'logs.all'), async
     const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="activity-logs-${stamp}.csv"`);
-    res.send(`${String.fromCharCode(0xFEFF)}${lines.join('\r\n')}\r\n`); // BOM ให้ Excel อ่านภาษาไทยถูก
+    res.send(`${String.fromCodePoint(0xFEFF)}${lines.join('\r\n')}\r\n`); // BOM ให้ Excel อ่านภาษาไทยถูก
 
     logActivity(req, { action: 'export', entity: 'admin', detail: `ส่งออกบันทึกกิจกรรมเป็น CSV ${rows.length} รายการ` });
 }));
@@ -3825,7 +3745,7 @@ app.get('/api/admin/health', requireAuth, asyncRoute(async (req, res) => {
         try {
             fs.accessSync(dir, fs.constants.W_OK);
             return true;
-        } catch (err) {
+        } catch { // เขียนโฟลเดอร์ไม่ได้ ถือว่าไม่ผ่านการตรวจ
             return false;
         }
     });
@@ -4099,6 +4019,59 @@ async function seedAdminUsers() {
     console.log('✅ สร้างบัญชีผู้ดูแลตั้งต้นจาก environment แล้ว');
 }
 
+// คอลัมน์ที่เพิ่มภายหลัง: เติมให้ฐานข้อมูลเดิมที่สร้างไว้ก่อนมีฟีเจอร์นั้น [ตาราง, คอลัมน์, ชนิดข้อมูล]
+const ADDED_COLUMNS = [
+    // 2FA / ล็อกบัญชี / อายุรหัสผ่าน
+    ['admin_users', 'totp_secret', 'VARCHAR(64) DEFAULT NULL'],
+    ['admin_users', 'totp_enabled', 'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['admin_users', 'totp_last_step', 'BIGINT DEFAULT NULL'],
+    ['admin_users', 'backup_codes', 'TEXT DEFAULT NULL'],
+    ['admin_users', 'failed_attempts', 'INT NOT NULL DEFAULT 0'],
+    ['admin_users', 'locked_until', 'TIMESTAMP NULL DEFAULT NULL'],
+    ['admin_users', 'password_changed_at', 'TIMESTAMP NULL DEFAULT NULL'],
+    // รูปปกอาคาร
+    ['buildings', 'cover_image', 'VARCHAR(500) DEFAULT NULL'],
+    // เวลาทำการ (JSON รายวัน) ของอาคารและห้อง
+    ['buildings', 'open_hours', 'JSON DEFAULT NULL'],
+    ['rooms', 'open_hours', 'JSON DEFAULT NULL'],
+    // ลิงก์ Google Maps + พิกัดของอาคาร (ปุ่มนำทางในแอป)
+    ['buildings', 'map_url', 'VARCHAR(500) DEFAULT NULL'],
+    ['buildings', 'latitude', 'DOUBLE DEFAULT NULL'],
+    ['buildings', 'longitude', 'DOUBLE DEFAULT NULL'],
+    // มุมเริ่มต้นของภาพ 360° และของจุดเดินชม (องศา)
+    ['panoramas', 'initial_yaw', 'DOUBLE DEFAULT NULL'],
+    ['panoramas', 'initial_pitch', 'DOUBLE DEFAULT NULL'],
+    ['tour_points', 'initial_yaw', 'DOUBLE DEFAULT NULL'],
+    ['tour_points', 'initial_pitch', 'DOUBLE DEFAULT NULL'],
+    // สาเหตุของสถานะห้อง (ปิดปรับปรุง/งดใช้งาน)
+    ['rooms', 'status_reason', 'VARCHAR(255) DEFAULT NULL'],
+];
+
+async function ensureColumn(table, column, definition) {
+    const [found] = await pdb.query(`SHOW COLUMNS FROM ${table} LIKE ?`, [column]);
+    if (found.length === 0) await pdb.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+async function migrateDashboardColumns() {
+    for (const [table, column, definition] of ADDED_COLUMNS) {
+        await ensureColumn(table, column, definition);
+    }
+    // สถานะห้อง "ปิดใช้งาน" (inactive) เพิ่มค่าใน ENUM ให้ฐานข้อมูลเดิม
+    const [roomStatus] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status'");
+    if (roomStatus.length > 0 && !String(roomStatus[0].Type).includes("'suspended'")) {
+        await pdb.query("ALTER TABLE rooms MODIFY COLUMN status ENUM('active','maintenance','suspended','inactive') NOT NULL DEFAULT 'active'");
+    }
+}
+
+async function seedFloorPlans() {
+    for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
+        await pdb.query(
+            `INSERT IGNORE INTO floor_plans (building_id, floor, image_url, width, height)
+             SELECT id, ?, ?, ?, ? FROM buildings WHERE code = 'LH3'`,
+            [floor, imageUrl, width, height]);
+    }
+}
+
 async function ensureDashboardSchema(attempt = 1) {
     try {
         const [existing] = await pdb.query("SHOW TABLES LIKE 'floor_plans'");
@@ -4107,50 +4080,7 @@ async function ensureDashboardSchema(attempt = 1) {
         for (const statement of DASHBOARD_TABLES) {
             await pdb.query(statement);
         }
-        // คอลัมน์ 2FA / ล็อกบัญชี / อายุรหัสผ่าน เพิ่มให้ตาราง admin_users ที่สร้างไว้ก่อนมีฟีเจอร์ความปลอดภัย
-        const USER_SECURITY_COLUMNS = [
-            ['totp_secret', 'VARCHAR(64) DEFAULT NULL'], ['totp_enabled', 'TINYINT(1) NOT NULL DEFAULT 0'],
-            ['totp_last_step', 'BIGINT DEFAULT NULL'], ['backup_codes', 'TEXT DEFAULT NULL'],
-            ['failed_attempts', 'INT NOT NULL DEFAULT 0'], ['locked_until', 'TIMESTAMP NULL DEFAULT NULL'],
-            ['password_changed_at', 'TIMESTAMP NULL DEFAULT NULL'],
-        ];
-        for (const [column, definition] of USER_SECURITY_COLUMNS) {
-            const [found] = await pdb.query('SHOW COLUMNS FROM admin_users LIKE ?', [column]);
-            if (found.length === 0) await pdb.query(`ALTER TABLE admin_users ADD COLUMN ${column} ${definition}`);
-        }
-        // คอลัมน์รูปปกอาคาร เพิ่มให้ฐานข้อมูลเดิมที่สร้างก่อนมีฟีเจอร์นี้
-        const [coverColumn] = await pdb.query("SHOW COLUMNS FROM buildings LIKE 'cover_image'");
-        if (coverColumn.length === 0) {
-            await pdb.query('ALTER TABLE buildings ADD COLUMN cover_image VARCHAR(500) DEFAULT NULL');
-        }
-        // เวลาทำการ (JSON รายวัน) ของอาคารและห้อง เพิ่มให้ฐานข้อมูลเดิม
-        for (const table of ['buildings', 'rooms']) {
-            const [hoursColumn] = await pdb.query(`SHOW COLUMNS FROM ${table} LIKE 'open_hours'`);
-            if (hoursColumn.length === 0) await pdb.query(`ALTER TABLE ${table} ADD COLUMN open_hours JSON DEFAULT NULL`);
-        }
-        // ลิงก์ Google Maps + พิกัดของอาคาร (ปุ่มนำทางในแอป) เพิ่มให้ฐานข้อมูลเดิม
-        for (const [column, definition] of [['map_url', 'VARCHAR(500) DEFAULT NULL'], ['latitude', 'DOUBLE DEFAULT NULL'], ['longitude', 'DOUBLE DEFAULT NULL']]) {
-            const [found] = await pdb.query('SHOW COLUMNS FROM buildings LIKE ?', [column]);
-            if (found.length === 0) await pdb.query(`ALTER TABLE buildings ADD COLUMN ${column} ${definition}`);
-        }
-        // มุมเริ่มต้นของภาพ 360° (องศา) ที่ผู้ใช้เห็นตอนเปิดภาพ เพิ่มให้ฐานข้อมูลเดิม
-        for (const column of ['initial_yaw', 'initial_pitch']) {
-            const [found] = await pdb.query('SHOW COLUMNS FROM panoramas LIKE ?', [column]);
-            if (found.length === 0) await pdb.query(`ALTER TABLE panoramas ADD COLUMN ${column} DOUBLE DEFAULT NULL`);
-        }
-        // สถานะห้อง "ปิดใช้งาน" (inactive) เพิ่มค่าใน ENUM ให้ฐานข้อมูลเดิม
-        const [roomStatus] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status'");
-        if (roomStatus.length > 0 && !String(roomStatus[0].Type).includes("'suspended'")) {
-            await pdb.query("ALTER TABLE rooms MODIFY COLUMN status ENUM('active','maintenance','suspended','inactive') NOT NULL DEFAULT 'active'");
-        }
-        // มุมเริ่มต้นของจุดเดินชม เพิ่มให้ฐานข้อมูลเดิม
-        for (const column of ['initial_yaw', 'initial_pitch']) {
-            const [found] = await pdb.query('SHOW COLUMNS FROM tour_points LIKE ?', [column]);
-            if (found.length === 0) await pdb.query(`ALTER TABLE tour_points ADD COLUMN ${column} DOUBLE DEFAULT NULL`);
-        }
-        // สาเหตุของสถานะห้อง (ปิดปรับปรุง/งดใช้งาน) เพิ่มให้ฐานข้อมูลเดิม
-        const [reasonColumn] = await pdb.query("SHOW COLUMNS FROM rooms LIKE 'status_reason'");
-        if (reasonColumn.length === 0) await pdb.query('ALTER TABLE rooms ADD COLUMN status_reason VARCHAR(255) DEFAULT NULL');
+        await migrateDashboardColumns();
         await loadClosures();
         await seedAdminRoles();
         await seedAdminUsers();
@@ -4159,14 +4089,7 @@ async function ensureDashboardSchema(attempt = 1) {
         await reloadSystemSettings();
         await loadBackupSettings();
         startBackupScheduler();
-        if (floorPlansIsNew) {
-            for (const [floor, imageUrl, width, height] of SEED_FLOOR_PLANS) {
-                await pdb.query(
-                    `INSERT IGNORE INTO floor_plans (building_id, floor, image_url, width, height)
-                     SELECT id, ?, ?, ?, ? FROM buildings WHERE code = 'LH3'`,
-                    [floor, imageUrl, width, height]);
-            }
-        }
+        if (floorPlansIsNew) await seedFloorPlans();
         console.log('✅ ตารางของแดชบอร์ดพร้อมใช้งาน');
     } catch (err) {
         // MySQL อาจยังเริ่มไม่เสร็จตอน docker compose up ครั้งแรก จึงลองใหม่เป็นระยะ
