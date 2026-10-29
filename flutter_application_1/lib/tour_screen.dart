@@ -66,7 +66,9 @@ class _TourScreenState extends State<TourScreen> {
 
   Future<void> _refresh() async {
     final future = Api.tourBuildings();
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+    });
     try {
       await future;
     } catch (_) {
@@ -74,79 +76,115 @@ class _TourScreenState extends State<TourScreen> {
     }
   }
 
+  Widget _searchField({double shrink = 0}) => AppSearchField(
+        controller: _searchController,
+        hint: 'ค้นหาชื่ออาคารหรือรหัสตึก...',
+        pill: true,
+        shrink: shrink,
+        onChanged: (value) => setState(() => _query = value),
+      );
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _TourBadge(),
-          const SizedBox(height: 8),
-          const PageHeader(title: 'เดินชมอาคาร', subtitle: 'ดูภายในอาคารแบบ 360° เลือกจุดจากแผนที่ย่อได้ตามต้องการ'),
-          const SizedBox(height: 14),
-          AppSearchField(
-            controller: _searchController,
-            hint: 'ค้นหาชื่ออาคารหรือรหัสตึก...',
-            pill: true,
-            onChanged: (value) => setState(() => _query = value),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final buildings = snapshot.data ?? const <Map<String, dynamic>>[];
+        // มีรายการแล้ว: ทั้งหน้าเลื่อนไปด้วยกัน หัวข้อเลื่อนหายไป เหลือแถบค้นหาย่อเล็กค้างด้านบน
+        if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError && buildings.isNotEmpty) {
+          return _buildList(context, _filter(buildings));
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _TourBadge(),
+              const SizedBox(height: 8),
+              const PageHeader(title: 'เดินชมอาคาร', subtitle: 'ดูภายในอาคารแบบ 360° เลือกจุดจากแผนที่ย่อได้ตามต้องการ'),
+              const SizedBox(height: 14),
+              _searchField(),
+              const SizedBox(height: 12),
+              Expanded(child: _buildState(snapshot)),
+            ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return SkeletonList(count: 2, spacing: 12, itemBuilder: (_) => const BuildingCardSkeleton());
-                }
-                if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _refresh);
+        );
+      },
+    );
+  }
 
-                final buildings = snapshot.data ?? const [];
-                if (buildings.isEmpty) {
-                  return RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(
-                          height: 420,
-                          child: StateView(
-                            icon: Icons.threesixty_rounded,
-                            title: 'ยังไม่มีอาคารที่เปิดให้เดินชม',
-                            message: 'ผู้ดูแลกำลังเตรียมภาพ 360° ของอาคาร ลองกลับมาดูใหม่ภายหลัง',
-                          ),
-                        ),
-                      ],
+  /// กำลังโหลด / โหลดไม่สำเร็จ / ยังไม่มีอาคาร
+  Widget _buildState(AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return SkeletonList(count: 2, spacing: 12, itemBuilder: (_) => const BuildingCardSkeleton());
+    }
+    if (snapshot.hasError) return StateView.error(snapshot.error!, onRetry: _refresh);
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(
+            height: 420,
+            child: StateView(
+              icon: Icons.threesixty_rounded,
+              title: 'ยังไม่มีอาคารที่เปิดให้เดินชม',
+              message: 'ผู้ดูแลกำลังเตรียมภาพ 360° ของอาคาร ลองกลับมาดูใหม่ภายหลัง',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildList(BuildContext context, List<Map<String, dynamic>> shown) {
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TourBadge(),
+                  SizedBox(height: 8),
+                  PageHeader(title: 'เดินชมอาคาร', subtitle: 'ดูภายในอาคารแบบ 360° เลือกจุดจากแผนที่ย่อได้ตามต้องการ'),
+                ],
+              ),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SearchBarDelegate(
+              background: Theme.of(context).scaffoldBackgroundColor,
+              builder: (shrink) => _searchField(shrink: shrink),
+            ),
+          ),
+          SliverPadding(
+            // รายการสั้น ๆ เติมที่ว่างท้ายหน้า ให้เลื่อนได้พอที่หัวข้อจะเลื่อนหายและแถบค้นหาย่อลง
+            padding: EdgeInsets.fromLTRB(20, 4, 20, shown.length <= 3 ? 170 : 24),
+            sliver: SliverList.separated(
+              // แถวแรก = ข้อความแนะนำ + จำนวนอาคาร
+              itemCount: shown.length + 1 + (shown.isEmpty ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                if (index == 0) return _TourIntro(count: shown.length);
+                if (shown.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: StateView(
+                      icon: Icons.search_off_rounded,
+                      title: 'ไม่พบอาคารที่ค้นหา',
+                      message: 'ลองค้นด้วยชื่อหรือรหัสตึกอื่น',
                     ),
                   );
                 }
-                final shown = _filter(buildings);
-                return RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 24),
-                    // แถวแรก = ข้อความแนะนำ + จำนวนอาคาร
-                    itemCount: shown.length + 1 + (shown.isEmpty ? 1 : 0),
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      if (index == 0) return _TourIntro(count: shown.length);
-                      if (shown.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: StateView(
-                            icon: Icons.search_off_rounded,
-                            title: 'ไม่พบอาคารที่ค้นหา',
-                            message: 'ลองค้นด้วยชื่อหรือรหัสตึกอื่น',
-                          ),
-                        );
-                      }
-                      return FadeSlideIn(
-                        index: index - 1,
-                        child: Pressable(child: _TourBuildingCard(building: shown[index - 1])),
-                      );
-                    },
-                  ),
+                return FadeSlideIn(
+                  index: index - 1,
+                  child: Pressable(child: _TourBuildingCard(building: shown[index - 1])),
                 );
               },
             ),
@@ -155,6 +193,45 @@ class _TourScreenState extends State<TourScreen> {
       ),
     );
   }
+}
+
+/// แถบค้นหาที่ค้างบนสุดของหน้า: ตอนเลื่อนลงจะย่อความสูง/ตัวอักษรลง เหลือพื้นที่ให้รายการมากขึ้น
+class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
+  final Color background;
+  final Widget Function(double shrink) builder;
+
+  const _SearchBarDelegate({required this.background, required this.builder});
+
+  static const _maxHeight = 76.0;
+  static const _minHeight = 52.0;
+
+  @override
+  double get maxExtent => _maxHeight;
+
+  @override
+  double get minExtent => _minHeight;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final t = (shrinkOffset / (_maxHeight - _minHeight)).clamp(0.0, 1.0);
+    // SliverPersistentHeader ส่งข้อจำกัดความสูงแบบหลวม จึงกำหนดความสูงเองให้เท่าส่วนที่ยังเหลือ ไม่งั้นความสูงจริงน้อยกว่าที่แจ้งไว้
+    return SizedBox(
+      height: (_maxHeight - shrinkOffset).clamp(_minHeight, _maxHeight),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          border: Border(bottom: BorderSide(color: AppColors.line.withValues(alpha: t))),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: Align(alignment: Alignment.center, child: builder(t)),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SearchBarDelegate oldDelegate) => true;
 }
 
 /// ป้ายเล็กเหนือหัวข้อ

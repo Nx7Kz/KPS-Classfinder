@@ -37,9 +37,9 @@ class _MapScreenState extends State<MapScreen> {
   // เพิ่มค่าทุกครั้งที่ต้องการให้แผนที่ซูมไปที่ห้องที่เลือก (เช่น เลือกจากการค้นหา)
   int _focusToken = 0;
 
-  // แผงข้อมูลห้องใต้แผนที่ ลากขึ้นเพื่อดูห้องทั้งชั้น ลากลงเพื่อเหลือแค่ห้องที่เลือก
-  final DraggableScrollableController _sheet = DraggableScrollableController();
-  ScrollController? _sheetScroll; // รายการในแผง ใช้เลื่อนกลับบนสุดตอนหุบ
+  // หน้านี้เป็นหน้าเดียวเลื่อนลงได้: แผนผังอยู่บน รายการห้องอยู่ถัดลงมา (ไม่มีแผงลอยทับแผนผัง)
+  final ScrollController _pageScroll = ScrollController();
+  double _planHeight = 0; // ความสูงของส่วนแผนผัง ใช้เลื่อนหน้าไปถึงรายการห้อง
 
   bool get _standalone => widget.initialBuilding != null;
 
@@ -53,26 +53,20 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
-    _sheet.dispose();
+    _pageScroll.dispose();
     super.dispose();
   }
 
+  /// expand = true: เลื่อนลงไปที่รายการห้อง / false: เลื่อนกลับขึ้นไปดูแผนผัง (เช่น เลือกห้องแล้วต้องเห็นหมุด)
   void _moveSheet({required bool expand}) {
-    if (!_sheet.isAttached) return;
-    // หุบแล้วต้องเห็นห้องที่เลือกด้านบนสุดของแผง ไม่ใช่รายการที่เลื่อนค้างไว้
-    final list = _sheetScroll;
-    if (!expand && list != null && list.hasClients && list.offset > 0) list.jumpTo(0);
-    final target = expand ? _sheetMax : _sheetMin;
+    if (!mounted || !_pageScroll.hasClients) return;
+    final target = expand ? _planHeight : 0.0;
     if (reduceMotion(context)) {
-      _sheet.jumpTo(target);
+      _pageScroll.jumpTo(target);
     } else {
-      _sheet.animateTo(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+      _pageScroll.animateTo(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
     }
   }
-
-  double _sheetMin = 0.3;
-  static const _sheetMax = 0.9;
-  static const _sheetPeek = 172.0; // ความสูงตอนหุบ (px) พอดีกับข้อมูลห้อง + ปุ่ม
 
   void _selectRoom(Map<String, dynamic> room) {
     setState(() => _selectedId = room['id']);
@@ -322,41 +316,33 @@ class _MapScreenState extends State<MapScreen> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, box) {
-                  _sheetMin = (_sheetPeek / box.maxHeight).clamp(0.15, 0.6);
-                  return Stack(
+                  // แผนผังสูงประมาณครึ่งหน้าจอ ที่เหลือเห็นหัวรายการห้องให้รู้ว่าเลื่อนลงต่อได้
+                  _planHeight = (box.maxHeight * 0.58).clamp(240.0, 520.0);
+                  return ListView(
+                    controller: _pageScroll,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                     children: [
-                      // แผนที่เว้นที่ด้านล่างให้แผงตอนหุบ หมุดจึงไม่ถูกแผงบัง
-                      Positioned.fill(
-                        bottom: _sheetPeek - 16,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: _FloorPlanView(
-                            key: ValueKey('$_building|$_floor'),
-                            focusToken: _focusToken,
-                            building: _building!,
-                            floor: _floor!,
-                            rooms: roomsOnFloor,
-                            selectedId: selected?['id'],
-                            onSelect: _selectRoom,
-                            onFullscreen: () => _openFullscreen(roomsOnFloor),
-                          ),
-                        ),
-                      ),
-                      DraggableScrollableSheet(
-                        controller: _sheet,
-                        initialChildSize: _sheetMin,
-                        minChildSize: _sheetMin,
-                        maxChildSize: _sheetMax,
-                        snap: true,
-                        builder: (context, scrollController) => _RoomSheet(
-                          scrollController: _sheetScroll = scrollController,
+                      SizedBox(
+                        height: _planHeight,
+                        child: _FloorPlanView(
+                          key: ValueKey('$_building|$_floor'),
+                          focusToken: _focusToken,
+                          building: _building!,
                           floor: _floor!,
                           rooms: roomsOnFloor,
-                          selected: selected,
-                          onPick: _selectRoom,
-                          onShowAll: () => _moveSheet(expand: true),
-                          onClear: () => setState(() => _selectedId = null),
+                          selectedId: selected?['id'],
+                          onSelect: _selectRoom,
+                          onFullscreen: () => _openFullscreen(roomsOnFloor),
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      _RoomSheet(
+                        floor: _floor!,
+                        rooms: roomsOnFloor,
+                        selected: selected,
+                        onPick: _selectRoom,
+                        onShowAll: () => _moveSheet(expand: true),
+                        onClear: () => setState(() => _selectedId = null),
                       ),
                     ],
                   );
@@ -499,10 +485,9 @@ class _MapSearchSheetState extends State<_MapSearchSheet> {
   }
 }
 
-/// แผงข้อมูลห้องใต้แผนที่แบบลากขึ้น-ลงได้
-/// หุบ: แสดงห้องที่เลือก (หรือปุ่มรายการห้อง/ภาพ 360°) / ลากขึ้น: แสดงห้องทั้งหมดในชั้นนี้
+/// ข้อมูลห้องใต้แผนผัง (อยู่ในหน้าเลื่อนเดียวกับแผนผัง ไม่ลอยทับ)
+/// ห้องที่เลือก (หรือปุ่มรายการห้อง/ภาพ 360°) ตามด้วยห้องทั้งหมดในชั้นนี้
 class _RoomSheet extends StatelessWidget {
-  final ScrollController scrollController;
   final String floor;
   final List<Map<String, dynamic>> rooms;
   final Map<String, dynamic>? selected;
@@ -511,7 +496,6 @@ class _RoomSheet extends StatelessWidget {
   final VoidCallback onClear;
 
   const _RoomSheet({
-    required this.scrollController,
     required this.floor,
     required this.rooms,
     required this.selected,
@@ -522,64 +506,44 @@ class _RoomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.25),
-      shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: AppColors.line),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ListView(
-        controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        children: [
-          // ที่จับลาก: บอกผู้ใช้ว่าแผงนี้ลากขึ้นได้
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 10),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(999)),
-            ),
-          ),
-          _MapFooter(
-            floor: floor,
-            rooms: rooms,
-            selected: selected,
-            onPick: onPick,
-            embedded: true,
-            onShowList: onShowAll,
-            onClear: onClear,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'ห้องทั้งหมดใน${floorLabel(floor)} (${rooms.length})',
-                    style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w800),
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MapFooter(
+          floor: floor,
+          rooms: rooms,
+          selected: selected,
+          onPick: onPick,
+          embedded: true,
+          onShowList: onShowAll,
+          onClear: onClear,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'ห้องทั้งหมดใน${floorLabel(floor)} (${rooms.length})',
+                  style: TextStyle(color: AppColors.ink, fontSize: 15, fontWeight: FontWeight.w800),
                 ),
-                Text('แตะหมุดเพื่อดูห้อง', style: TextStyle(color: AppColors.muted, fontSize: 11.5)),
-              ],
+              ),
+              Text('แตะหมุดเพื่อดูห้อง', style: TextStyle(color: AppColors.muted, fontSize: 11.5)),
+            ],
+          ),
+        ),
+        for (final room in rooms)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: RoomTile(
+              room: room,
+              showBuilding: false,
+              icon: hasPin(room) ? Icons.location_on_rounded : Icons.meeting_room_outlined,
+              // ห้องที่มีหมุด: เลือกบนแผนที่แล้วเลื่อนกลับไปดูหมุด / ไม่มีหมุด: เปิดรายละเอียดห้องแทน
+              onTap: () => hasPin(room) ? onPick(room) : openRoom(context, room),
             ),
           ),
-          for (final room in rooms)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: RoomTile(
-                room: room,
-                showBuilding: false,
-                icon: hasPin(room) ? Icons.location_on_rounded : Icons.meeting_room_outlined,
-                // ห้องที่มีหมุด: เลือกบนแผนที่แล้วหุบแผง / ไม่มีหมุด: เปิดรายละเอียดห้องแทน
-                onTap: () => hasPin(room) ? onPick(room) : openRoom(context, room),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

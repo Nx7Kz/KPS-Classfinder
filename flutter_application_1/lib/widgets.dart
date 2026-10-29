@@ -83,6 +83,9 @@ class AppSearchField extends StatelessWidget {
   /// ทรงแคปซูลพื้นขาวขอบบาง (หน้าค้นหาหลัก) ปิด = ทรงเดิมพื้นเทาอ่อน
   final bool pill;
 
+  /// 0 = ขนาดปกติ, 1 = ย่อเล็กสุด (ใช้กับแถบค้นหาที่ย่อลงเมื่อเลื่อนหน้า) มีผลเฉพาะทรง [pill]
+  final double shrink;
+
   const AppSearchField({
     super.key,
     required this.controller,
@@ -92,10 +95,14 @@ class AppSearchField extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.pill = false,
+    this.shrink = 0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final t = shrink.clamp(0.0, 1.0);
+    final iconSize = 24 - 4 * t;
+    final fieldHeight = 48 - 14 * t; // ความสูงขั้นต่ำของไอคอนหน้า/หลังช่อง
     OutlineInputBorder pillBorder(Color color, [double width = 1]) => OutlineInputBorder(
           borderRadius: BorderRadius.circular(999),
           borderSide: BorderSide(color: color, width: width),
@@ -108,23 +115,25 @@ class AppSearchField extends StatelessWidget {
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       textInputAction: TextInputAction.search,
-      style: TextStyle(color: AppColors.ink, fontSize: 16),
+      style: TextStyle(color: AppColors.ink, fontSize: 16 - 2 * t),
       onTapOutside: (_) => FocusScope.of(context).unfocus(),
       decoration: InputDecoration(
         hintText: hint,
         fillColor: pill ? AppColors.surface : null,
-        contentPadding: pill ? const EdgeInsets.symmetric(horizontal: 18, vertical: 16) : null,
+        contentPadding: pill ? EdgeInsets.symmetric(horizontal: 18, vertical: 16 - 7 * t) : null,
         border: pill ? pillBorder(AppColors.line) : null,
         enabledBorder: pill ? pillBorder(AppColors.line) : null,
         focusedBorder: pill ? pillBorder(AppColors.primary, 1.5) : null,
-        prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary),
+        prefixIcon: Icon(Icons.search_rounded, color: AppColors.primary, size: iconSize),
+        prefixIconConstraints: pill ? BoxConstraints(minWidth: 48 - 4 * t, minHeight: fieldHeight) : null,
+        suffixIconConstraints: pill ? BoxConstraints(minWidth: 48 - 4 * t, minHeight: fieldHeight) : null,
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (_, value, _) {
             if (value.text.isEmpty) return const SizedBox.shrink();
             return IconButton(
               tooltip: 'ล้างคำค้นหา',
-              icon: Icon(Icons.close_rounded, color: AppColors.muted),
+              icon: Icon(Icons.close_rounded, color: AppColors.muted, size: iconSize),
               onPressed: () {
                 controller.clear();
                 onChanged?.call('');
@@ -291,7 +300,6 @@ class RoomTile extends StatelessWidget {
       floorLabel(floorOf(room)),
     ].join(' · ');
     final summary = roomSummary(room);
-    final openStatus = roomOpenStatus(room);
 
     final tile = Pressable(
       child: Material(
@@ -321,16 +329,9 @@ class RoomTile extends StatelessWidget {
                               style: TextStyle(color: AppColors.ink, fontSize: 16, fontWeight: FontWeight.w700),
                             ),
                           ),
-                          if (hasPanorama(room)) ...[
-                            const SizedBox(width: 8),
-                            const StatusPill(label: '360°', icon: Icons.threesixty_rounded),
-                          ],
+                          // ไม่แสดงป้าย 360° / เปิดอยู่ ข้างรหัสห้อง เพื่อให้เห็นรหัสห้องเต็ม (ข้อมูลเหล่านี้ดูได้ในหน้ารายละเอียดห้อง)
                           if (isMaintenance(room)) ...[const SizedBox(width: 8), const StatusPill.maintenance()],
                           if (isSuspended(room)) ...[const SizedBox(width: 8), const StatusPill.suspended()],
-                          if (openStatus.isKnown && !isUnavailable(room)) ...[
-                            const SizedBox(width: 8),
-                            StatusPill.openStatus(openStatus, short: true),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 2),
